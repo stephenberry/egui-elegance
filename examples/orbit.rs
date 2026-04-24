@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example orbit`
 
-#![allow(clippy::needless_ifs, clippy::collapsible_if)]
+#![allow(clippy::collapsible_if)]
 
 use eframe::egui;
 use elegance::{
@@ -320,18 +320,12 @@ impl App {
                     Switch::new(&mut self.gate_auto, "Auto-apply on green").accent(Accent::Green),
                 );
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui
-                        .add(Button::new("Override").outline().size(ButtonSize::Small))
-                        .clicked()
-                    {}
-                    if ui
-                        .add(
-                            Button::new("Request review")
-                                .accent(Accent::Blue)
-                                .size(ButtonSize::Small),
-                        )
-                        .clicked()
-                    {}
+                    let _ = ui.add(Button::new("Override").outline().size(ButtonSize::Small));
+                    let _ = ui.add(
+                        Button::new("Request review")
+                            .accent(Accent::Blue)
+                            .size(ButtonSize::Small),
+                    );
                 });
             });
         });
@@ -429,11 +423,8 @@ impl App {
             ui.add_space(10.0);
             ui.add(SegmentedButton::new(&mut self.auto_heal, "Auto-heal").accent(Accent::Green));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .add(Button::new("Restart all").accent(Accent::Amber))
-                    .clicked()
-                {}
-                if ui.add(Button::new("Scale").accent(Accent::Blue)).clicked() {}
+                let _ = ui.add(Button::new("Restart all").accent(Accent::Amber));
+                let _ = ui.add(Button::new("Scale").accent(Accent::Blue));
             });
         });
 
@@ -533,15 +524,9 @@ impl App {
                 ));
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
-                    if ui
-                        .add(Button::new("Save").accent(Accent::Green).min_width(96.0))
-                        .clicked()
-                    {}
-                    if ui
-                        .add(Button::new("Run now").accent(Accent::Blue).min_width(96.0))
-                        .clicked()
-                    {}
-                    if ui.add(Button::new("Discard").outline()).clicked() {}
+                    let _ = ui.add(Button::new("Save").accent(Accent::Green).min_width(96.0));
+                    let _ = ui.add(Button::new("Run now").accent(Accent::Blue).min_width(96.0));
+                    let _ = ui.add(Button::new("Discard").outline());
                 });
             });
 
@@ -632,7 +617,7 @@ impl App {
                 if revoke.clicked() {
                     value_resp.flash_error();
                 }
-                if ui.add(Button::new("Copy").outline()).clicked() {}
+                let _ = ui.add(Button::new("Copy").outline());
             });
         });
 
@@ -932,14 +917,11 @@ fn secret_row(ui: &mut egui::Ui, name: &str, scope: &str, age: &str, tone: Badge
                 ui.add_space(12.0);
                 ui.add(Badge::new(scope, BadgeTone::Neutral));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui
-                        .add(
-                            Button::new("Rotate")
-                                .accent(Accent::Blue)
-                                .size(ButtonSize::Small),
-                        )
-                        .clicked()
-                    {}
+                    let _ = ui.add(
+                        Button::new("Rotate")
+                            .accent(Accent::Blue)
+                            .size(ButtonSize::Small),
+                    );
                     ui.add_space(6.0);
                     ui.add(Badge::new(format!("age {age}"), tone));
                 });
