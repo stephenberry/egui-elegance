@@ -541,6 +541,23 @@ impl App {
                 });
             });
 
+            labeled(
+                ui,
+                "Mixed action row — Button and SegmentedButton share control height",
+                |ui| {
+                    ui.horizontal(|ui| {
+                        let _ =
+                            ui.add(Button::new("Collect").accent(Accent::Green).min_width(96.0));
+                        ui.add_space(8.0);
+                        ui.add(
+                            SegmentedButton::new(&mut self.seg_on, "Continuous")
+                                .accent(Accent::Green)
+                                .min_width(140.0),
+                        );
+                    });
+                },
+            );
+
             labeled(ui, "Joined (shared rounding)", |ui| {
                 let radius = 8;
                 ui.scope(|ui| {
