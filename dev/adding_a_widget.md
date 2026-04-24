@@ -2,7 +2,7 @@
 
 A practical, step-by-step guide for landing a new widget in the `elegance` crate. It walks through every file you'll touch, the conventions you're expected to follow, and the patterns the existing widgets establish.
 
-If you're prototyping a complex widget, write a design doc first (see `docs/node_editor_plan.md` for the format) — the process below assumes you already know what you're building.
+If you're prototyping a complex widget, write a design doc first (see `node_editor_plan.md` for the format) — the process below assumes you already know what you're building.
 
 ---
 

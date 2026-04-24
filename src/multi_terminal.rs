@@ -300,7 +300,7 @@ pub enum TerminalEvent {
 
 /// Multi-pane terminal with per-pane broadcast toggles.
 ///
-/// See the [module docs](self) for the full interaction model.
+/// See the module-level documentation for the full interaction model.
 #[must_use = "Call `.show(ui)` to render the widget."]
 pub struct MultiTerminal {
     id_salt: Id,
@@ -1380,11 +1380,8 @@ fn draw_chevron_button(ui: &mut Ui, ctx: &PaneCtx<'_>, header: Rect, edge_pad: f
             Pos2::new(c.x, c.y + h),
         ]
     };
-    ui.painter().add(egui::Shape::convex_polygon(
-        pts,
-        color,
-        Stroke::NONE,
-    ));
+    ui.painter()
+        .add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
 
     (resp.clicked(), size)
 }
@@ -1537,11 +1534,7 @@ fn draw_solo_button(ui: &mut Ui, ctx: &PaneCtx<'_>, right_edge: f32, y_mid: f32)
     let hovered = resp.hovered() && !dim;
 
     let (fill, border, icon_color) = if ctx.is_solo {
-        (
-            with_alpha(palette.sky, 28),
-            palette.sky,
-            palette.sky,
-        )
+        (with_alpha(palette.sky, 28), palette.sky, palette.sky)
     } else if hovered {
         (Color32::TRANSPARENT, palette.text_muted, palette.text)
     } else {

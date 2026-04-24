@@ -75,7 +75,7 @@ impl ResponseFlashExt for Response {
 }
 
 /// Begin a success flash on the widget with the given id. Use when you only
-/// have the widget id and a [`Context`], e.g. when completing an async RPC
+/// have the widget id and a [`Context`], e.g. when completing an async callback
 /// that returned after the originating [`Response`] went out of scope.
 pub fn flash_success(ctx: &Context, id: Id) {
     start(ctx, id, FlashKind::Success);

@@ -157,6 +157,7 @@ impl Default for App {
 /// user adjusts the pane-count slider. Ordering matches typical ops
 /// deployment: api first, then workers, edge, caches, a batch host, and
 /// a log ingestor.
+#[rustfmt::skip]
 fn pane_presets() -> Vec<(
     &'static str,
     &'static str,
@@ -190,7 +191,9 @@ fn build_preset_pane(idx: usize) -> TerminalPane {
         .user(user)
         .cwd(cwd)
         .status(status)
-        .push(TerminalLine::info(format!("Connected via ssh \u{00b7} {host}")));
+        .push(TerminalLine::info(format!(
+            "Connected via ssh \u{00b7} {host}"
+        )));
 
     // Seed a bit of flavour per pane so the initial view isn't a wall of
     // empty prompts.
