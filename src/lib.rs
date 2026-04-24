@@ -60,6 +60,7 @@ mod modal;
 mod multi_terminal;
 mod pairing;
 mod pill;
+mod popover;
 mod progress_bar;
 mod segmented;
 mod select;
@@ -89,6 +90,7 @@ pub use multi_terminal::{
 };
 pub use pairing::{PairItem, Pairing};
 pub use pill::StatusPill;
+pub use popover::{Popover, PopoverSide};
 pub use progress_bar::ProgressBar;
 pub use segmented::SegmentedButton;
 pub use select::Select;

@@ -9,9 +9,9 @@ use eframe::egui;
 use elegance::{
     Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
     Checkbox, CollapsingSection, Indicator, IndicatorState, LogBar, Menu, MenuItem, Modal,
-    MultiTerminal, PairItem, Pairing, ProgressBar, SegmentedButton, Select, Slider, Spinner,
-    StatusPill, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,
-    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar, SegmentedButton, Select,
+    Slider, Spinner, StatusPill, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
+    TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
 };
 
 fn main() -> eframe::Result<()> {
@@ -63,6 +63,14 @@ struct App {
 
     show_modal: bool,
 
+    pop_filter_open: bool,
+    pop_filter_in_review: bool,
+    pop_filter_merged: bool,
+    pop_filter_closed: bool,
+    pop_filter_needs_review: bool,
+    pop_filter_ready: bool,
+    pop_filter_blocked: bool,
+
     callout_danger_open: bool,
 
     pairing_clients: Vec<PairItem>,
@@ -111,6 +119,13 @@ impl Default for App {
             slider_int: 48,
             slider_float: 0.62,
             show_modal: false,
+            pop_filter_open: true,
+            pop_filter_in_review: true,
+            pop_filter_merged: false,
+            pop_filter_closed: false,
+            pop_filter_needs_review: true,
+            pop_filter_ready: false,
+            pop_filter_blocked: false,
             callout_danger_open: true,
             pairing_clients: vec![
                 PairItem::new("c1", "worker-pool-a")
@@ -843,35 +858,155 @@ impl App {
         Card::new().heading("Overlays").show(ui, |ui| {
             let theme = Theme::current(ui.ctx());
             ui.add(egui::Label::new(theme.faint_text(
-                "Click to open. Modal, Menu, and Toast render over everything else.",
+                "Click to open. Modal, Menu, Popover, and Toast render over everything else.",
             )));
             ui.add_space(6.0);
 
-            ui.horizontal(|ui| {
-                if ui
-                    .add(Button::new("Open modal").accent(Accent::Blue))
-                    .clicked()
-                {
-                    self.show_modal = true;
-                }
+            labeled(ui, "Modal, Menu, Toast", |ui| {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(Button::new("Open modal").accent(Accent::Blue))
+                        .clicked()
+                    {
+                        self.show_modal = true;
+                    }
 
-                let menu_trigger =
-                    ui.add(Button::new("Open menu").outline().size(ButtonSize::Medium));
-                Menu::new("ref_menu").show_below(&menu_trigger, |ui| {
-                    let _ = ui.add(MenuItem::new("Edit").shortcut("⌘ E"));
-                    let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
-                    ui.separator();
-                    let _ = ui.add(MenuItem::new("Delete").danger());
+                    let menu_trigger =
+                        ui.add(Button::new("Open menu").outline().size(ButtonSize::Medium));
+                    Menu::new("ref_menu").show_below(&menu_trigger, |ui| {
+                        let _ = ui.add(MenuItem::new("Edit").shortcut("⌘ E"));
+                        let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
+                        ui.separator();
+                        let _ = ui.add(MenuItem::new("Delete").danger());
+                    });
+
+                    if ui.add(Button::new("Toast").accent(Accent::Green)).clicked() {
+                        Toast::new("Saved")
+                            .description("All changes have been persisted.")
+                            .tone(BadgeTone::Ok)
+                            .show(ui.ctx());
+                    }
                 });
+            });
 
-                if ui.add(Button::new("Toast").accent(Accent::Green)).clicked() {
-                    Toast::new("Saved")
-                        .description("All changes have been persisted.")
-                        .tone(BadgeTone::Ok)
-                        .show(ui.ctx());
+            self.popover_examples(ui);
+        });
+    }
+
+    fn popover_examples(&mut self, ui: &mut egui::Ui) {
+        labeled(ui, "Popover · placements", |ui| {
+            ui.horizontal(|ui| {
+                for (label, side) in [
+                    ("Top", PopoverSide::Top),
+                    ("Bottom", PopoverSide::Bottom),
+                    ("Left", PopoverSide::Left),
+                    ("Right", PopoverSide::Right),
+                ] {
+                    let trigger = ui.add(Button::new(label).outline().size(ButtonSize::Small));
+                    Popover::new(("placement", label))
+                        .side(side)
+                        .show(&trigger, |ui| {
+                            let theme = Theme::current(ui.ctx());
+                            ui.add(egui::Label::new(theme.muted_text(format!(
+                                "Opens on the {} side.",
+                                label.to_lowercase()
+                            ))));
+                        });
                 }
             });
         });
+
+        labeled(ui, "Popover · title + body + destructive footer", |ui| {
+            let trigger = ui.add(Button::new("Delete branch").outline());
+            Popover::new("pop_confirm")
+                .side(PopoverSide::Bottom)
+                .title("Delete feature/snap-baseline?")
+                .show(&trigger, |ui| {
+                    let theme = Theme::current(ui.ctx());
+                    ui.add(egui::Label::new(
+                        theme.muted_text("This removes the branch from origin too."),
+                    ));
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        let _ = ui.add(Button::new("Cancel").outline().size(ButtonSize::Small));
+                        let _ = ui.add(
+                            Button::new("Delete")
+                                .accent(Accent::Red)
+                                .size(ButtonSize::Small),
+                        );
+                    });
+                });
+        });
+
+        labeled(ui, "Popover · info card, no footer, fixed width", |ui| {
+            let trigger = ui.add(Button::new("What's a baseline?").outline());
+            Popover::new("pop_info")
+                .side(PopoverSide::Top)
+                .title("Baselines")
+                .width(300.0)
+                .show(&trigger, |ui| {
+                    let theme = Theme::current(ui.ctx());
+                    ui.add(egui::Label::new(theme.muted_text(
+                        "A baseline is the accepted reference image for a widget. \
+                         Tests compare each render against it pixel by pixel.",
+                    )));
+                });
+        });
+
+        labeled(ui, "Popover · multi-select filter", |ui| {
+            ui.horizontal(|ui| {
+                let trigger = ui.add(Button::new("Filter ▾").outline());
+                Popover::new("pop_filter")
+                    .side(PopoverSide::Bottom)
+                    .width(220.0)
+                    .show(&trigger, |ui| {
+                        let theme = Theme::current(ui.ctx());
+                        ui.add(egui::Label::new(theme.faint_text("STATUS")));
+                        ui.add(Checkbox::new(&mut self.pop_filter_open, "Open"));
+                        ui.add(Checkbox::new(&mut self.pop_filter_in_review, "In review"));
+                        ui.add(Checkbox::new(&mut self.pop_filter_merged, "Merged"));
+                        ui.add(Checkbox::new(&mut self.pop_filter_closed, "Closed"));
+                        ui.add_space(6.0);
+                        ui.separator();
+                        ui.add_space(4.0);
+                        ui.add(egui::Label::new(theme.faint_text("LABELS")));
+                        ui.add(Checkbox::new(
+                            &mut self.pop_filter_needs_review,
+                            "Needs review",
+                        ));
+                        ui.add(Checkbox::new(&mut self.pop_filter_ready, "Ready to merge"));
+                        ui.add(Checkbox::new(&mut self.pop_filter_blocked, "Blocked"));
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            let _ = ui.add(Button::new("Clear").outline().size(ButtonSize::Small));
+                            let _ = ui.add(
+                                Button::new("Apply")
+                                    .accent(Accent::Blue)
+                                    .size(ButtonSize::Small),
+                            );
+                        });
+                    });
+            });
+        });
+
+        labeled(
+            ui,
+            "Popover · no arrow, custom gap — dropdown surface",
+            |ui| {
+                let trigger = ui.add(Button::new("Quick actions ▾").outline());
+                Popover::new("pop_plain")
+                    .side(PopoverSide::Bottom)
+                    .arrow(false)
+                    .gap(4.0)
+                    .show(&trigger, |ui| {
+                        ui.add(MenuItem::new("Rename"));
+                        ui.add(MenuItem::new("Duplicate"));
+                        ui.add(MenuItem::new("Archive"));
+                        ui.separator();
+                        ui.add(MenuItem::new("Delete").danger());
+                    });
+            },
+        );
     }
 
     fn modal_demo(&mut self, ctx: &egui::Context) {

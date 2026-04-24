@@ -276,6 +276,26 @@ Modal::new("stats", &mut open)
     });
 ```
 
+### Popover
+
+Click-anchored floating panel that points at a trigger. Lighter than `Modal`: no backdrop, no focus trap. Pick a side with `PopoverSide` (top, bottom, left, right), optionally set a `title`, and fill the body closure with whatever you like. `Esc`, outside-click, or a second trigger-click dismiss.
+
+```rust
+use elegance::{Accent, Button, ButtonSize, Popover, PopoverSide};
+
+let trigger = ui.add(Button::new("Delete branch").outline());
+Popover::new("delete_branch")
+    .side(PopoverSide::Bottom)
+    .title("Delete feature/snap-baseline?")
+    .show(&trigger, |ui| {
+        ui.label("This removes the branch from origin too.");
+        ui.horizontal(|ui| {
+            let _ = ui.add(Button::new("Cancel").outline().size(ButtonSize::Small));
+            let _ = ui.add(Button::new("Delete").accent(Accent::Red).size(ButtonSize::Small));
+        });
+    });
+```
+
 ### Callout
 
 Full-width inline banner for persistent context: experimental features, unsaved changes, failed builds, maintenance windows. `CalloutTone` picks the accent (`Info`, `Success`, `Warning`, `Danger`, `Neutral`). The closure slot is a right-to-left action area — add primary button first. Opt into a trailing × with `.dismissable(&mut open)`.

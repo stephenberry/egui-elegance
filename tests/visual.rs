@@ -15,9 +15,9 @@ use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, Indicator, IndicatorState, LogBar, PairItem, Pairing, ProgressBar,
-    SegmentedButton, Select, Slider, Spinner, StatusPill, Switch, TabBar, TextArea, TextInput,
-    Theme,
+    CollapsingSection, Indicator, IndicatorState, LogBar, PairItem, Pairing, Popover, PopoverSide,
+    ProgressBar, SegmentedButton, Select, Slider, Spinner, StatusPill, Switch, TabBar, TextArea,
+    TextInput, Theme,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -448,6 +448,89 @@ fn pairing_ui(ui: &mut egui::Ui) {
         .show(ui);
 }
 
+// egui only allows one popup open at a time per viewport, so each side
+// gets its own snapshot test.
+
+fn popover_bottom_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_bottom"));
+    ui.set_min_size(egui::vec2(320.0, 260.0));
+    ui.add_space(40.0);
+    ui.horizontal(|ui| {
+        ui.add_space(60.0);
+        let bottom = ui.add(Button::new("Delete branch").outline());
+        Popover::new("pop_bottom")
+            .side(PopoverSide::Bottom)
+            .title("Delete feature/snap-baseline?")
+            .show(&bottom, |ui| {
+                ui.add(egui::Label::new(
+                    theme.muted_text("This removes the branch from origin too."),
+                ));
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    let _ = ui.add(Button::new("Cancel").outline().size(ButtonSize::Small));
+                    let _ = ui.add(
+                        Button::new("Delete")
+                            .accent(Accent::Red)
+                            .size(ButtonSize::Small),
+                    );
+                });
+            });
+    });
+}
+
+fn popover_top_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_top"));
+    ui.set_min_size(egui::vec2(260.0, 180.0));
+    ui.add_space(100.0);
+    ui.horizontal(|ui| {
+        ui.add_space(40.0);
+        let top = ui.add(Button::new("What's a baseline?").outline());
+        Popover::new("pop_top")
+            .side(PopoverSide::Top)
+            .title("Baselines")
+            .width(260.0)
+            .show(&top, |ui| {
+                ui.add(egui::Label::new(theme.muted_text(
+                    "Accepted reference image a widget is compared against.",
+                )));
+            });
+    });
+}
+
+fn popover_left_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_left"));
+    ui.set_min_size(egui::vec2(420.0, 120.0));
+    ui.add_space(40.0);
+    ui.horizontal(|ui| {
+        ui.add_space(260.0);
+        let left = ui.add(Button::new("Details").outline());
+        Popover::new("pop_left")
+            .side(PopoverSide::Left)
+            .show(&left, |ui| {
+                ui.add(egui::Label::new(theme.muted_text("Opens to the left.")));
+            });
+    });
+}
+
+fn popover_right_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_right"));
+    ui.set_min_size(egui::vec2(420.0, 120.0));
+    ui.add_space(40.0);
+    ui.horizontal(|ui| {
+        ui.add_space(40.0);
+        let right = ui.add(Button::new("Details").outline());
+        Popover::new("pop_right")
+            .side(PopoverSide::Right)
+            .show(&right, |ui| {
+                ui.add(egui::Label::new(theme.muted_text("Opens to the right.")));
+            });
+    });
+}
+
 theme_tests!(buttons, buttons_ui);
 theme_tests!(text_inputs, text_inputs_ui);
 theme_tests!(text_areas, text_areas_ui);
@@ -461,6 +544,10 @@ theme_tests!(containers, containers_ui);
 theme_tests!(callouts, callouts_ui);
 theme_tests!(log_bar, log_bar_ui);
 theme_tests!(pairing, pairing_ui);
+theme_tests!(popover_bottom, popover_bottom_ui);
+theme_tests!(popover_top, popover_top_ui);
+theme_tests!(popover_left, popover_left_ui);
+theme_tests!(popover_right, popover_right_ui);
 
 // ---------------------------------------------------------------------------
 // Interaction-state tests. Each renders a single widget, injects a mouse /
