@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Popover (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 56px;
+      width: 820px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    /* --- Trigger button (the anchor). --- */
+    .trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 80ms, box-shadow 80ms;
+    }
+    .trigger:hover { border-color: #475569; }
+    .anchor.open > .trigger {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+    }
+    .trigger svg { width: 14px; height: 14px; }
+
+    /* --- Anchor wrapper: lets the popover float relative to the trigger. --- */
+    .anchor {
+      position: relative;
+      display: inline-block;
+    }
+
+    /* --- Popover panel --- */
+    .pop {
+      position: absolute;
+      z-index: 10;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      padding: 12px;
+      min-width: 200px;
+      font-size: 13px;
+      color: #e2e8f0;
+      display: none;
+      opacity: 0;
+      transform-origin: center;
+    }
+    .anchor.open > .pop {
+      display: block;
+      animation: pop-in 120ms ease-out forwards;
+    }
+    @keyframes pop-in {
+      from { opacity: 0; transform: var(--tx-in, translate(0, -2px)); }
+      to   { opacity: 1; transform: var(--tx-out, translate(0, 0)); }
+    }
+
+    .pop .arrow {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      transform: rotate(45deg);
+    }
+
+    /* Placement: bottom. Arrow points up. */
+    .pop.bottom {
+      top: calc(100% + 8px);
+      left: 50%;
+      --tx-in: translate(-50%, -4px);
+      --tx-out: translate(-50%, 0);
+      transform: var(--tx-out);
+    }
+    .pop.bottom .arrow {
+      top: -6px;
+      left: 50%;
+      margin-left: -5px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    /* Placement: top. Arrow points down. */
+    .pop.top {
+      bottom: calc(100% + 8px);
+      left: 50%;
+      --tx-in: translate(-50%, 4px);
+      --tx-out: translate(-50%, 0);
+      transform: var(--tx-out);
+    }
+    .pop.top .arrow {
+      bottom: -6px;
+      left: 50%;
+      margin-left: -5px;
+      border-left: none;
+      border-top: none;
+    }
+
+    /* Placement: right. Arrow points left. */
+    .pop.right {
+      top: 50%;
+      left: calc(100% + 8px);
+      --tx-in: translate(-4px, -50%);
+      --tx-out: translate(0, -50%);
+      transform: var(--tx-out);
+    }
+    .pop.right .arrow {
+      left: -6px;
+      top: 50%;
+      margin-top: -5px;
+      border-right: none;
+      border-top: none;
+    }
+
+    /* Placement: left. Arrow points right. */
+    .pop.left {
+      top: 50%;
+      right: calc(100% + 8px);
+      --tx-in: translate(4px, -50%);
+      --tx-out: translate(0, -50%);
+      transform: var(--tx-out);
+    }
+    .pop.left .arrow {
+      right: -6px;
+      top: 50%;
+      margin-top: -5px;
+      border-left: none;
+      border-bottom: none;
+    }
+
+    /* Popover content chrome. */
+    .pop .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 4px;
+    }
+    .pop .body {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .pop .foot {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #334155;
+    }
+    .pop .btn {
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid #334155;
+      background: transparent;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .pop .btn:hover { border-color: #475569; }
+    .pop .btn.primary {
+      background: #38bdf8;
+      border-color: transparent;
+      color: #0b1120;
+      font-weight: 600;
+    }
+    .pop .btn.primary:hover { background: #0ea5e9; }
+    .pop .btn.danger {
+      background: #f87171;
+      border-color: transparent;
+      color: #0b1120;
+      font-weight: 600;
+    }
+    .pop .btn.danger:hover { background: #ef4444; }
+
+    /* Temporary success flash after a destructive confirm. */
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-left: 3px solid #4ade80;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #e2e8f0;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      transition: opacity 120ms, transform 120ms;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* --- User card popover (richer, with avatar) --- */
+    .user-card { width: 260px; }
+    .user-card .hdr {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .user-card .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: rgba(74, 222, 128, 0.18);
+      color: #86efac;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex: none;
+    }
+    .user-card .name { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+    .user-card .sub  { font-size: 12px; color: #94a3b8; }
+    .user-card .row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 2px 0; }
+    .user-card .row .k { color: #64748b; }
+    .user-card .row .v { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+    .user-card .stats { border-top: 1px solid #334155; margin-top: 8px; padding-top: 8px; }
+
+    /* --- Filter popover --- */
+    .filter-pop { width: 220px; }
+    .filter-pop .grp {
+      margin-bottom: 8px;
+    }
+    .filter-pop .grp-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .filter-pop .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-pop .check:hover { background: rgba(226, 232, 240, 0.04); }
+    .filter-pop .box {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b1120;
+      background: transparent;
+      flex: none;
+      transition: background 80ms, border-color 80ms;
+    }
+    .filter-pop .box svg { opacity: 0; transition: opacity 60ms; }
+    .filter-pop .check.checked .box {
+      background: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .filter-pop .check.checked .box svg { opacity: 1; }
+
+    /* --- Demo row: triggers side by side showing every placement --- */
+    .placement-row {
+      display: flex;
+      justify-content: space-around;
+      padding: 80px 20px;
+      background: #182438;
+      border: 1px dashed #334155;
+      border-radius: 10px;
+    }
+
+    .stage {
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 60px 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 60px;
+      min-height: 220px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Four placement variants. -->
+    <div>
+      <div class="caption">Placement — top, bottom, left, right</div>
+      <div class="placement-row">
+
+        <div class="anchor">
+          <button class="trigger">Top</button>
+          <div class="pop top">
+            <div class="arrow"></div>
+            <div class="body">Opens above the trigger.</div>
+          </div>
+        </div>
+
+        <div class="anchor">
+          <button class="trigger">Bottom</button>
+          <div class="pop bottom">
+            <div class="arrow"></div>
+            <div class="body">Opens below the trigger.</div>
+          </div>
+        </div>
+
+        <div class="anchor">
+          <button class="trigger">Left</button>
+          <div class="pop left">
+            <div class="arrow"></div>
+            <div class="body">Opens to the left.</div>
+          </div>
+        </div>
+
+        <div class="anchor">
+          <button class="trigger">Right</button>
+          <div class="pop right">
+            <div class="arrow"></div>
+            <div class="body">Opens to the right.</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="hint">Click a trigger to open. Click outside, press Esc, or click another trigger to close.</div>
+    </div>
+
+    <!-- Confirmation popover (destructive action) with title, body, footer. -->
+    <div>
+      <div class="caption">Confirmation — title, body, action footer</div>
+      <div class="stage">
+
+        <div class="anchor">
+          <button class="trigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/>
+            </svg>
+            Delete branch
+          </button>
+          <div class="pop bottom" style="width:240px;">
+            <div class="arrow"></div>
+            <div class="title">Delete <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#fbbf24;">feature/snap-baseline</code>?</div>
+            <div class="body">This removes the branch from origin too. Unmerged commits may be lost.</div>
+            <div class="foot">
+              <button class="btn" data-close>Cancel</button>
+              <button class="btn danger" data-confirm="Branch deleted.">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- User-card popover. -->
+        <div class="anchor">
+          <button class="trigger">@mila.r</button>
+          <div class="pop bottom user-card">
+            <div class="arrow"></div>
+            <div class="hdr">
+              <span class="avatar">MR</span>
+              <div>
+                <div class="name">Mila Ruiz</div>
+                <div class="sub">Engineering · Berlin</div>
+              </div>
+            </div>
+            <div class="body">Co-maintainer of elegance-kittest. Timezone-aware reviewer for EU.</div>
+            <div class="stats">
+              <div class="row"><span class="k">Open PRs</span><span class="v">3</span></div>
+              <div class="row"><span class="k">Response time</span><span class="v">42 min</span></div>
+              <div class="row"><span class="k">Review load</span><span class="v">Light</span></div>
+            </div>
+            <div class="foot">
+              <button class="btn" data-close>Message</button>
+              <button class="btn primary" data-confirm="Review requested.">Request review</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Filter popover with checkboxes. -->
+    <div>
+      <div class="caption">Content panel — filter multi-select</div>
+      <div class="stage">
+        <div class="anchor" id="filter-anchor">
+          <button class="trigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filter · <span id="filter-count">3</span>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 8 10 12 14 8"/>
+            </svg>
+          </button>
+          <div class="pop bottom filter-pop">
+            <div class="arrow"></div>
+            <div class="grp">
+              <div class="grp-label">Status</div>
+              <div class="check checked" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Open
+              </div>
+              <div class="check checked" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                In review
+              </div>
+              <div class="check" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Merged
+              </div>
+              <div class="check" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Closed
+              </div>
+            </div>
+            <div class="grp" style="border-top:1px solid #334155; padding-top:8px;">
+              <div class="grp-label">Labels</div>
+              <div class="check checked" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Needs review
+              </div>
+              <div class="check" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Ready to merge
+              </div>
+              <div class="check" data-check>
+                <span class="box">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                Blocked
+              </div>
+            </div>
+            <div class="foot">
+              <button class="btn" id="filter-clear">Clear</button>
+              <button class="btn primary" data-confirm="Filter applied.">Apply</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info popover: plain rich-text, no footer. -->
+        <div class="anchor">
+          <button class="trigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="8.01"/>
+            </svg>
+            What's a baseline?
+          </button>
+          <div class="pop top" style="width:280px;">
+            <div class="arrow"></div>
+            <div class="title">Baselines</div>
+            <div class="body">
+              A baseline is the accepted reference image for a widget. Tests compare new renders against it pixel-by-pixel. Regenerate with <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#fbbf24;">UPDATE_SNAPSHOTS=true</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Confirmation toast shown briefly after an action button commits. -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      var anchors = Array.prototype.slice.call(document.querySelectorAll('.anchor'));
+      var toast = document.getElementById('toast');
+      var toastTimer = null;
+
+      function closeAll() {
+        anchors.forEach(function (a) { a.classList.remove('open'); });
+      }
+
+      function openOnly(anchor) {
+        anchors.forEach(function (a) {
+          if (a !== anchor) a.classList.remove('open');
+        });
+        anchor.classList.add('open');
+      }
+
+      anchors.forEach(function (anchor) {
+        var trigger = anchor.querySelector('.trigger');
+        var pop = anchor.querySelector('.pop');
+        if (!trigger) return;
+
+        trigger.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (anchor.classList.contains('open')) {
+            anchor.classList.remove('open');
+          } else {
+            openOnly(anchor);
+          }
+        });
+
+        // Clicks inside the popover don't close it by default.
+        if (pop) {
+          pop.addEventListener('click', function (e) {
+            e.stopPropagation();
+          });
+        }
+      });
+
+      // Action buttons inside popovers.
+      document.querySelectorAll('.pop .btn[data-close]').forEach(function (btn) {
+        btn.addEventListener('click', function () { closeAll(); });
+      });
+      document.querySelectorAll('.pop .btn[data-confirm]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var msg = btn.getAttribute('data-confirm') || 'Done.';
+          showToast(msg);
+          closeAll();
+        });
+      });
+
+      // Outside click closes all open popovers.
+      document.addEventListener('click', function () { closeAll(); });
+
+      // Escape closes all.
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAll();
+      });
+
+      // Filter checkboxes: toggle in place, update count.
+      var filterCount = document.getElementById('filter-count');
+      var filterChecks = document.querySelectorAll('.filter-pop [data-check]');
+      filterChecks.forEach(function (chk) {
+        chk.addEventListener('click', function (e) {
+          e.stopPropagation();
+          chk.classList.toggle('checked');
+          updateFilterCount();
+        });
+      });
+      function updateFilterCount() {
+        var n = 0;
+        filterChecks.forEach(function (c) { if (c.classList.contains('checked')) n += 1; });
+        if (filterCount) filterCount.textContent = n;
+      }
+      var clearBtn = document.getElementById('filter-clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          filterChecks.forEach(function (c) { c.classList.remove('checked'); });
+          updateFilterCount();
+        });
+      }
+
+      function showToast(msg) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.classList.remove('show');
+        }, 1600);
+      }
+    })();
+  </script>
+</body>
+</html>

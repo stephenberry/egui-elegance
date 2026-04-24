@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>File Drop Zone (Slate)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --input-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sky: #38bdf8;
+      --blue: #2563eb;
+      --success: #4ade80;
+      --danger: #f87171;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 56px 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: var(--text);
+    }
+
+    .card {
+      width: min(560px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .card header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 16px; font-weight: 600; margin: 0; }
+    .card .caption { font-size: 12px; color: var(--text-faint); }
+
+    /* Drop zone --------------------------------------------------------- */
+    .zone {
+      position: relative;
+      border: 1.5px dashed var(--border);
+      background: rgba(226, 232, 240, 0.015);
+      border-radius: 10px;
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 120ms, background 120ms;
+    }
+    .zone:hover       { border-color: var(--text-muted); }
+    .zone.dragover    {
+      border-color: var(--sky);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+    }
+    .zone .cloud {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      display: grid; place-items: center;
+      color: var(--text-muted);
+      transition: color 120ms, border-color 120ms;
+    }
+    .zone.dragover .cloud {
+      color: var(--sky);
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .zone .prompt {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .zone .prompt strong { color: var(--sky); }
+    .zone.dragover .prompt { color: var(--sky); font-weight: 500; }
+    .zone .hint { font-size: 12px; color: var(--text-faint); }
+
+    /* File list --------------------------------------------------------- */
+    .files {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .file {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 9px 10px 9px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .file.error { border-color: rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.06); }
+    .file.done  { border-color: rgba(74, 222, 128, 0.3); }
+
+    .ficon {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: grid; place-items: center;
+      color: var(--text-muted);
+    }
+    .file.done  .ficon { color: var(--success); border-color: rgba(74,222,128,0.35); }
+    .file.error .ficon { color: var(--danger);  border-color: rgba(248,113,113,0.35); }
+
+    .fmeta { min-width: 0; }
+    .fname {
+      font-size: 13.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .fdetail {
+      display: flex;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+      margin-top: 3px;
+      align-items: center;
+    }
+    .fdetail .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+    .fdetail .pct { color: var(--sky); font-variant-numeric: tabular-nums; }
+    .file.done  .fdetail .status-word { color: var(--success); }
+    .file.error .fdetail .status-word { color: var(--danger); }
+
+    /* Progress bar ----------------------------------------------------- */
+    .progress {
+      height: 4px;
+      background: rgba(148, 163, 184, 0.12);
+      border-radius: 999px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress > span {
+      display: block;
+      height: 100%;
+      background: var(--sky);
+      border-radius: 999px;
+      transition: width 180ms ease-out;
+    }
+    .file.done  .progress > span { background: var(--success); }
+    .file.error .progress > span { background: var(--danger); }
+
+    /* Remove / retry button ------------------------------------------- */
+    .faction {
+      background: transparent;
+      border: 0;
+      color: var(--text-faint);
+      cursor: pointer;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      display: grid; place-items: center;
+      padding: 0;
+    }
+    .faction:hover { color: var(--text); background: rgba(226,232,240,0.05); }
+
+    /* Footer / summary ------------------------------------------------ */
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .summary .done-count { color: var(--success); }
+    .summary .err-count  { color: var(--danger); }
+    .summary .queue      { color: var(--sky); }
+
+    /* Hide native input */
+    input[type=file] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <h2>Upload assets</h2>
+      <span class="caption">images · csv · pdf up to 10 MB</span>
+    </header>
+
+    <label class="zone" id="zone" tabindex="0">
+      <div class="cloud">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="prompt">Drop files here, or <strong>browse</strong></div>
+      <div class="hint" id="hint">up to 10 MB · PNG, JPG, CSV, PDF</div>
+      <input type="file" id="picker" multiple>
+    </label>
+
+    <div class="files" id="files"></div>
+
+    <div class="summary" id="summary">—</div>
+  </div>
+
+<script>
+// Simulated files --------------------------------------------------------
+const KINDS = {
+  image: { hue: 'sky',    path: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>' },
+  csv:   { hue: 'purple', path: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/>' },
+  psd:   { hue: 'amber',  path: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>' },
+  md:    { hue: 'muted',  path: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h6"/><path d="M8 17h4"/>' },
+  default: { hue: 'muted', path: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>' },
+};
+function kindOf(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return 'image';
+  if (ext === 'csv' || ext === 'tsv' || ext === 'xlsx') return 'csv';
+  if (ext === 'psd' || ext === 'ai' || ext === 'sketch') return 'psd';
+  if (ext === 'md' || ext === 'txt' || ext === 'log') return 'md';
+  return 'default';
+}
+
+let idSeed = 100;
+let files = [
+  { id: ++idSeed, name: 'hero-banner.png',      size: 2.4 * 1024 * 1024, status: 'done',      progress: 100 },
+  { id: ++idSeed, name: 'users-export.csv',     size: 6.8 * 1024 * 1024, status: 'uploading', progress: 62 },
+  { id: ++idSeed, name: 'brand-identity.psd',   size: 42  * 1024 * 1024, status: 'error',     progress: 0,   error: 'Too large · 42 MB exceeds 10 MB limit' },
+  { id: ++idSeed, name: 'release-notes.md',     size: 12  * 1024,         status: 'done',      progress: 100 },
+];
+
+// Drive the in-flight upload.
+setInterval(() => {
+  let any = false;
+  for (const f of files) {
+    if (f.status === 'uploading') {
+      f.progress = Math.min(100, f.progress + 3 + Math.random() * 4);
+      if (f.progress >= 100) { f.progress = 100; f.status = 'done'; }
+      any = true;
+    }
+  }
+  if (any) render();
+}, 320);
+
+// Rendering --------------------------------------------------------------
+const zone    = document.getElementById('zone');
+const picker  = document.getElementById('picker');
+const listEl  = document.getElementById('files');
+const sumEl   = document.getElementById('summary');
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(b < 10 * 1024 ? 1 : 0) + ' KB';
+  if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(1) + ' MB';
+  return (b / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+function iconSvg(kind) {
+  const k = KINDS[kind] || KINDS.default;
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + k.path + '</svg>';
+}
+
+function render() {
+  listEl.innerHTML = files.map(f => {
+    const kind = kindOf(f.name);
+    const pct = Math.round(f.progress);
+    let detail = '';
+    if (f.status === 'done') {
+      detail = '<span>' + fmtSize(f.size) + '</span><span class="dot"></span><span class="status-word">uploaded</span>';
+    } else if (f.status === 'error') {
+      detail = '<span class="status-word">' + escapeHtml(f.error || 'Failed') + '</span>';
+    } else {
+      detail = '<span>' + fmtSize(f.size) + '</span><span class="dot"></span><span class="pct">' + pct + '%</span>';
+    }
+    const rightIcon = f.status === 'error'
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1 1 5.64 5.64L23 10"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    const rightLabel = f.status === 'error' ? 'Retry' : 'Remove';
+    const leadingIcon = f.status === 'done'
+      ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>'
+      : f.status === 'error'
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8"  x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/><circle cx="12" cy="12" r="10"/></svg>'
+        : iconSvg(kind);
+    return (
+      '<div class="file ' + f.status + '" data-id="' + f.id + '">' +
+        '<div class="ficon">' + leadingIcon + '</div>' +
+        '<div class="fmeta">' +
+          '<div class="fname">' + escapeHtml(f.name) + '</div>' +
+          '<div class="fdetail">' + detail + '</div>' +
+          (f.status !== 'error'
+            ? '<div class="progress"><span style="width:' + pct + '%"></span></div>'
+            : '') +
+        '</div>' +
+        '<button class="faction" data-action="' + (f.status === 'error' ? 'retry' : 'remove') + '" title="' + rightLabel + '" aria-label="' + rightLabel + '">' +
+          rightIcon +
+        '</button>' +
+      '</div>'
+    );
+  }).join('');
+
+  listEl.querySelectorAll('.faction').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = +btn.closest('.file').dataset.id;
+      const action = btn.dataset.action;
+      const f = files.find(x => x.id === id);
+      if (!f) return;
+      if (action === 'remove') {
+        files = files.filter(x => x.id !== id);
+      } else if (action === 'retry') {
+        f.status = 'uploading';
+        f.progress = 0;
+        f.error = null;
+      }
+      render();
+    });
+  });
+
+  // Summary line.
+  const done  = files.filter(f => f.status === 'done').length;
+  const up    = files.filter(f => f.status === 'uploading').length;
+  const err   = files.filter(f => f.status === 'error').length;
+  const total = files.reduce((s, f) => s + (f.status !== 'error' ? f.size : 0), 0);
+  if (files.length === 0) {
+    sumEl.textContent = 'No files yet';
+  } else {
+    const parts = [];
+    if (up)   parts.push('<span class="queue">uploading ' + up + '</span>');
+    if (done) parts.push('<span class="done-count">' + done + ' uploaded</span>');
+    if (err)  parts.push('<span class="err-count">' + err + ' failed</span>');
+    sumEl.innerHTML = parts.join(' · ') + '<span>' + fmtSize(total) + ' total</span>';
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Interaction: browse + drag/drop --------------------------------------
+zone.addEventListener('click', (e) => {
+  // Let clicks on the native label bubble to the hidden input.
+});
+picker.addEventListener('change', (e) => {
+  addFiles([...e.target.files]);
+  picker.value = ''; // allow re-choosing the same file
+});
+
+['dragenter','dragover'].forEach(ev => {
+  zone.addEventListener(ev, (e) => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  });
+});
+['dragleave','drop'].forEach(ev => {
+  zone.addEventListener(ev, (e) => {
+    e.preventDefault();
+    if (ev === 'dragleave' && e.target !== zone) return;
+    zone.classList.remove('dragover');
+  });
+});
+zone.addEventListener('drop', (e) => {
+  addFiles([...(e.dataTransfer?.files || [])]);
+});
+
+function addFiles(list) {
+  for (const nf of list) {
+    const MAX = 10 * 1024 * 1024;
+    const entry = {
+      id: ++idSeed,
+      name: nf.name,
+      size: nf.size,
+    };
+    if (nf.size > MAX) {
+      entry.status = 'error';
+      entry.progress = 0;
+      entry.error = 'Too large · ' + fmtSize(nf.size) + ' exceeds 10 MB limit';
+    } else {
+      entry.status = 'uploading';
+      entry.progress = 0;
+    }
+    files.push(entry);
+  }
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

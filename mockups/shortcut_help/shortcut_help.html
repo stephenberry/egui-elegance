@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ShortcutHelp (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 860px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* Mock page behind the modal. */
+    .scaffold {
+      position: relative;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 560px;
+    }
+    .scaffold .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid #334155;
+      font-size: 12.5px;
+      color: #94a3b8;
+    }
+    .scaffold .topbar .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .scaffold .body {
+      padding: 18px 16px;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .scaffold .body .ph {
+      height: 8px;
+      background: #273447;
+      border-radius: 3px;
+      margin-bottom: 10px;
+    }
+    .scaffold .body .ph.short { width: 58%; }
+
+    /* --- Backdrop. --- */
+    .backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.62);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 36px 24px;
+      z-index: 2;
+    }
+
+    /* --- Modal card. --- */
+    .sh {
+      width: 720px;
+      max-width: 100%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: 78vh;
+    }
+
+    .sh .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 10px 16px;
+    }
+    .sh .head .title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .sh .head .spacer { flex: 1; }
+    .sh .head .seg {
+      display: inline-flex;
+      padding: 3px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+    }
+    .sh .head .seg button {
+      padding: 3px 10px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .sh .head .seg button:hover { color: #e2e8f0; }
+    .sh .head .seg button.active {
+      background: #1e293b;
+      color: #e2e8f0;
+      box-shadow: inset 0 0 0 1px #334155;
+    }
+    .sh .head .close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .sh .head .close:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    /* Search row. */
+    .sh .search {
+      margin: 2px 16px 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+    }
+    .sh .search svg { color: #64748b; flex: none; }
+    .sh .search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font: inherit;
+      font-size: 13px;
+    }
+    .sh .search input::placeholder { color: #475569; }
+    .sh .search .hint {
+      font-size: 11px;
+      color: #64748b;
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    /* --- Body with groups in two columns. --- */
+    .sh .body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 16px 10px 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 32px;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .sh .body::-webkit-scrollbar { width: 8px; }
+    .sh .body::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+    .group { margin-bottom: 18px; break-inside: avoid; }
+    .group h4 {
+      margin: 0 0 6px 0;
+      padding: 8px 4px 6px 4px;
+      border-bottom: 1px solid #273447;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+    }
+    .group .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 5px 4px;
+      font-size: 12.5px;
+    }
+    .group .row:hover { background: rgba(226, 232, 240, 0.03); border-radius: 4px; }
+    .group .row .desc {
+      color: #cbd5e1;
+      flex: 1;
+      min-width: 0;
+    }
+    .group .row .desc .mark {
+      background: rgba(251, 191, 36, 0.20);
+      color: #fef3c7;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .group .row .keys {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex: none;
+    }
+    .group .row .keys .plus {
+      color: #64748b;
+      font-size: 10.5px;
+    }
+    .group .row .keys .or {
+      color: #475569;
+      font-size: 10.5px;
+      padding: 0 2px;
+    }
+
+    /* Individual key caps. */
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+      line-height: 1;
+    }
+    .kbd.wide { padding: 0 8px; }
+    .kbd.arrow { font-size: 12px; }
+
+    /* Disabled shortcut row. */
+    .group .row.disabled .desc { color: #475569; }
+    .group .row.disabled .kbd { color: #475569; border-color: #273447; }
+
+    /* Footer hint. */
+    .sh .foot {
+      padding: 10px 16px;
+      border-top: 1px solid #273447;
+      background: #1a2537;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .sh .foot a {
+      color: #7dd3fc;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .sh .foot a:hover { text-decoration: underline; }
+
+    /* Empty state inside the body. */
+    .no-match {
+      grid-column: 1 / span 2;
+      padding: 28px 12px;
+      text-align: center;
+      color: #64748b;
+      font-size: 12.5px;
+    }
+
+    /* Compact inline reference version (in a pane, not modal). */
+    .inline {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px 16px 16px 16px;
+    }
+    .inline .inline-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .inline .inline-head .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .inline .inline-head .sub {
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .inline .inline-head .spacer { flex: 1; }
+    .inline .inline-head a {
+      color: #7dd3fc;
+      font-size: 12px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .inline .inline-head a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Primary modal shortcut overlay. -->
+    <div>
+      <div class="caption">Modal — keyboard cheat sheet</div>
+      <div class="scaffold">
+        <div class="topbar">
+          <span style="color:#64748b;">Dashboards ▸</span>
+          <span class="title">Request volume</span>
+          <span style="flex:1"></span>
+          <span style="color:#64748b; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 11.5px;">
+            press <span class="kbd" style="min-width:auto; height:16px; padding:0 4px; font-size:10.5px;">?</span> for help
+          </span>
+        </div>
+        <div class="body">
+          <div class="ph"></div>
+          <div class="ph short"></div>
+          <div class="ph"></div>
+        </div>
+
+        <div class="backdrop">
+          <div class="sh">
+            <div class="head">
+              <span class="title">Keyboard shortcuts</span>
+              <span class="spacer"></span>
+              <div class="seg">
+                <button class="active">⌘ macOS</button>
+                <button>Ctrl Win/Linux</button>
+              </div>
+              <button class="close" aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                  <line x1="6" y1="18" x2="18" y2="6"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input placeholder="Search shortcuts…"/>
+              <span class="hint"><span class="kbd" style="height:16px; padding:0 4px; font-size:10.5px;">Esc</span> to close</span>
+            </div>
+
+            <div class="body">
+
+              <div class="group">
+                <h4>General</h4>
+                <div class="row">
+                  <span class="desc">Open command palette</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Global search</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">F</span>
+                    <span class="or">or</span>
+                    <span class="kbd">/</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Toggle sidebar</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">\</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Show keyboard shortcuts</span>
+                  <span class="keys"><span class="kbd wide">?</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Create new…</span>
+                  <span class="keys"><span class="kbd">C</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Save changes</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">S</span></span>
+                </div>
+              </div>
+
+              <div class="group">
+                <h4>Navigation</h4>
+                <div class="row">
+                  <span class="desc">Go to Inbox</span>
+                  <span class="keys"><span class="kbd">G</span><span class="plus">then</span><span class="kbd">I</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Go to Incidents</span>
+                  <span class="keys"><span class="kbd">G</span><span class="plus">then</span><span class="kbd">N</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Go to Dashboards</span>
+                  <span class="keys"><span class="kbd">G</span><span class="plus">then</span><span class="kbd">D</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Next / previous item</span>
+                  <span class="keys">
+                    <span class="kbd arrow">↓</span><span class="or">/</span><span class="kbd arrow">↑</span>
+                    <span class="or">or</span>
+                    <span class="kbd">J</span><span class="kbd">K</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Back / forward</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd arrow">←</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd arrow">→</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Jump to line…</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">G</span></span>
+                </div>
+              </div>
+
+              <div class="group">
+                <h4>Editing</h4>
+                <div class="row">
+                  <span class="desc">Undo / redo</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd">Z</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">Z</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Cut / copy / paste</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd">X</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd">C</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd">V</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Select all</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">A</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Duplicate line</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">D</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Delete line</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd wide">⌫</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Comment selection</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">/</span></span>
+                </div>
+              </div>
+
+              <div class="group">
+                <h4>Formatting</h4>
+                <div class="row">
+                  <span class="desc"><span class="mark">Bold</span></span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">B</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Italic</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">I</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Inline code</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">E</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Link</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Bulleted list</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">8</span></span>
+                </div>
+                <div class="row disabled">
+                  <span class="desc">Turn into heading <span style="color:#475569; font-size: 11px;">(Markdown only)</span></span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">⌥</span><span class="kbd">1</span></span>
+                </div>
+              </div>
+
+              <div class="group">
+                <h4>Tabs</h4>
+                <div class="row">
+                  <span class="desc">New tab</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">T</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Close tab</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">W</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Reopen last closed</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">T</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Switch to next / previous</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd">⌥</span><span class="kbd arrow">→</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd">⌥</span><span class="kbd arrow">←</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Jump to tab N</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">1</span><span class="or">…</span><span class="kbd">9</span></span>
+                </div>
+              </div>
+
+              <div class="group">
+                <h4>Selection</h4>
+                <div class="row">
+                  <span class="desc">Select line</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">L</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Add cursor above / below</span>
+                  <span class="keys">
+                    <span class="kbd">⌘</span><span class="kbd">⌥</span><span class="kbd arrow">↑</span>
+                    <span class="or">·</span>
+                    <span class="kbd">⌘</span><span class="kbd">⌥</span><span class="kbd arrow">↓</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="desc">Select next match</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">D</span></span>
+                </div>
+                <div class="row">
+                  <span class="desc">Select all matches</span>
+                  <span class="keys"><span class="kbd">⌘</span><span class="kbd">⌃</span><span class="kbd">G</span></span>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="foot">
+              <span>24 of 68 shortcuts shown · tip: start typing to filter</span>
+              <a>Customize shortcuts…</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inline reference (embedded in a help panel, not modal). -->
+    <div>
+      <div class="caption">Inline — embedded reference in a settings panel</div>
+      <div class="inline">
+        <div class="inline-head">
+          <span class="title">Quick shortcuts</span>
+          <span class="sub">most used on this page</span>
+          <span class="spacer"></span>
+          <a>See all →</a>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; column-gap: 28px;">
+          <div class="group" style="margin-bottom: 0;">
+            <div class="row">
+              <span class="desc">Open command palette</span>
+              <span class="keys"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Refresh dashboard</span>
+              <span class="keys"><span class="kbd">R</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Switch time range</span>
+              <span class="keys"><span class="kbd">T</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Filter by region</span>
+              <span class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">R</span></span>
+            </div>
+          </div>
+          <div class="group" style="margin-bottom: 0;">
+            <div class="row">
+              <span class="desc">Pin widget</span>
+              <span class="keys"><span class="kbd">P</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Open widget menu</span>
+              <span class="keys"><span class="kbd">⌥</span><span class="kbd">M</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Share link</span>
+              <span class="keys"><span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">L</span></span>
+            </div>
+            <div class="row">
+              <span class="desc">Keyboard help</span>
+              <span class="keys"><span class="kbd">?</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Date Range Picker (Slate)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --input-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sky: #38bdf8;
+      --blue: #2563eb;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 96px 48px 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: var(--text);
+    }
+
+    .wrap {
+      position: relative;
+      width: min(800px, 100%);
+    }
+
+    .label-row {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* Trigger ---------------------------------------------------------- */
+    .trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 260px;
+      padding: 8px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.1s;
+    }
+    .trigger:hover  { border-color: var(--text-muted); }
+    .trigger.open   { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18); }
+    .trigger svg { color: var(--text-muted); flex: none; }
+    .trigger .value { flex: 1; text-align: left; font-variant-numeric: tabular-nums; }
+    .trigger .chev  { transition: transform 120ms; color: var(--text-faint); }
+    .trigger.open .chev { transform: rotate(180deg); color: var(--sky); }
+
+    /* Popover ---------------------------------------------------------- */
+    .popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: opacity 100ms, transform 100ms;
+      z-index: 5;
+    }
+    .popover.open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Presets column -------------------------------------------------- */
+    .presets {
+      border-right: 1px solid var(--border);
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .preset {
+      padding: 6px 10px;
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .preset:hover { color: var(--text); background: rgba(226, 232, 240, 0.04); }
+    .preset.active {
+      color: var(--sky);
+      background: rgba(56, 189, 248, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.25);
+    }
+
+    /* Calendars ------------------------------------------------------- */
+    .cals {
+      padding: 14px 16px 12px;
+    }
+    .cal-header {
+      display: grid;
+      grid-template-columns: 24px 1fr 1fr 24px;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .nav {
+      width: 24px; height: 24px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      display: grid; place-items: center;
+      cursor: pointer;
+      padding: 0;
+    }
+    .nav:hover { color: var(--text); border-color: var(--text-muted); }
+    .month-title {
+      text-align: center;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .cals .months { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .weekdays, .days {
+      display: grid;
+      grid-template-columns: repeat(7, 36px);
+      gap: 2px;
+    }
+    .weekdays {
+      margin: 6px 0 4px;
+    }
+    .weekdays span {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .day {
+      position: relative;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+      border-radius: 6px;
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+    }
+    .day.other  { color: var(--text-faint); }
+    .day:hover  { background: rgba(226, 232, 240, 0.05); }
+
+    /* In-range background (spans through the row via no gap on x). */
+    .day.in-range {
+      background: rgba(56, 189, 248, 0.12);
+      border-radius: 0;
+    }
+    .day.in-hover {
+      background: rgba(56, 189, 248, 0.06);
+      border-radius: 0;
+    }
+    .day.range-start, .day.range-end {
+      color: #0f172a;
+      background: var(--sky);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+    .day.range-start { border-radius: 6px 0 0 6px; }
+    .day.range-end   { border-radius: 0 6px 6px 0; }
+    .day.range-single { border-radius: 6px; }
+    /* When a tinted cell falls at the edge of a week, round that edge so the
+       fill doesn't look clipped at the grid gap. */
+    .day.in-range.week-start, .day.in-hover.week-start { border-radius: 6px 0 0 6px; }
+    .day.in-range.week-end,   .day.in-hover.week-end   { border-radius: 0 6px 6px 0; }
+
+    .day.today::after {
+      content: '';
+      position: absolute;
+      bottom: 4px; left: 50%;
+      transform: translateX(-50%);
+      width: 4px; height: 4px;
+      background: var(--sky);
+      border-radius: 50%;
+    }
+    .day.today.range-start::after,
+    .day.today.range-end::after,
+    .day.today.range-single::after { background: #0f172a; }
+
+    /* Footer row ------------------------------------------------------ */
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      margin-top: 8px;
+      border-top: 1px solid var(--border);
+      color: var(--text-faint);
+      font-size: 12px;
+    }
+    .foot .summary {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .foot .summary .sep { color: var(--text-faint); margin: 0 6px; }
+    .foot .actions { display: flex; gap: 8px; }
+    .btn {
+      padding: 5px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--text-muted); }
+    .btn.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+    .btn.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+    .btn.primary:disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="label-row">Reporting range</div>
+    <button id="trigger" class="trigger" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8"  y1="2" x2="8"  y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span class="value" id="trigger-value">Apr 18 – Apr 24, 2026</span>
+      <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+
+    <div class="popover" id="popover" role="dialog" aria-label="Pick a date range">
+      <aside class="presets" id="presets"></aside>
+      <div class="cals">
+        <div class="cal-header">
+          <button class="nav" id="prev"  aria-label="Previous month">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="month-title" id="title-left">—</div>
+          <div class="month-title" id="title-right">—</div>
+          <button class="nav" id="next" aria-label="Next month">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div class="months">
+          <div class="cal" id="cal-left"></div>
+          <div class="cal" id="cal-right"></div>
+        </div>
+        <div class="foot">
+          <div class="summary" id="summary">—</div>
+          <div class="actions">
+            <button class="btn" id="clear">Clear</button>
+            <button class="btn primary" id="apply">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// "Today" is fixed for the mockup so the Today dot lands on a known cell.
+const TODAY = new Date(2026, 3, 24); // month is 0-indexed: 3 = April
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WEEKDAYS_MON = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+// ---- state ---------------------------------------------------------------
+let open = false;
+let viewMonth = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+let start = new Date(2026, 3, 18);
+let end   = new Date(2026, 3, 24);
+let hoverDay = null; // used to preview the extending range while picking
+
+// ---- date helpers --------------------------------------------------------
+const MS_DAY = 86400000;
+function sameDay(a, b)     { return a && b && a.getTime() === b.getTime(); }
+function sod(d)            { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d, n)     { const x = sod(d); x.setDate(x.getDate() + n); return x; }
+function addMonths(d, n)   { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+function startOfMonth(d)   { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function inRange(d, a, b) {
+  if (!a || !b) return false;
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return d >= lo && d <= hi;
+}
+function dayCount(a, b) {
+  if (!a || !b) return 0;
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return Math.round((sod(hi) - sod(lo)) / MS_DAY) + 1;
+}
+
+// ---- presets -------------------------------------------------------------
+const PRESETS = [
+  { id: 'today',    label: 'Today',         range: () => [TODAY, TODAY] },
+  { id: 'yester',   label: 'Yesterday',     range: () => [addDays(TODAY,-1), addDays(TODAY,-1)] },
+  { id: 'last7',    label: 'Last 7 days',   range: () => [addDays(TODAY,-6), TODAY] },
+  { id: 'last30',   label: 'Last 30 days',  range: () => [addDays(TODAY,-29), TODAY] },
+  { id: 'last90',   label: 'Last 90 days',  range: () => [addDays(TODAY,-89), TODAY] },
+  { id: 'month',    label: 'This month',    range: () => {
+      const s = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+      const e = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, 0);
+      return [s, e];
+  }},
+  { id: 'quarter',  label: 'This quarter',  range: () => {
+      const q = Math.floor(TODAY.getMonth() / 3);
+      const s = new Date(TODAY.getFullYear(), q * 3, 1);
+      return [s, TODAY];
+  }},
+  { id: 'ytd',      label: 'Year to date',  range: () => [new Date(TODAY.getFullYear(), 0, 1), TODAY] },
+];
+
+function activePresetId() {
+  if (!start || !end) return null;
+  const s = sod(start), e = sod(end);
+  for (const p of PRESETS) {
+    const [ps, pe] = p.range();
+    if (sameDay(sod(ps), s) && sameDay(sod(pe), e)) return p.id;
+  }
+  return null;
+}
+
+// ---- formatting ---------------------------------------------------------
+function fmtShort(d) {
+  return MONTHS_SHORT[d.getMonth()] + ' ' + d.getDate();
+}
+function fmtTrigger(s, e) {
+  if (!s) return 'Pick a range';
+  if (!e) return fmtShort(s) + ', ' + s.getFullYear();
+  if (s.getFullYear() !== e.getFullYear()) {
+    return fmtShort(s) + ', ' + s.getFullYear() + ' – ' + fmtShort(e) + ', ' + e.getFullYear();
+  }
+  return fmtShort(s) + ' – ' + fmtShort(e) + ', ' + e.getFullYear();
+}
+
+// ---- rendering ---------------------------------------------------------
+const triggerEl  = document.getElementById('trigger');
+const triggerVal = document.getElementById('trigger-value');
+const popover    = document.getElementById('popover');
+const presetsEl  = document.getElementById('presets');
+const calLeft    = document.getElementById('cal-left');
+const calRight   = document.getElementById('cal-right');
+const titleLeft  = document.getElementById('title-left');
+const titleRight = document.getElementById('title-right');
+const summary    = document.getElementById('summary');
+const applyBtn   = document.getElementById('apply');
+
+function render() {
+  triggerVal.textContent = fmtTrigger(start, end);
+  triggerEl.classList.toggle('open', open);
+  popover.classList.toggle('open', open);
+
+  // Presets.
+  const activeId = activePresetId();
+  presetsEl.innerHTML = PRESETS.map(p =>
+    '<button class="preset' + (p.id === activeId ? ' active' : '') + '" data-id="' + p.id + '">' + p.label + '</button>'
+  ).join('');
+  presetsEl.querySelectorAll('.preset').forEach(b => {
+    b.addEventListener('click', () => {
+      const p = PRESETS.find(x => x.id === b.dataset.id);
+      [start, end] = p.range();
+      start = sod(start); end = sod(end);
+      hoverDay = null;
+      viewMonth = startOfMonth(start);
+      render();
+    });
+  });
+
+  titleLeft.textContent  = MONTHS_LONG[viewMonth.getMonth()] + ' ' + viewMonth.getFullYear();
+  const right = addMonths(viewMonth, 1);
+  titleRight.textContent = MONTHS_LONG[right.getMonth()] + ' ' + right.getFullYear();
+
+  calLeft.innerHTML  = renderMonth(viewMonth);
+  calRight.innerHTML = renderMonth(right);
+  wireDays(calLeft);
+  wireDays(calRight);
+
+  // Footer summary.
+  if (start && end) {
+    summary.innerHTML = fmtShort(start) + '<span class="sep">→</span>' + fmtShort(end)
+      + '  <span style="color:var(--text-faint)">· ' + dayCount(start, end) + ' days</span>';
+  } else if (start) {
+    summary.innerHTML = fmtShort(start) + '<span class="sep">→</span><span style="color:var(--text-faint)">pick end…</span>';
+  } else {
+    summary.textContent = '—';
+  }
+  applyBtn.disabled = !(start && end);
+}
+
+function renderMonth(monthDate) {
+  const first = startOfMonth(monthDate);
+  // Monday-start: shift so Mon=0 ... Sun=6.
+  const shift = (first.getDay() + 6) % 7;
+  const gridStart = addDays(first, -shift);
+
+  let html = '<div class="weekdays">' +
+    WEEKDAYS_MON.map(w => '<span>' + w + '</span>').join('') +
+    '</div><div class="days">';
+
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(gridStart, i);
+    html += cellHtml(d, monthDate, i);
+  }
+  return html + '</div>';
+}
+
+function cellHtml(d, month, gridIdx) {
+  const classes = ['day'];
+  if (d.getMonth() !== month.getMonth()) classes.push('other');
+  if (sameDay(sod(d), sod(TODAY))) classes.push('today');
+
+  // Preview range while a single endpoint is set.
+  const previewEnd = (start && !end && hoverDay) ? hoverDay : null;
+  const isStart = start && sameDay(sod(d), sod(start));
+  const isEnd   = end   && sameDay(sod(d), sod(end));
+
+  if (start && end) {
+    if (sameDay(sod(start), sod(end)) && isStart) {
+      classes.push('range-single');
+    } else if (isStart) {
+      classes.push('range-start');
+    } else if (isEnd) {
+      classes.push('range-end');
+    } else if (inRange(sod(d), sod(start), sod(end))) {
+      classes.push('in-range');
+    }
+  } else if (start && previewEnd) {
+    if (isStart && sameDay(sod(start), sod(previewEnd))) {
+      classes.push('range-single');
+    } else if (isStart) {
+      classes.push('range-start');
+    } else if (sameDay(sod(d), sod(previewEnd))) {
+      classes.push('range-end');
+    } else if (inRange(sod(d), sod(start), sod(previewEnd))) {
+      classes.push('in-hover');
+    }
+  } else if (start && isStart) {
+    classes.push('range-single');
+  }
+
+  // Week edges get rounded corners so the fill reads cleanly.
+  const col = gridIdx % 7;
+  if (col === 0) classes.push('week-start');
+  if (col === 6) classes.push('week-end');
+
+  const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return '<div class="' + classes.join(' ') + '" data-iso="' + iso + '">' + d.getDate() + '</div>';
+}
+
+function wireDays(el) {
+  el.querySelectorAll('.day').forEach(cell => {
+    const d = parseISO(cell.dataset.iso);
+    cell.addEventListener('mouseenter', () => {
+      if (start && !end) { hoverDay = d; render(); }
+    });
+    cell.addEventListener('click', () => onDayClick(d));
+  });
+}
+
+function parseISO(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function onDayClick(d) {
+  if (!start || (start && end)) {
+    start = sod(d); end = null; hoverDay = null;
+  } else {
+    if (sod(d) < sod(start)) { start = sod(d); end = null; }
+    else                     { end   = sod(d); hoverDay = null; }
+  }
+  render();
+}
+
+// ---- wiring ------------------------------------------------------------
+triggerEl.addEventListener('click', () => { open = !open; render(); });
+document.getElementById('prev').addEventListener('click', () => { viewMonth = addMonths(viewMonth, -1); render(); });
+document.getElementById('next').addEventListener('click', () => { viewMonth = addMonths(viewMonth,  1); render(); });
+document.getElementById('clear').addEventListener('click', () => { start = null; end = null; hoverDay = null; render(); });
+applyBtn.addEventListener('click', () => { open = false; render(); });
+
+document.addEventListener('click', (e) => {
+  if (!open) return;
+  if (e.target.closest('.popover') || e.target.closest('#trigger')) return;
+  open = false;
+  render();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && open) { open = false; render(); }
+});
+popover.addEventListener('mouseleave', () => {
+  if (start && !end) { hoverDay = null; render(); }
+});
+
+render();
+</script>
+</body>
+</html>

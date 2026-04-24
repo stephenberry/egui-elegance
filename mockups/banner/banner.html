@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Banner (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    /* --- Banner base. --- */
+    .banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .banner + .banner { margin-top: 12px; }
+
+    .banner .ic {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      flex: none;
+      margin-top: 1px;
+    }
+
+    .banner .body { flex: 1; min-width: 0; }
+    .banner .title {
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 2px;
+    }
+    .banner .text {
+      color: #cbd5e1;
+    }
+    .banner.titled .text { color: #94a3b8; }
+
+    .banner .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: none;
+      margin-left: 6px;
+    }
+    .banner .link {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 80ms;
+    }
+    .banner .link:hover { background: rgba(226, 232, 240, 0.08); }
+
+    .banner .close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      border-radius: 5px;
+      cursor: pointer;
+      flex: none;
+    }
+    .banner .close:hover { background: rgba(226, 232, 240, 0.08); color: #e2e8f0; }
+
+    /* --- Severity variants. --- */
+    .banner.info {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.28);
+    }
+    .banner.info .ic { color: #38bdf8; }
+
+    .banner.success {
+      background: rgba(74, 222, 128, 0.08);
+      border-color: rgba(74, 222, 128, 0.28);
+    }
+    .banner.success .ic { color: #4ade80; }
+
+    .banner.warning {
+      background: rgba(251, 191, 36, 0.10);
+      border-color: rgba(251, 191, 36, 0.30);
+    }
+    .banner.warning .ic { color: #fbbf24; }
+
+    .banner.error {
+      background: rgba(248, 113, 113, 0.10);
+      border-color: rgba(248, 113, 113, 0.30);
+    }
+    .banner.error .ic { color: #f87171; }
+
+    /* --- Filled / accent-bar variant (page-level). --- */
+    .banner.filled {
+      border-left-width: 3px;
+      border-top-color: transparent;
+      border-right-color: transparent;
+      border-bottom-color: transparent;
+      border-radius: 0 8px 8px 0;
+      padding-left: 13px;
+    }
+
+    /* --- Inline (compact, no border). --- */
+    .banner.inline {
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      font-size: 12.5px;
+    }
+    .banner.inline .ic { width: 14px; height: 14px; }
+    .banner.inline.info .text { color: #7dd3fc; }
+    .banner.inline.warning .text { color: #fcd34d; }
+    .banner.inline.error .text { color: #fca5a5; }
+    .banner.inline.success .text { color: #86efac; }
+
+    /* --- Page-level full-bleed banner at top of card. --- */
+    .page-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: rgba(251, 191, 36, 0.10);
+      border-bottom: 1px solid rgba(251, 191, 36, 0.24);
+      font-size: 13px;
+      color: #fcd34d;
+    }
+    .page-banner .ic { color: #fbbf24; flex: none; }
+    .page-banner .text { flex: 1; color: #fde68a; }
+    .page-banner .text strong { color: #fef3c7; font-weight: 600; }
+
+    /* Mock page scaffold used behind the page-level banner. */
+    .scaffold {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .scaffold .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #334155;
+    }
+    .scaffold .header .title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .scaffold .header .crumb {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .scaffold .body {
+      padding: 20px 16px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .scaffold .body .placeholder {
+      height: 8px;
+      background: #273447;
+      border-radius: 3px;
+      margin-bottom: 10px;
+    }
+    .scaffold .body .placeholder.short { width: 60%; }
+    .scaffold .body .placeholder:last-child { margin-bottom: 0; }
+
+    /* Solid / filled severity (higher attention, used sparingly). */
+    .banner.solid {
+      border: none;
+      color: #0f172a;
+    }
+    .banner.solid .title { color: inherit; }
+    .banner.solid .text { color: inherit; opacity: 0.82; }
+    .banner.solid.error { background: #f87171; }
+    .banner.solid.warning { background: #fbbf24; }
+    .banner.solid .close { color: inherit; }
+    .banner.solid .close:hover { background: rgba(15, 23, 42, 0.15); color: #0f172a; }
+    .banner.solid .link:hover { background: rgba(15, 23, 42, 0.12); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: 1px solid currentColor;
+      background: transparent;
+      color: inherit;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 80ms;
+    }
+    .btn:hover { background: rgba(226, 232, 240, 0.08); }
+    .banner.solid .btn:hover { background: rgba(15, 23, 42, 0.14); }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Severity variants, bordered/tinted. -->
+    <div>
+      <div class="caption">Severity — tinted bordered</div>
+      <div class="card">
+        <!-- Info: simple message + link action. -->
+        <div class="banner info">
+          <span class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="8.01"/>
+            </svg>
+          </span>
+          <div class="body">
+            <div class="text">A new workspace theme is available. Try the rebuilt Slate in your display settings.</div>
+          </div>
+          <div class="actions">
+            <a class="link">Try it</a>
+          </div>
+          <button class="close" aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="6" y1="18" x2="18" y2="6"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Success: title + body. -->
+        <div class="banner success titled">
+          <span class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <div class="body">
+            <div class="title">Deployment succeeded</div>
+            <div class="text">elegance/charts v2.3.1 is live in production. Rolled 284 pods in 1m 42s.</div>
+          </div>
+          <div class="actions">
+            <a class="link">View logs</a>
+          </div>
+        </div>
+
+        <!-- Warning: title + body, no dismiss. -->
+        <div class="banner warning titled">
+          <span class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12" y2="17.01"/>
+            </svg>
+          </span>
+          <div class="body">
+            <div class="title">Rate limit approaching</div>
+            <div class="text">You've used 87% of your hourly API quota. Traffic will be throttled at 100% until the window resets at 16:00 UTC.</div>
+          </div>
+          <div class="actions">
+            <a class="link">Upgrade plan</a>
+          </div>
+        </div>
+
+        <!-- Error: title + body + primary action. -->
+        <div class="banner error titled">
+          <span class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </span>
+          <div class="body">
+            <div class="title">Payment failed</div>
+            <div class="text">Your card ending in 4242 was declined by the issuer. Please update your billing method before the next renewal on May 1.</div>
+          </div>
+          <div class="actions">
+            <button class="btn">Update card</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accent-bar / page-level. -->
+    <div>
+      <div class="caption">Accent bar — page-level</div>
+      <div class="scaffold">
+        <div class="page-banner">
+          <span class="ic">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12" y2="17.01"/>
+            </svg>
+          </span>
+          <div class="text">
+            <strong>Scheduled maintenance</strong> — api-west-02 will be offline from
+            <strong>02:00 – 03:30 UTC</strong> on Saturday for storage migration.
+          </div>
+          <a class="link" style="color:#fde68a;">Details</a>
+        </div>
+        <div class="header">
+          <span class="crumb">Settings ▸</span>
+          <span class="title">Notifications</span>
+        </div>
+        <div class="body">
+          <div class="placeholder"></div>
+          <div class="placeholder short"></div>
+          <div class="placeholder"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inline helper banners. -->
+    <div>
+      <div class="caption">Inline — compact, no border</div>
+      <div class="card">
+        <div class="banner inline info">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="8.01"/>
+            </svg>
+          </span>
+          <div class="body"><div class="text">Changes are saved automatically as you type.</div></div>
+        </div>
+
+        <div class="banner inline success">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <div class="body"><div class="text">Webhook verified.</div></div>
+        </div>
+
+        <div class="banner inline warning">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12" y2="17.01"/>
+            </svg>
+          </span>
+          <div class="body"><div class="text">Some fields below are empty; defaults will be used.</div></div>
+        </div>
+
+        <div class="banner inline error">
+          <span class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </span>
+          <div class="body"><div class="text">Could not reach the upstream server. Retrying in 5s…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Solid, high-attention (used sparingly). -->
+    <div>
+      <div class="caption">Solid — high attention</div>
+      <div class="card">
+        <div class="banner solid error titled">
+          <span class="ic">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </span>
+          <div class="body">
+            <div class="title">Action required</div>
+            <div class="text">Your workspace will be suspended in 3 days due to unpaid invoices.</div>
+          </div>
+          <div class="actions">
+            <a class="link">Resolve now</a>
+          </div>
+          <button class="close" aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="6" y1="18" x2="18" y2="6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

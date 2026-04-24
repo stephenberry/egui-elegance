@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DataTable (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 880px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      line-height: 1.3;
+    }
+
+    thead th {
+      text-align: left;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 10px 14px;
+      background: #182438;
+      border-bottom: 1px solid #334155;
+      user-select: none;
+    }
+    thead th .hdr {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: #94a3b8;
+    }
+    thead th .hdr:hover { color: #e2e8f0; }
+    thead th.sorted .hdr { color: #e2e8f0; }
+    thead th .sort-icon {
+      display: inline-flex;
+      align-items: center;
+      color: #475569;
+    }
+    thead th.sorted .sort-icon { color: #38bdf8; }
+
+    thead th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    tbody tr {
+      border-bottom: 1px solid #263445;
+      cursor: pointer;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(226, 232, 240, 0.03); }
+    tbody tr.selected {
+      background: rgba(56, 189, 248, 0.10);
+      box-shadow: 3px 0 0 #38bdf8 inset;
+    }
+
+    /* Striped variant in second example. */
+    .striped tbody tr:nth-child(even):not(.selected) { background: rgba(226, 232, 240, 0.02); }
+
+    td {
+      padding: 10px 14px;
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+    td.muted { color: #94a3b8; }
+    td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+    /* Checkbox column — fixed narrow width. */
+    th.sel, td.sel { width: 28px; padding-left: 14px; padding-right: 0; }
+    .checkbox {
+      width: 14px; height: 14px;
+      border: 1.5px solid #475569;
+      border-radius: 3px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .checkbox.on {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      position: relative;
+    }
+    .checkbox.on::after {
+      content: "";
+      position: absolute;
+      left: 3px; top: 1px;
+      width: 4px; height: 8px;
+      border: solid #0f172a;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    /* Pill badges inside cells. */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+    .pill.ok      { background: rgba(74, 222, 128, 0.16); color: #4ade80; }
+    .pill.warn    { background: rgba(251, 191, 36, 0.16); color: #fbbf24; }
+    .pill.danger  { background: rgba(248, 113, 113, 0.18); color: #f87171; }
+    .pill.neutral { background: rgba(148, 163, 184, 0.14); color: #94a3b8; }
+
+    .avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .actions {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 3px;
+    }
+    .icon-btn:hover { color: #e2e8f0; background: rgba(226, 232, 240, 0.06); }
+
+    /* Footer bar. */
+    .foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-top: 1px solid #334155;
+      font-size: 12.5px;
+      color: #64748b;
+      background: #182438;
+    }
+    .foot .page {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .foot .page .btn {
+      width: 26px; height: 24px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+    .foot .page .btn:hover { border-color: #475569; }
+    .foot .page .btn.active {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      color: #0f172a;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Deploys table with selection, status pills, sortable headers, footer pagination. -->
+    <div>
+      <div class="caption">Deploys — sortable, selectable, paginated</div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th class="sel"><span class="checkbox"></span></th>
+              <th>
+                <span class="hdr">Commit</span>
+              </th>
+              <th>
+                <span class="hdr">Environment</span>
+              </th>
+              <th class="sorted">
+                <span class="hdr">Status
+                  <span class="sort-icon">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                         stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                  </span>
+                </span>
+              </th>
+              <th class="num"><span class="hdr">Duration</span></th>
+              <th>
+                <span class="hdr">Deployed by</span>
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="selected">
+              <td class="sel"><span class="checkbox on"></span></td>
+              <td class="mono">a75daaf</td>
+              <td class="muted">production</td>
+              <td><span class="pill ok">● Succeeded</span></td>
+              <td class="num">2m 14s</td>
+              <td>
+                <span class="avatar">SB</span>stephen
+              </td>
+              <td class="num"><div class="actions">
+                <button class="icon-btn" aria-label="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="sel"><span class="checkbox"></span></td>
+              <td class="mono">0844d8c</td>
+              <td class="muted">production</td>
+              <td><span class="pill warn">● In progress</span></td>
+              <td class="num">—</td>
+              <td>
+                <span class="avatar" style="background: rgba(251, 191, 36, 0.22);">MT</span>marta
+              </td>
+              <td class="num"><div class="actions">
+                <button class="icon-btn" aria-label="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="sel"><span class="checkbox"></span></td>
+              <td class="mono">0870f03</td>
+              <td class="muted">staging</td>
+              <td><span class="pill danger">● Failed</span></td>
+              <td class="num">0m 42s</td>
+              <td>
+                <span class="avatar" style="background: rgba(248, 113, 113, 0.22);">JK</span>jun
+              </td>
+              <td class="num"><div class="actions">
+                <button class="icon-btn" aria-label="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="sel"><span class="checkbox"></span></td>
+              <td class="mono">3824d92</td>
+              <td class="muted">staging</td>
+              <td><span class="pill ok">● Succeeded</span></td>
+              <td class="num">1m 58s</td>
+              <td>
+                <span class="avatar">SB</span>stephen
+              </td>
+              <td class="num"><div class="actions">
+                <button class="icon-btn" aria-label="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="sel"><span class="checkbox"></span></td>
+              <td class="mono">236cdea</td>
+              <td class="muted">production</td>
+              <td><span class="pill neutral">● Cancelled</span></td>
+              <td class="num">0m 08s</td>
+              <td>
+                <span class="avatar" style="background: rgba(192, 132, 252, 0.22);">RO</span>rita
+              </td>
+              <td class="num"><div class="actions">
+                <button class="icon-btn" aria-label="More"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="foot">
+          <span>1 of 5 selected · 120 total</span>
+          <span class="page">
+            <span class="btn">‹</span>
+            <span class="btn active">1</span>
+            <span class="btn">2</span>
+            <span class="btn">3</span>
+            <span class="btn">…</span>
+            <span class="btn">24</span>
+            <span class="btn">›</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Striped variant, lighter chrome, no footer. -->
+    <div>
+      <div class="caption">Striped variant — request log</div>
+      <div class="panel">
+        <table class="striped">
+          <thead>
+            <tr>
+              <th class="sorted">
+                <span class="hdr">Time
+                  <span class="sort-icon">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                         stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </span>
+              </th>
+              <th><span class="hdr">Method</span></th>
+              <th><span class="hdr">Path</span></th>
+              <th class="num"><span class="hdr">Status</span></th>
+              <th class="num"><span class="hdr">Latency</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono muted">12:04:11</td><td class="mono">GET</td><td class="mono">/api/v1/deploys</td><td class="num"><span class="pill ok">200</span></td><td class="num">42&nbsp;ms</td></tr>
+            <tr><td class="mono muted">12:04:10</td><td class="mono">POST</td><td class="mono">/api/v1/deploys</td><td class="num"><span class="pill ok">201</span></td><td class="num">218&nbsp;ms</td></tr>
+            <tr><td class="mono muted">12:04:08</td><td class="mono">GET</td><td class="mono">/api/v1/users/42</td><td class="num"><span class="pill warn">304</span></td><td class="num">11&nbsp;ms</td></tr>
+            <tr><td class="mono muted">12:04:07</td><td class="mono">DELETE</td><td class="mono">/api/v1/sessions/abc</td><td class="num"><span class="pill danger">500</span></td><td class="num">1.2&nbsp;s</td></tr>
+            <tr><td class="mono muted">12:04:04</td><td class="mono">GET</td><td class="mono">/healthz</td><td class="num"><span class="pill ok">200</span></td><td class="num">2&nbsp;ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+[alias]
+orbit = "run --example orbit"
+widgets = "run --example widgets"
+render-docs = "run --example render_docs"

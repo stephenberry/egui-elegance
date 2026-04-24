@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Kanban (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* --- Board shell. --- */
+    .board {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .board .head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #273447;
+      background: #1a2537;
+    }
+    .board .head .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .board .head .crumb {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .board .head .spacer { flex: 1; }
+    .board .head .chip {
+      font-size: 11.5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .board .head .chip.sky { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.32); background: rgba(56, 189, 248, 0.10); }
+    .board .head .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #cbd5e1;
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .board .head .btn:hover { border-color: #475569; background: rgba(226, 232, 240, 0.04); }
+    .board .head .btn.primary {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      color: #0b1120;
+    }
+    .board .head .btn.primary:hover { background: #7dd3fc; border-color: #7dd3fc; }
+
+    .board .head .avatars {
+      display: inline-flex;
+      align-items: center;
+    }
+    .board .head .avatars .avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #38bdf8;
+      color: #0b1120;
+      font-size: 10px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 0 2px #1a2537;
+      margin-left: -6px;
+    }
+    .board .head .avatars .avatar:first-child { margin-left: 0; }
+    .board .head .avatars .avatar.green  { background: #4ade80; }
+    .board .head .avatars .avatar.amber  { background: #fbbf24; }
+    .board .head .avatars .avatar.purple { background: #c084fc; }
+    .board .head .avatars .avatar.red    { background: #f87171; }
+    .board .head .avatars .avatar.more   { background: #273447; color: #94a3b8; font-size: 10px; }
+
+    /* --- Columns area (horizontally scrollable). --- */
+    .columns {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 250px;
+      gap: 12px;
+      padding: 14px 16px 18px 16px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .columns::-webkit-scrollbar { height: 10px; }
+    .columns::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+      background: #172033;
+      border: 1px solid #273447;
+      border-radius: 8px;
+    }
+    .col.drop {
+      background: rgba(56, 189, 248, 0.06);
+      border-color: rgba(56, 189, 248, 0.40);
+    }
+
+    .col .c-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #273447;
+    }
+    .col .c-head .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #64748b;
+      flex: none;
+    }
+    .col .c-head .dot.amber { background: #fbbf24; }
+    .col .c-head .dot.sky   { background: #38bdf8; }
+    .col .c-head .dot.purple{ background: #c084fc; }
+    .col .c-head .dot.green { background: #4ade80; }
+    .col .c-head .dot.red   { background: #f87171; }
+    .col .c-head .name {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      flex: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .col .c-head .count {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      padding: 1px 7px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .col .c-head .iconbtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .col .c-head .iconbtn:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    .col .c-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      overflow-y: auto;
+    }
+
+    .col .add {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 8px 8px 8px;
+      padding: 6px 8px;
+      border: 1px dashed #334155;
+      border-radius: 6px;
+      color: #64748b;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .col .add:hover { color: #cbd5e1; border-color: #475569; background: rgba(226, 232, 240, 0.03); }
+
+    /* --- Card. --- */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 9px 10px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      position: relative;
+    }
+    .card.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+      transform: rotate(-1.2deg);
+    }
+
+    .card .accent {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 3px 0 0 3px;
+      background: #64748b;
+    }
+    .card.sky    .accent { background: #38bdf8; }
+    .card.amber  .accent { background: #fbbf24; }
+    .card.green  .accent { background: #4ade80; }
+    .card.purple .accent { background: #c084fc; }
+    .card.red    .accent { background: #f87171; }
+
+    .card .labels {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .card .label {
+      font-size: 10.5px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: #94a3b8;
+      background: #273447;
+      border: 1px solid #334155;
+      font-weight: 500;
+    }
+    .card .label.sky    { color: #7dd3fc; background: rgba(56, 189, 248, 0.14);  border-color: rgba(56, 189, 248, 0.28); }
+    .card .label.amber  { color: #fcd34d; background: rgba(251, 191, 36, 0.14);  border-color: rgba(251, 191, 36, 0.28); }
+    .card .label.green  { color: #86efac; background: rgba(74, 222, 128, 0.14);  border-color: rgba(74, 222, 128, 0.28); }
+    .card .label.purple { color: #d8b4fe; background: rgba(192, 132, 252, 0.14); border-color: rgba(192, 132, 252, 0.28); }
+    .card .label.red    { color: #fca5a5; background: rgba(248, 113, 113, 0.14); border-color: rgba(248, 113, 113, 0.28); }
+
+    .card .id {
+      font-size: 10.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #64748b;
+      letter-spacing: 0.02em;
+    }
+    .card .title {
+      font-size: 12.5px;
+      color: #e2e8f0;
+      line-height: 1.45;
+      font-weight: 500;
+    }
+
+    .card .cover {
+      height: 76px;
+      margin: 2px -2px 2px -2px;
+      border-radius: 4px;
+      background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.26), rgba(192, 132, 252, 0.30)),
+        repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.04) 0 6px,
+          transparent 6px 12px);
+    }
+
+    .card .meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .card .meta .chunk {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card .meta .chunk.red   { color: #fca5a5; }
+    .card .meta .chunk.amber { color: #fcd34d; }
+    .card .meta .chunk.green { color: #86efac; }
+    .card .meta .chunk.sky   { color: #7dd3fc; }
+    .card .meta .dot {
+      width: 6px; height: 6px; border-radius: 999px; background: currentColor;
+    }
+    .card .meta .priority {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px 6px 1px 5px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      background: #0b1120;
+      border: 1px solid #334155;
+    }
+    .card .meta .priority.p0 { color: #fca5a5; border-color: rgba(248, 113, 113, 0.40); }
+    .card .meta .priority.p1 { color: #fcd34d; border-color: rgba(251, 191, 36, 0.40); }
+    .card .meta .priority.p2 { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.40); }
+    .card .meta .priority.p3 { color: #94a3b8; }
+
+    .card .meta .spacer { flex: 1; }
+
+    .card .meta .avatar {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #38bdf8;
+      color: #0b1120;
+      font-size: 9px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card .meta .avatar.green  { background: #4ade80; }
+    .card .meta .avatar.amber  { background: #fbbf24; }
+    .card .meta .avatar.purple { background: #c084fc; }
+    .card .meta .avatar.slate  { background: #94a3b8; }
+
+    /* Due-date chip. */
+    .card .due {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px 1px 6px;
+      border-radius: 3px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #94a3b8;
+    }
+    .card .due.soon  { color: #fcd34d; border-color: rgba(251, 191, 36, 0.40); }
+    .card .due.late  { color: #fca5a5; border-color: rgba(248, 113, 113, 0.40); }
+
+    /* Checklist progress pill. */
+    .card .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px 1px 6px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #94a3b8;
+      background: #0b1120;
+      border: 1px solid #334155;
+    }
+    .card .check.complete {
+      color: #86efac;
+      border-color: rgba(74, 222, 128, 0.32);
+      background: rgba(74, 222, 128, 0.10);
+    }
+
+    /* Drop placeholder. */
+    .placeholder {
+      height: 74px;
+      border: 1px dashed rgba(56, 189, 248, 0.55);
+      background: rgba(56, 189, 248, 0.08);
+      border-radius: 6px;
+    }
+
+    /* Blocker chip on a card. */
+    .card .blocker {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(248, 113, 113, 0.12);
+      color: #fca5a5;
+      border: 1px solid rgba(248, 113, 113, 0.32);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      font-weight: 500;
+      margin-top: 2px;
+      align-self: flex-start;
+    }
+
+    /* Column filter row. */
+    .board .filter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      border-bottom: 1px solid #273447;
+      background: #172033;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .board .filter .search {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 5px;
+      color: #cbd5e1;
+      min-width: 220px;
+    }
+    .board .filter .search svg { color: #64748b; flex: none; }
+    .board .filter .search input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font: inherit;
+      flex: 1;
+    }
+    .board .filter .search input::placeholder { color: #475569; }
+    .board .filter .chip {
+      font-size: 11.5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      cursor: pointer;
+    }
+    .board .filter .chip.active {
+      background: rgba(56, 189, 248, 0.14);
+      color: #7dd3fc;
+      border-color: rgba(56, 189, 248, 0.40);
+    }
+    .board .filter .spacer { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <div>
+      <div class="caption">Kanban — Sprint 42 · Q2 planning</div>
+      <div class="board">
+
+        <div class="head">
+          <span class="crumb">Boards ▸</span>
+          <span class="title">Sprint 42</span>
+          <span class="chip sky">47 active</span>
+          <span class="spacer"></span>
+          <div class="avatars">
+            <span class="avatar">AL</span>
+            <span class="avatar green">DV</span>
+            <span class="avatar purple">MG</span>
+            <span class="avatar amber">CB</span>
+            <span class="avatar red">JT</span>
+            <span class="avatar more">+3</span>
+          </div>
+          <button class="btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filter
+          </button>
+          <button class="btn primary">+ New issue</button>
+        </div>
+
+        <div class="filter">
+          <div class="search">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input placeholder="Search this board…"/>
+          </div>
+          <span class="chip active">group:status</span>
+          <span class="chip">assignee:any</span>
+          <span class="chip">priority ≤ P2</span>
+          <span class="spacer"></span>
+          <span style="font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 11.5px; color: #64748b;">
+            Sprint ends in <strong style="color:#fcd34d; font-weight:600;">3d 4h</strong>
+          </span>
+        </div>
+
+        <div class="columns">
+
+          <!-- Backlog -->
+          <div class="col">
+            <div class="c-head">
+              <span class="dot"></span>
+              <span class="name">Backlog</span>
+              <span class="count">14</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <div class="card slate">
+                <span class="accent"></span>
+                <div class="labels"><span class="label amber">enhancement</span></div>
+                <div class="id">ELG-233</div>
+                <div class="title">Add density preference to Slate theme</div>
+                <div class="meta">
+                  <span class="priority p3">P3</span>
+                  <span class="spacer"></span>
+                  <span class="avatar slate">—</span>
+                </div>
+              </div>
+
+              <div class="card slate">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label">spike</span>
+                </div>
+                <div class="id">ELG-234</div>
+                <div class="title">Evaluate GPU compositing for the chart crate</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="chunk"><span class="check">2/5</span></span>
+                  <span class="spacer"></span>
+                  <span class="avatar slate">—</span>
+                </div>
+              </div>
+
+              <div class="card slate">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label purple">design</span>
+                  <span class="label">docs</span>
+                </div>
+                <div class="id">ELG-236</div>
+                <div class="title">Write contributor guide for widgets</div>
+                <div class="meta">
+                  <span class="priority p3">P3</span>
+                  <span class="spacer"></span>
+                  <span class="avatar purple">MG</span>
+                </div>
+              </div>
+            </div>
+            <span class="add">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add card
+            </span>
+          </div>
+
+          <!-- To do -->
+          <div class="col">
+            <div class="c-head">
+              <span class="dot sky"></span>
+              <span class="name">To do</span>
+              <span class="count">8</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <div class="card sky">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label red">bug</span>
+                  <span class="label amber">p1-critical</span>
+                </div>
+                <div class="id">ELG-218</div>
+                <div class="title">Dialog focus trap breaks when another dialog opens over it</div>
+                <div class="meta">
+                  <span class="priority p1">P1</span>
+                  <span class="chunk"><span class="due late">Apr 22</span></span>
+                  <span class="spacer"></span>
+                  <span class="avatar">AL</span>
+                </div>
+              </div>
+
+              <div class="card sky">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label sky">feature</span>
+                </div>
+                <div class="id">ELG-220</div>
+                <div class="title">Resizable data-table columns with min/max constraints</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="chunk"><span class="due">May 6</span></span>
+                  <span class="spacer"></span>
+                  <span class="avatar green">DV</span>
+                </div>
+              </div>
+
+              <div class="card sky">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label green">regression</span>
+                </div>
+                <div class="id">ELG-221</div>
+                <div class="title">Sparkline renders blank on Retina displays under GTK</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="spacer"></span>
+                  <span class="avatar amber">CB</span>
+                </div>
+              </div>
+
+              <!-- Drop placeholder preview. -->
+              <div class="placeholder"></div>
+            </div>
+            <span class="add">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add card
+            </span>
+          </div>
+
+          <!-- In progress -->
+          <div class="col drop">
+            <div class="c-head">
+              <span class="dot amber"></span>
+              <span class="name">In progress</span>
+              <span class="count">6</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <!-- Dragged card (ghost style). -->
+              <div class="card amber dragging">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label sky">feature</span>
+                </div>
+                <div class="id">ELG-217</div>
+                <div class="title">Refactor theme tokens to support runtime density</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="spacer"></span>
+                  <span class="avatar">AL</span>
+                </div>
+              </div>
+
+              <div class="card amber">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label sky">feature</span>
+                  <span class="label purple">design</span>
+                </div>
+                <div class="id">ELG-219</div>
+                <div class="title">Ship Drawer widget with nested support</div>
+                <div class="cover"></div>
+                <div class="meta">
+                  <span class="priority p1">P1</span>
+                  <span class="chunk"><span class="check complete">5/5</span></span>
+                  <span class="spacer"></span>
+                  <span class="avatar green">DV</span>
+                </div>
+                <span class="blocker">🚧 blocked by ELG-214</span>
+              </div>
+
+              <div class="card amber">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label red">bug</span>
+                </div>
+                <div class="id">ELG-224</div>
+                <div class="title">Numeric input stops repeating on touch devices after 8 increments</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="chunk"><span class="check">3/6</span></span>
+                  <span class="spacer"></span>
+                  <span class="avatar purple">MG</span>
+                </div>
+              </div>
+            </div>
+            <span class="add">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add card
+            </span>
+          </div>
+
+          <!-- In review -->
+          <div class="col">
+            <div class="c-head">
+              <span class="dot purple"></span>
+              <span class="name">In review</span>
+              <span class="count">4</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <div class="card purple">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label sky">feature</span>
+                </div>
+                <div class="id">ELG-212</div>
+                <div class="title">Combobox typeahead with grouped options &amp; keyboard nav</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="chunk sky">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    12
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="avatar">AL</span>
+                </div>
+              </div>
+
+              <div class="card purple">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label green">regression</span>
+                  <span class="label">tooling</span>
+                </div>
+                <div class="id">ELG-215</div>
+                <div class="title">Fix flaky snapshot for TreeTable under high DPI</div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="chunk sky">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    4
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="avatar amber">CB</span>
+                </div>
+              </div>
+            </div>
+            <span class="add">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add card
+            </span>
+          </div>
+
+          <!-- Done -->
+          <div class="col">
+            <div class="c-head">
+              <span class="dot green"></span>
+              <span class="name">Done</span>
+              <span class="count">19</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <div class="card green" style="opacity: 0.85;">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label sky">feature</span>
+                </div>
+                <div class="id">ELG-201</div>
+                <div class="title" style="text-decoration: line-through; color: #94a3b8;">
+                  Accordion with nested sections
+                </div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="spacer"></span>
+                  <span class="avatar">AL</span>
+                </div>
+              </div>
+              <div class="card green" style="opacity: 0.85;">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label red">bug</span>
+                </div>
+                <div class="id">ELG-203</div>
+                <div class="title" style="text-decoration: line-through; color: #94a3b8;">
+                  Range slider thumbs drift at the right end
+                </div>
+                <div class="meta">
+                  <span class="priority p1">P1</span>
+                  <span class="spacer"></span>
+                  <span class="avatar green">DV</span>
+                </div>
+              </div>
+              <div class="card green" style="opacity: 0.85;">
+                <span class="accent"></span>
+                <div class="labels">
+                  <span class="label purple">design</span>
+                </div>
+                <div class="id">ELG-207</div>
+                <div class="title" style="text-decoration: line-through; color: #94a3b8;">
+                  Polish gauge v2 — tick marks &amp; center number
+                </div>
+                <div class="meta">
+                  <span class="priority p2">P2</span>
+                  <span class="spacer"></span>
+                  <span class="avatar purple">MG</span>
+                </div>
+              </div>
+              <div style="text-align:center; padding: 6px 0; font-size: 11.5px; color:#64748b;">+ 16 earlier</div>
+            </div>
+          </div>
+
+          <!-- Blocked -->
+          <div class="col">
+            <div class="c-head">
+              <span class="dot red"></span>
+              <span class="name">Blocked</span>
+              <span class="count">2</span>
+              <button class="iconbtn" aria-label="More">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5" cy="12" r="1.5"/>
+                  <circle cx="12" cy="12" r="1.5"/>
+                  <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-body">
+              <div class="card red">
+                <span class="accent"></span>
+                <div class="labels"><span class="label red">bug</span></div>
+                <div class="id">ELG-214</div>
+                <div class="title">Drawer slide transition stutters on X11 + Wayland hybrid sessions</div>
+                <div class="meta">
+                  <span class="priority p0">P0</span>
+                  <span class="chunk red">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                    </svg>
+                    waiting on upstream
+                  </span>
+                  <span class="spacer"></span>
+                  <span class="avatar green">DV</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

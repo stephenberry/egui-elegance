@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>NumericInput (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 760px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .label {
+      display: block;
+      font-size: 12.5px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    /* --- Core numeric input (side steppers) --- */
+    .num {
+      display: inline-flex;
+      align-items: stretch;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      overflow: hidden;
+      transition: border-color 80ms, box-shadow 80ms;
+    }
+    .num:hover { border-color: #475569; }
+    .num.focused {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+    }
+
+    .num input {
+      font-family: inherit;
+      font-size: 13px;
+      background: transparent;
+      color: #e2e8f0;
+      border: none;
+      outline: none;
+      padding: 6px 10px;
+      width: 72px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      cursor: ew-resize; /* drag-to-scrub affordance */
+    }
+    .num input::-webkit-outer-spin-button,
+    .num input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .num .unit {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px 0 4px;
+      color: #64748b;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+    }
+
+    .num .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      user-select: none;
+    }
+    .num .step:hover { background: rgba(226, 232, 240, 0.05); color: #e2e8f0; }
+    .num .step:active { background: rgba(56, 189, 248, 0.12); color: #e2e8f0; }
+    .num .step.left  { border-right: 1px solid #334155; }
+    .num .step.right { border-left:  1px solid #334155; }
+    .num .step svg { width: 12px; height: 12px; }
+
+    /* --- Compact variant: vertical stacked chevrons --- */
+    .num.stacked .stack-btns {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #334155;
+    }
+    .num.stacked .stack-btns .step {
+      width: 22px;
+      height: 15px;
+      border: none;
+      border-radius: 0;
+    }
+    .num.stacked .stack-btns .step + .step { border-top: 1px solid #334155; }
+    .num.stacked input { width: 60px; }
+
+    /* --- Sizes --- */
+    .num.sm input { font-size: 12px; padding: 4px 8px; width: 56px; }
+    .num.sm .step { width: 22px; }
+    .num.sm .unit { font-size: 11.5px; padding: 0 8px 0 4px; }
+
+    .num.lg input { font-size: 15px; padding: 9px 12px; width: 96px; }
+    .num.lg .step { width: 34px; }
+    .num.lg .unit { font-size: 14px; padding: 0 12px 0 6px; }
+
+    /* --- Error state --- */
+    .num.error { border-color: #f87171; }
+    .num.error.focused { box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25); }
+    .errmsg {
+      margin-top: 4px;
+      color: #f87171;
+      font-size: 11.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* --- Disabled --- */
+    .num.disabled {
+      background: #0a1020;
+      border-color: #263445;
+      color: #475569;
+      cursor: not-allowed;
+    }
+    .num.disabled input { color: #475569; cursor: not-allowed; }
+    .num.disabled .step { color: #334155; cursor: not-allowed; }
+    .num.disabled .unit { color: #334155; }
+
+    /* --- Step badges (modifier hints) --- */
+    .stephint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #64748b;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    .stephint .kbd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #e2e8f0;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      padding: 0 4px;
+      line-height: 14px;
+    }
+
+    /* In a form row with label and help. */
+    .field {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px 24px;
+      align-items: center;
+    }
+    .field .name { font-size: 13.5px; color: #e2e8f0; font-weight: 500; }
+    .field .hint { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
+    .field .right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+    /* In a DataTable row. */
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead th {
+      text-align: left;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 10px 14px;
+      background: #182438;
+      border-bottom: 1px solid #334155;
+    }
+    td { padding: 8px 14px; color: #e2e8f0; border-bottom: 1px solid #263445; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Drag scrub visualization: small arrows overlay shown beside one variant. */
+    .scrub-demo {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .scrub-arrows {
+      display: inline-flex;
+      gap: 2px;
+      color: #38bdf8;
+    }
+
+    .page-hint {
+      margin-top: 24px;
+      font-size: 12.5px;
+      color: #64748b;
+      font-style: italic;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .page-hint code {
+      font-style: normal;
+      color: #94a3b8;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Core variants side by side. -->
+    <div>
+      <div class="caption">Core — side steppers with unit</div>
+      <div class="row">
+        <div>
+          <label class="label">Default</label>
+          <div class="num">
+            <button class="step left" aria-label="Decrement">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="150"/>
+            <span class="unit">ms</span>
+            <button class="step right" aria-label="Increment">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+          <div class="stephint">
+            <span>Hold</span>
+            <span class="kbd">⇧</span>
+            <span>×10</span>
+            <span style="margin:0 2px;">·</span>
+            <span class="kbd">⌥</span>
+            <span>×0.1</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Focused</label>
+          <div class="num focused">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="42"/>
+            <span class="unit">%</span>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="label">No unit, wider</label>
+          <div class="num">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="1,284" style="width:96px;"/>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sizes + stacked variant. -->
+    <div>
+      <div class="caption">Sizes and stacked chevrons</div>
+      <div class="row">
+        <div>
+          <label class="label">Small</label>
+          <div class="num sm">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="12"/>
+            <span class="unit">px</span>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Large</label>
+          <div class="num lg">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="1200"/>
+            <span class="unit">ms</span>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Stacked chevrons</label>
+          <div class="num stacked">
+            <input type="text" value="42"/>
+            <span class="unit" style="padding-left:10px;">%</span>
+            <div class="stack-btns">
+              <button class="step" aria-label="Increment">
+                <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="5 8 10 4 15 8"/>
+                </svg>
+              </button>
+              <button class="step" aria-label="Decrement">
+                <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="5 4 10 8 15 4"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- States: error and disabled. -->
+    <div>
+      <div class="caption">States — error, disabled</div>
+      <div class="row">
+        <div>
+          <label class="label">Error</label>
+          <div class="num error" data-min="0">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="-8"/>
+            <span class="unit">px</span>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+          <div class="errmsg">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12" y2="16.01"/>
+            </svg>
+            Must be ≥ 0
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Disabled</label>
+          <div class="num disabled">
+            <button class="step left" disabled tabindex="-1">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="0" disabled/>
+            <span class="unit">ms</span>
+            <button class="step right" disabled tabindex="-1">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="label">Drag-scrub hint</label>
+          <div class="scrub-demo">
+            <span class="scrub-arrows">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="10 4 4 10 10 16"/>
+              </svg>
+            </span>
+            <div class="num focused">
+              <button class="step left">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="10" x2="16" y2="10"/>
+                </svg>
+              </button>
+              <input type="text" value="180"/>
+              <span class="unit">ms</span>
+              <button class="step right">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="10" y1="4" x2="10" y2="16"/>
+                  <line x1="4" y1="10" x2="16" y2="10"/>
+                </svg>
+              </button>
+            </div>
+            <span class="scrub-arrows">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="10 4 16 10 10 16"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In a form row. -->
+    <div>
+      <div class="caption">In a form row</div>
+      <div class="field">
+        <div>
+          <div class="name">Request timeout</div>
+          <div class="hint">Upper bound for any single outbound request. Drag the value to scrub.</div>
+        </div>
+        <div class="right">
+          <div class="num">
+            <button class="step left">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+            <input type="text" value="2500"/>
+            <span class="unit">ms</span>
+            <button class="step right">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="10" y1="4" x2="10" y2="16"/>
+                <line x1="4" y1="10" x2="16" y2="10"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In a DataTable row. -->
+    <div>
+      <div class="caption">Inline in a table — edit numeric budgets per row</div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Timeout</th>
+              <th>Retry budget</th>
+              <th>Concurrency</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>api-east</td>
+              <td>
+                <div class="num sm">
+                  <button class="step left">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                  <input type="text" value="1500"/>
+                  <span class="unit">ms</span>
+                  <button class="step right">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="10" y1="4" x2="10" y2="16"/>
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="num sm">
+                  <button class="step left">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                  <input type="text" value="3"/>
+                  <span class="unit">/min</span>
+                  <button class="step right">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="10" y1="4" x2="10" y2="16"/>
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="num sm stacked">
+                  <input type="text" value="128"/>
+                  <div class="stack-btns">
+                    <button class="step">
+                      <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="5 8 10 4 15 8"/>
+                      </svg>
+                    </button>
+                    <button class="step">
+                      <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="5 4 10 8 15 4"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>api-west</td>
+              <td>
+                <div class="num sm error" data-max="5000">
+                  <button class="step left">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                  <input type="text" value="9999"/>
+                  <span class="unit">ms</span>
+                  <button class="step right">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="10" y1="4" x2="10" y2="16"/>
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="num sm">
+                  <button class="step left">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                  <input type="text" value="2"/>
+                  <span class="unit">/min</span>
+                  <button class="step right">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="10" y1="4" x2="10" y2="16"/>
+                      <line x1="4" y1="10" x2="16" y2="10"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+              <td>
+                <div class="num sm stacked">
+                  <input type="text" value="64"/>
+                  <div class="stack-btns">
+                    <button class="step">
+                      <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="5 8 10 4 15 8"/>
+                      </svg>
+                    </button>
+                    <button class="step">
+                      <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="2"
+                           stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="5 4 10 8 15 4"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-hint">
+    Click <code>+</code>/<code>-</code> to step (hold to repeat). Focus the field and use <code>↑</code>/<code>↓</code>.
+    Hold <code>⇧</code> for ×10, <code>⌥</code> for ×0.1. Drag across an unfocused value to scrub.
+  </div>
+
+  <script>
+    (function () {
+      var nums = document.querySelectorAll('.num');
+      nums.forEach(setupNum);
+
+      function setupNum(num) {
+        if (num.classList.contains('disabled')) return;
+        var input = num.querySelector('input');
+        if (!input || input.disabled) return;
+
+        var incrementBtn, decrementBtn;
+        if (num.classList.contains('stacked')) {
+          var btns = num.querySelectorAll('.stack-btns .step');
+          incrementBtn = btns[0];
+          decrementBtn = btns[1];
+        } else {
+          incrementBtn = num.querySelector('.step.right');
+          decrementBtn = num.querySelector('.step.left');
+        }
+
+        var min = num.dataset.min !== undefined ? parseFloat(num.dataset.min) : -Infinity;
+        var max = num.dataset.max !== undefined ? parseFloat(num.dataset.max) :  Infinity;
+        var step = num.dataset.step !== undefined ? parseFloat(num.dataset.step) : 1;
+
+        var errmsg = num.parentElement && num.parentElement.querySelector(':scope > .errmsg');
+
+        function parse(str) {
+          var cleaned = String(str).replace(/,/g, '').trim();
+          var n = parseFloat(cleaned);
+          return isNaN(n) ? null : n;
+        }
+        function formatValue(n) {
+          if (Math.abs(n - Math.round(n)) > 0.0001) {
+            return n.toFixed(1);
+          }
+          var r = Math.round(n);
+          return Math.abs(r) >= 1000 ? r.toLocaleString('en-US') : String(r);
+        }
+        function modifiedStep(e) {
+          if (e && e.shiftKey) return step * 10;
+          if (e && e.altKey) return step * 0.1;
+          return step;
+        }
+        function setValue(n) {
+          input.value = formatValue(n);
+          validate();
+        }
+        function adjust(delta) {
+          var cur = parse(input.value);
+          if (cur === null) cur = 0;
+          var next = cur + delta;
+          if (next < min) next = min;
+          if (next > max) next = max;
+          setValue(next);
+        }
+        function validate() {
+          var v = parse(input.value);
+          var bad = (v === null) || v < min || v > max;
+          num.classList.toggle('error', bad);
+          if (errmsg) errmsg.style.visibility = bad ? 'visible' : 'hidden';
+        }
+
+        input.addEventListener('focus', function () { num.classList.add('focused'); });
+        input.addEventListener('blur', function () {
+          num.classList.remove('focused');
+          var n = parse(input.value);
+          if (n !== null) input.value = formatValue(n);
+          validate();
+        });
+        input.addEventListener('input', function () { validate(); });
+
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            adjust(modifiedStep(e));
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            adjust(-modifiedStep(e));
+          } else if (e.key === 'Enter') {
+            input.blur();
+          } else if (e.key === 'Escape') {
+            input.blur();
+          }
+        });
+
+        bindStepper(incrementBtn, +1);
+        bindStepper(decrementBtn, -1);
+
+        function bindStepper(btn, dir) {
+          if (!btn) return;
+          btn.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            var s = modifiedStep(e);
+            adjust(dir * s);
+            var delayTimer = setTimeout(function tick() {
+              adjust(dir * modifiedStep(e));
+              delayTimer = setTimeout(tick, 60);
+            }, 380);
+            function stop() {
+              clearTimeout(delayTimer);
+              document.removeEventListener('mouseup', stop);
+              window.removeEventListener('blur', stop);
+            }
+            document.addEventListener('mouseup', stop);
+            window.addEventListener('blur', stop);
+          });
+        }
+
+        // Drag-to-scrub on the input itself (when not already focused).
+        var dragging = false;
+        var dragStartX = 0;
+        var dragStartValue = 0;
+        var dragMoved = false;
+        var DRAG_THRESHOLD = 3;
+        var PIXELS_PER_STEP = 2;
+
+        input.addEventListener('mousedown', function (e) {
+          if (document.activeElement === input) return;
+          if (e.button !== 0) return;
+          dragging = true;
+          dragStartX = e.clientX;
+          dragStartValue = parse(input.value);
+          if (dragStartValue === null) dragStartValue = 0;
+          dragMoved = false;
+          e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+          if (!dragging) return;
+          var dx = e.clientX - dragStartX;
+          if (!dragMoved && Math.abs(dx) < DRAG_THRESHOLD) return;
+          dragMoved = true;
+          var s = modifiedStep(e);
+          var delta = Math.round(dx / PIXELS_PER_STEP) * s;
+          var next = dragStartValue + delta;
+          if (next < min) next = min;
+          if (next > max) next = max;
+          setValue(next);
+          document.body.style.cursor = 'ew-resize';
+        });
+        document.addEventListener('mouseup', function () {
+          if (!dragging) return;
+          var wasMoved = dragMoved;
+          dragging = false;
+          document.body.style.cursor = '';
+          if (!wasMoved) {
+            input.focus();
+            input.select();
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

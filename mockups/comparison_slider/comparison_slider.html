@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ComparisonSlider (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 860px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .card .hd {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #273447;
+      background: #1a2537;
+      font-size: 12.5px;
+      color: #94a3b8;
+    }
+    .card .hd .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .card .hd .spacer { flex: 1; }
+    .card .hd .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #0b1120;
+      border: 1px solid #273447;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .card .hd .pill .dot {
+      width: 7px; height: 7px; border-radius: 999px;
+    }
+    .card .hd .pill.a { color: #fcd34d; border-color: rgba(251, 191, 36, 0.32); }
+    .card .hd .pill.a .dot { background: #fbbf24; }
+    .card .hd .pill.b { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.32); }
+    .card .hd .pill.b .dot { background: #38bdf8; }
+    .card .hd .iconbtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .card .hd .iconbtn:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+    .card .hd .seg {
+      display: inline-flex;
+      padding: 2px;
+      background: #0b1120;
+      border: 1px solid #273447;
+      border-radius: 5px;
+    }
+    .card .hd .seg button {
+      padding: 3px 9px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font: inherit;
+      font-size: 11.5px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .card .hd .seg button.active {
+      background: #1e293b;
+      color: #e2e8f0;
+      box-shadow: inset 0 0 0 1px #334155;
+    }
+
+    /* --- Comparison region. --- */
+    .cmp {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      cursor: col-resize;
+      user-select: none;
+      background: #0b1120;
+      --split: 52%;
+    }
+    .cmp.vertical { cursor: row-resize; }
+
+    /* Before / After layers. "Before" is the baseline (full width),
+       "After" is clipped by the split line. */
+    .layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e2e8f0;
+      font-size: 13px;
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* "Before": muted / old design. */
+    .layer.before {
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.0)),
+        linear-gradient(135deg, #334155 0%, #1e293b 100%),
+        repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.03) 0 12px,
+          transparent 12px 24px);
+    }
+    /* "After": vibrant / new design. */
+    .layer.after {
+      clip-path: inset(0 0 0 var(--split));
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.35), rgba(15, 23, 42, 0.0)),
+        linear-gradient(135deg, rgba(56, 189, 248, 0.45), rgba(192, 132, 252, 0.40)),
+        radial-gradient(at 30% 20%, rgba(250, 204, 21, 0.30), transparent 40%),
+        repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.07) 0 8px,
+          transparent 8px 16px);
+    }
+    .cmp.vertical .layer.after { clip-path: inset(var(--split) 0 0 0); }
+
+    /* Layer label badges, anchored to the corners. */
+    .label {
+      position: absolute;
+      bottom: 14px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      font-weight: 500;
+      background: rgba(15, 23, 42, 0.72);
+      color: #e2e8f0;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .label.before { left: 14px; color: #fcd34d; border-color: rgba(251, 191, 36, 0.30); }
+    .label.after  { right: 14px; color: #7dd3fc; border-color: rgba(56, 189, 248, 0.35); }
+    .label .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+
+    /* Split line + handle. */
+    .split {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: var(--split);
+      width: 2px;
+      transform: translateX(-1px);
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.8) 12%,
+        rgba(255, 255, 255, 0.8) 88%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      pointer-events: none;
+    }
+    .cmp.vertical .split {
+      top: var(--split);
+      bottom: auto;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 2px;
+      transform: translateY(-1px);
+      background: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.8) 12%,
+        rgba(255, 255, 255, 0.8) 88%,
+        rgba(255, 255, 255, 0) 100%
+      );
+    }
+
+    .handle {
+      position: absolute;
+      top: 50%;
+      left: var(--split);
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45),
+        0 0 0 2px rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b1120;
+      cursor: grab;
+    }
+    .handle:hover { background: #f1f5f9; }
+    .handle.grabbing { cursor: grabbing; transform: translate(-50%, -50%) scale(1.05); }
+    .cmp.vertical .handle {
+      top: var(--split);
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+
+    .handle .chev-left,
+    .handle .chev-right {
+      stroke: currentColor;
+    }
+    .handle .divider {
+      position: absolute;
+      width: 1px;
+      height: 18px;
+      background: rgba(15, 23, 42, 0.15);
+    }
+
+    /* Markers / overlays on top of both layers (e.g., spec labels, regions of interest). */
+    .overlay {
+      position: absolute;
+      pointer-events: none;
+    }
+    .overlay.badge {
+      top: 14px;
+      left: 14px;
+      padding: 3px 9px;
+      background: rgba(15, 23, 42, 0.70);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+    .overlay.badge .dot { width: 6px; height: 6px; border-radius: 999px; background: #4ade80; }
+
+    /* Spec-annotation pin + connector. */
+    .pin {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #38bdf8;
+      color: #0b1120;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    /* --- Thumbnails strip beneath large variants. --- */
+    .thumbs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #0f172a;
+      border-top: 1px solid #273447;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .thumb {
+      position: relative;
+      flex: none;
+      width: 92px;
+      height: 56px;
+      border-radius: 4px;
+      border: 1px solid #273447;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.30), rgba(192, 132, 252, 0.30));
+      cursor: pointer;
+    }
+    .thumb.alt { background: linear-gradient(135deg, #334155, #1e293b); }
+    .thumb.selected { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22); }
+    .thumb .tag {
+      position: absolute;
+      left: 4px;
+      bottom: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      padding: 1px 5px;
+      background: rgba(15, 23, 42, 0.72);
+      color: #e2e8f0;
+      border-radius: 3px;
+    }
+
+    /* --- Scale / % readout. --- */
+    .footbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-top: 1px solid #273447;
+      background: #172033;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .footbar .spacer { flex: 1; }
+    .footbar .seg { color: #94a3b8; }
+    .footbar .sep { color: #334155; }
+
+    /* Mock "design" content inside layers. */
+    .mock-ui {
+      position: relative;
+      width: 78%;
+      max-width: 520px;
+      padding: 14px;
+      border-radius: 10px;
+      color: #e2e8f0;
+      background: rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .mock-ui .t { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; }
+    .mock-ui .t .k { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; color: #94a3b8; font-weight: 500; }
+    .mock-ui .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 80px; }
+    .mock-ui .bars span {
+      background: linear-gradient(to top, #38bdf8, #7dd3fc);
+      border-radius: 2px 2px 0 0;
+      opacity: 0.9;
+    }
+    .layer.before .mock-ui { background: rgba(11, 17, 32, 0.48); }
+    .layer.before .mock-ui .bars span {
+      background: linear-gradient(to top, #475569, #94a3b8);
+      opacity: 0.7;
+    }
+    .layer.before .mock-ui .t { color: #cbd5e1; }
+
+    /* For the code diff comparison variant. */
+    .code-layer {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      line-height: 1.6;
+      padding: 16px 20px;
+      width: 100%;
+      box-sizing: border-box;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+    }
+    .code-layer .gutter {
+      display: inline-block;
+      width: 30px;
+      color: #475569;
+      user-select: none;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .code-layer .kw { color: #7dd3fc; }
+    .code-layer .str { color: #86efac; }
+    .code-layer .num { color: #fcd34d; }
+    .code-layer .com { color: #64748b; font-style: italic; }
+    .layer.after.code-layer {
+      background: #0b1120;
+      background-image: none;
+    }
+    .layer.after.code-layer .plus {
+      background: rgba(74, 222, 128, 0.14);
+      display: inline-block;
+      width: 100%;
+      padding: 0 4px;
+      border-left: 2px solid #4ade80;
+      margin-left: -4px;
+    }
+    .layer.before.code-layer {
+      background: #0f172a;
+      background-image: none;
+    }
+    .layer.before.code-layer .minus {
+      background: rgba(248, 113, 113, 0.14);
+      display: inline-block;
+      width: 100%;
+      padding: 0 4px;
+      border-left: 2px solid #f87171;
+      margin-left: -4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Design comparison with the split at 52%. -->
+    <div>
+      <div class="caption">Design A / B — drag handle to reveal</div>
+      <div class="card">
+        <div class="hd">
+          <span class="title">Dashboard redesign</span>
+          <span class="pill a"><span class="dot"></span>Before · Oct 2025</span>
+          <span style="color:#334155;">↔</span>
+          <span class="pill b"><span class="dot"></span>After · Apr 2026</span>
+          <span class="spacer"></span>
+          <div class="seg">
+            <button class="active">
+              ↔
+            </button>
+            <button>
+              ↕
+            </button>
+          </div>
+          <button class="iconbtn" aria-label="Reset">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+          <button class="iconbtn" aria-label="Full screen">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="cmp" style="--split: 52%;">
+          <div class="layer before">
+            <div class="mock-ui">
+              <div class="t">Revenue <span class="k">past 7 days</span></div>
+              <div class="bars">
+                <span style="height: 24%;"></span>
+                <span style="height: 38%;"></span>
+                <span style="height: 30%;"></span>
+                <span style="height: 50%;"></span>
+                <span style="height: 45%;"></span>
+                <span style="height: 62%;"></span>
+                <span style="height: 58%;"></span>
+              </div>
+            </div>
+            <div class="label before"><span class="dot"></span>Before</div>
+          </div>
+
+          <div class="layer after">
+            <div class="mock-ui">
+              <div class="t">Revenue <span class="k">past 7 days · $1.42M</span></div>
+              <div class="bars">
+                <span style="height: 24%;"></span>
+                <span style="height: 38%;"></span>
+                <span style="height: 30%;"></span>
+                <span style="height: 50%;"></span>
+                <span style="height: 45%;"></span>
+                <span style="height: 62%;"></span>
+                <span style="height: 72%;"></span>
+              </div>
+              <span class="pin" style="position:absolute; top:-8px; right: 18px;">1</span>
+            </div>
+            <div class="label after"><span class="dot"></span>After</div>
+          </div>
+
+          <div class="overlay badge"><span class="dot"></span>pixel-perfect at 1:1</div>
+
+          <div class="split"></div>
+          <div class="handle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline class="chev-left" points="15 18 9 12 15 6"/>
+            </svg>
+            <span class="divider"></span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline class="chev-right" points="9 6 15 12 9 18"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="thumbs">
+          <div class="thumb alt"><span class="tag">before</span></div>
+          <div class="thumb selected"><span class="tag">after</span></div>
+          <div class="thumb" style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.32), rgba(251, 191, 36, 0.28));"><span class="tag">variant 2</span></div>
+          <div class="thumb" style="background: linear-gradient(135deg, rgba(248, 113, 113, 0.30), rgba(192, 132, 252, 0.30));"><span class="tag">variant 3</span></div>
+          <div class="thumb" style="background: linear-gradient(135deg, rgba(148, 163, 184, 0.22), rgba(51, 65, 85, 0.50));"><span class="tag">grey</span></div>
+        </div>
+
+        <div class="footbar">
+          <span class="seg">split @ <span style="color:#7dd3fc;">52%</span></span>
+          <span class="sep">·</span>
+          <span class="seg">1600 × 900</span>
+          <span class="sep">·</span>
+          <span class="seg">zoom 1.0×</span>
+          <span class="spacer"></span>
+          <span class="seg">⇦ ⇨ drag · <span style="color:#fcd34d;">0</span> reset · <span style="color:#fcd34d;">F</span> fullscreen</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vertical split: code diff variant. -->
+    <div>
+      <div class="caption">Code — vertical split, new lines highlighted</div>
+      <div class="card">
+        <div class="hd">
+          <span class="title">theme.rs · v0.7.1 → v0.7.2</span>
+          <span class="pill a"><span class="dot"></span>v0.7.1 <span style="color:#64748b;">(−)</span></span>
+          <span style="color:#334155;">↕</span>
+          <span class="pill b"><span class="dot"></span>v0.7.2 <span style="color:#64748b;">(+)</span></span>
+          <span class="spacer"></span>
+          <div class="seg">
+            <button>↔</button>
+            <button class="active">↕</button>
+          </div>
+        </div>
+
+        <div class="cmp vertical" style="--split: 44%; aspect-ratio: 16 / 9;">
+          <div class="layer before code-layer">
+            <div><span class="gutter">47</span><span class="kw">pub fn</span> slate() -&gt; Theme {</div>
+            <div><span class="gutter">48</span>    Theme {</div>
+            <div class="minus"><span class="gutter">49</span>        bg:       Color32::from_rgb(<span class="num">0x0f</span>, <span class="num">0x17</span>, <span class="num">0x2a</span>),</div>
+            <div><span class="gutter">50</span>        card:     Color32::from_rgb(<span class="num">0x1e</span>, <span class="num">0x29</span>, <span class="num">0x3b</span>),</div>
+            <div><span class="gutter">51</span>        border:   Color32::from_rgb(<span class="num">0x33</span>, <span class="num">0x41</span>, <span class="num">0x55</span>),</div>
+            <div><span class="gutter">52</span>        text:     Color32::from_rgb(<span class="num">0xe2</span>, <span class="num">0xe8</span>, <span class="num">0xf0</span>),</div>
+            <div><span class="gutter">53</span>    }</div>
+            <div><span class="gutter">54</span>}</div>
+            <div><span class="gutter">55</span></div>
+            <div><span class="gutter">56</span><span class="com">// Density presets are not yet supported.</span></div>
+            <div class="label before"><span class="dot"></span>v0.7.1 · 2.3 KB</div>
+          </div>
+
+          <div class="layer after code-layer">
+            <div><span class="gutter">47</span><span class="kw">pub fn</span> slate() -&gt; Theme {</div>
+            <div><span class="gutter">48</span>    Theme {</div>
+            <div class="plus"><span class="gutter">49</span>        bg:       <span class="kw">tokens</span>::surface(<span class="kw">Depth</span>::Page),</div>
+            <div class="plus"><span class="gutter">50</span>        card:     <span class="kw">tokens</span>::surface(<span class="kw">Depth</span>::Raised),</div>
+            <div class="plus"><span class="gutter">51</span>        border:   <span class="kw">tokens</span>::line(<span class="kw">Line</span>::Soft),</div>
+            <div class="plus"><span class="gutter">52</span>        text:     <span class="kw">tokens</span>::text(<span class="kw">Text</span>::Body),</div>
+            <div class="plus"><span class="gutter">53</span>        density:  <span class="kw">Density</span>::Comfortable,</div>
+            <div><span class="gutter">54</span>    }</div>
+            <div><span class="gutter">55</span>}</div>
+            <div><span class="gutter">56</span></div>
+            <div class="label after"><span class="dot"></span>v0.7.2 · 2.6 KB</div>
+          </div>
+
+          <div class="split"></div>
+          <div class="handle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            <span class="divider"></span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 6 15 12 9 18"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="footbar">
+          <span class="seg">split @ <span style="color:#7dd3fc;">44%</span></span>
+          <span class="sep">·</span>
+          <span class="seg" style="color:#86efac;">+5</span>
+          <span class="sep">·</span>
+          <span class="seg" style="color:#fca5a5;">−1</span>
+          <span class="spacer"></span>
+          <span class="seg">drag the handle vertically</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

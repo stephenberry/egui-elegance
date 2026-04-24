@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Toolbar (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    /* Toolbar frame: thin input-styled row. */
+    .toolbar {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 3px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn svg { display: block; }
+    .btn:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    /* Toggle-on state — e.g. bold is currently active. */
+    .btn.on {
+      background: rgba(56, 189, 248, 0.18);
+      color: #e2e8f0;
+    }
+
+    .sep {
+      width: 1px;
+      height: 18px;
+      background: #334155;
+      margin: 0 3px;
+      flex: none;
+    }
+
+    /* Wide button with label (e.g. dropdown select inside a toolbar). */
+    .btn.wide {
+      width: auto;
+      padding: 0 8px;
+      gap: 4px;
+      font-size: 12.5px;
+      color: #e2e8f0;
+    }
+    .btn.wide .chev {
+      color: #64748b;
+    }
+
+    /* Split button — primary action + dropdown chevron. */
+    .split {
+      display: inline-flex;
+      align-items: stretch;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .split .btn.primary {
+      background: #2563eb;
+      color: #ffffff;
+      padding: 0 10px;
+      width: auto;
+      font-size: 12.5px;
+      font-weight: 500;
+      border-radius: 0;
+    }
+    .split .btn.primary:hover { background: #1d4ed8; }
+    .split .btn.chev-only {
+      width: 22px;
+      background: #1d4ed8;
+      color: #bfdbfe;
+      border-radius: 0;
+    }
+    .split .btn.chev-only:hover { background: #1e3a8a; }
+
+    /* Node-editor style: vertical toolbar. */
+    .toolbar.vertical {
+      display: inline-flex;
+      flex-direction: column;
+      padding: 3px;
+      gap: 2px;
+    }
+    .toolbar.vertical .sep {
+      width: 18px;
+      height: 1px;
+      margin: 3px 0;
+    }
+
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 48px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Rich text editor formatting bar. -->
+    <div>
+      <div class="caption">Text formatting</div>
+      <div class="toolbar" role="toolbar" aria-label="Formatting">
+        <button class="btn on" aria-label="Bold" aria-pressed="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h7a4 4 0 0 1 0 8H6z"/><path d="M6 12h8a4 4 0 0 1 0 8H6z"/></svg>
+        </button>
+        <button class="btn" aria-label="Italic">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+        </button>
+        <button class="btn" aria-label="Underline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="20" x2="20" y2="20"/></svg>
+        </button>
+        <button class="btn" aria-label="Strikethrough">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+        </button>
+
+        <span class="sep"></span>
+
+        <button class="btn" aria-label="Bullet list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="btn" aria-label="Numbered list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><path d="M4 6h1v-3" fill="none"/><path d="M4 10h2l-2 3h2"/><path d="M4 17.5a1.5 1.5 0 0 1 3 0c0 1.5-3 1-3 2.5h3"/></svg>
+        </button>
+        <button class="btn" aria-label="Blockquote">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h2v3a3 3 0 0 1-3 3"/><path d="M17 7h-3a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h2v3a3 3 0 0 1-3 3"/></svg>
+        </button>
+
+        <span class="sep"></span>
+
+        <button class="btn" aria-label="Link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="btn" aria-label="Image">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+        <button class="btn" aria-label="Code">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- View / filter toolbar with selectors and split button. -->
+    <div>
+      <div class="caption">View controls with split button</div>
+      <div class="toolbar" role="toolbar" aria-label="View">
+        <button class="btn wide" aria-haspopup="menu">
+          All statuses
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <span class="sep"></span>
+        <button class="btn wide" aria-haspopup="menu">
+          Last 24h
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <span class="sep"></span>
+        <button class="btn" aria-label="Refresh">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
+        <button class="btn" aria-label="Download">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+
+        <!-- Spacer between normal items and the primary split button. -->
+        <span style="flex:1;"></span>
+
+        <div class="split" role="group" aria-label="Deploy">
+          <button class="btn primary">Deploy</button>
+          <button class="btn chev-only" aria-label="Deploy options" aria-haspopup="menu">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vertical tool palette. -->
+    <div class="row">
+      <div>
+        <div class="caption">Vertical tool palette</div>
+        <div class="toolbar vertical" role="toolbar" aria-label="Tools">
+          <button class="btn on" aria-label="Select" aria-pressed="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-7 2-2 7z"/></svg>
+          </button>
+          <button class="btn" aria-label="Pan">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 1 0-4 0"/><path d="M14 11V4a2 2 0 1 0-4 0v7"/><path d="M10 11V6a2 2 0 1 0-4 0v11"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-8-8v-2"/></svg>
+          </button>
+          <button class="btn" aria-label="Connect">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+          </button>
+
+          <span class="sep"></span>
+
+          <button class="btn" aria-label="Zoom in">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <button class="btn" aria-label="Zoom out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+
+          <span class="sep"></span>
+
+          <button class="btn" aria-label="Delete">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

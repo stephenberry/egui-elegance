@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Calendar (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 900px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    /* --- Calendar header (nav + title + view switch). --- */
+    .cal-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #273447;
+      background: #172033;
+    }
+    .cal-head .month {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cal-head .month .lbl {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      padding: 0 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .cal-head .month .lbl .year {
+      color: #64748b;
+      font-weight: 500;
+      margin-left: 4px;
+    }
+    .cal-head .iconbtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .cal-head .iconbtn:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+    .cal-head .today {
+      padding: 5px 10px;
+      border: 1px solid #334155;
+      border-radius: 5px;
+      color: #cbd5e1;
+      background: transparent;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+    .cal-head .today:hover { border-color: #475569; background: rgba(226, 232, 240, 0.04); }
+    .cal-head .spacer { flex: 1; }
+
+    .cal-head .seg {
+      display: inline-flex;
+      padding: 3px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+    }
+    .cal-head .seg button {
+      padding: 4px 10px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .cal-head .seg button:hover { color: #e2e8f0; }
+    .cal-head .seg button.active {
+      background: #1e293b;
+      color: #e2e8f0;
+      box-shadow: inset 0 0 0 1px #334155;
+    }
+
+    /* --- Month grid. --- */
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      background: #273447;
+      gap: 1px;
+    }
+    .dow {
+      background: #1a2537;
+      padding: 8px 10px;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      text-align: left;
+    }
+    .dow.weekend { color: #475569; }
+    .dow.today   { color: #7dd3fc; }
+
+    .day {
+      position: relative;
+      min-height: 96px;
+      background: #1e293b;
+      padding: 6px 7px 6px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+    }
+    .day.other { background: #182031; color: #475569; }
+    .day.other .num { color: #475569; }
+    .day.weekend { background: #1b2537; }
+    .day.weekend.other { background: #162033; }
+
+    .day .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+      align-self: flex-end;
+      min-width: 22px;
+      height: 20px;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    .day.today .num {
+      background: #38bdf8;
+      color: #0b1120;
+      font-weight: 700;
+    }
+    .day.selected {
+      box-shadow: inset 0 0 0 2px #38bdf8;
+    }
+
+    /* Event chips inside a day. */
+    .ev {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(56, 189, 248, 0.14);
+      color: #bae6fd;
+      font-size: 11.5px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 2px solid #38bdf8;
+    }
+    .ev .time {
+      color: #7dd3fc;
+      font-variant-numeric: tabular-nums;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+    }
+    .ev.sky    { background: rgba(56, 189, 248, 0.14);  color: #bae6fd; border-left-color: #38bdf8; }
+    .ev.sky .time { color: #7dd3fc; }
+    .ev.green  { background: rgba(74, 222, 128, 0.14);  color: #bbf7d0; border-left-color: #4ade80; }
+    .ev.green .time { color: #86efac; }
+    .ev.amber  { background: rgba(251, 191, 36, 0.14);  color: #fde68a; border-left-color: #fbbf24; }
+    .ev.amber .time { color: #fcd34d; }
+    .ev.purple { background: rgba(192, 132, 252, 0.14); color: #e9d5ff; border-left-color: #c084fc; }
+    .ev.purple .time { color: #d8b4fe; }
+    .ev.red    { background: rgba(248, 113, 113, 0.14); color: #fecaca; border-left-color: #f87171; }
+    .ev.red .time { color: #fca5a5; }
+
+    /* Multi-day / all-day bar spanning cells. */
+    .ev.span {
+      background: rgba(192, 132, 252, 0.18);
+      border-radius: 3px;
+      color: #e9d5ff;
+      padding: 2px 8px;
+    }
+    .ev.span.left  { border-radius: 3px 0 0 3px; margin-right: -8px; }
+    .ev.span.mid   { border-radius: 0; margin-right: -8px; margin-left: -8px; }
+    .ev.span.right { border-radius: 0 3px 3px 0; margin-left: -8px; }
+
+    .more {
+      font-size: 11px;
+      color: #7dd3fc;
+      padding: 0 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .more:hover { text-decoration: underline; }
+
+    /* --- Compact mini calendar. --- */
+    .mini {
+      display: grid;
+      grid-template-columns: repeat(7, 30px);
+      gap: 2px;
+      padding: 10px 14px 14px 14px;
+      justify-content: center;
+    }
+    .mini .dow-mini {
+      text-align: center;
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #64748b;
+      padding: 4px 0;
+    }
+    .mini .cell {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #cbd5e1;
+      border-radius: 5px;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      position: relative;
+    }
+    .mini .cell:hover { background: rgba(226, 232, 240, 0.06); }
+    .mini .cell.other { color: #475569; }
+    .mini .cell.today { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; font-weight: 700; }
+    .mini .cell.selected {
+      background: #38bdf8;
+      color: #0b1120;
+      font-weight: 700;
+    }
+    .mini .cell.range {
+      background: rgba(56, 189, 248, 0.10);
+      color: #e2e8f0;
+    }
+    .mini .cell .ev-dot {
+      position: absolute;
+      bottom: 3px;
+      width: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: #38bdf8;
+    }
+    .mini .cell.selected .ev-dot,
+    .mini .cell.today .ev-dot { background: currentColor; opacity: 0.7; }
+
+    /* --- Week view (hour grid). --- */
+    .week {
+      display: grid;
+      grid-template-columns: 56px repeat(7, 1fr);
+      background: #273447;
+      gap: 1px;
+    }
+    .week .corner { background: #1a2537; padding: 8px 6px; }
+    .week .wk-dow {
+      background: #1a2537;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .week .wk-dow .d {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 14px;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+    .week .wk-dow .dn {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.06em;
+    }
+    .week .wk-dow.today .d { color: #7dd3fc; }
+    .week .wk-dow.today .dn { color: #7dd3fc; }
+
+    .week .time-col,
+    .week .col {
+      background: #1e293b;
+    }
+    .week .time-col {
+      padding: 0;
+      position: relative;
+    }
+    .week .time-col .hr {
+      height: 48px;
+      padding-right: 8px;
+      text-align: right;
+      color: #64748b;
+      font-size: 10.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      position: relative;
+      top: -6px;
+    }
+    .week .col {
+      position: relative;
+      padding: 0;
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 47px,
+        #273447 47px,
+        #273447 48px
+      );
+      min-height: calc(48px * 10); /* 10 visible hours */
+    }
+    .week .col.today { background-color: #1b2537; }
+
+    /* Event blocks positioned in hour grid (top/height as px). */
+    .week .w-ev {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      background: rgba(56, 189, 248, 0.16);
+      color: #e0f2fe;
+      border-left: 2px solid #38bdf8;
+      line-height: 1.3;
+      overflow: hidden;
+    }
+    .week .w-ev .title { font-weight: 600; color: #f0f9ff; }
+    .week .w-ev .meta {
+      color: #7dd3fc;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      margin-top: 1px;
+    }
+    .week .w-ev.green { background: rgba(74, 222, 128, 0.16);  border-left-color: #4ade80; color: #dcfce7; }
+    .week .w-ev.green .meta  { color: #86efac; }
+    .week .w-ev.amber { background: rgba(251, 191, 36, 0.16);  border-left-color: #fbbf24; color: #fef3c7; }
+    .week .w-ev.amber .meta  { color: #fcd34d; }
+    .week .w-ev.purple { background: rgba(192, 132, 252, 0.16); border-left-color: #c084fc; color: #f3e8ff; }
+    .week .w-ev.purple .meta { color: #d8b4fe; }
+    .week .w-ev.red   { background: rgba(248, 113, 113, 0.16); border-left-color: #f87171; color: #fee2e2; }
+    .week .w-ev.red .meta    { color: #fca5a5; }
+
+    /* Current-time indicator. */
+    .week .now-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #f87171;
+      z-index: 2;
+    }
+    .week .now-line::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f87171;
+    }
+
+    /* Split: month (left) + mini + upcoming (right). */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 1px;
+      background: #273447;
+    }
+    .split > * { background: #1e293b; }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar .legend {
+      padding: 10px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid #273447;
+    }
+    .sidebar .upcoming {
+      padding: 10px 14px;
+      border-top: 1px solid #273447;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .sidebar .upcoming .item {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #273447;
+    }
+    .sidebar .upcoming .item:last-child { border-bottom: none; }
+    .sidebar .upcoming .date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .sidebar .upcoming .date .d {
+      font-size: 18px;
+      color: #e2e8f0;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .sidebar .upcoming .date .m {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .sidebar .upcoming .item.today .d { color: #7dd3fc; }
+    .sidebar .upcoming .item.today .m { color: #7dd3fc; }
+    .sidebar .upcoming .body .title {
+      font-size: 12.5px;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .sidebar .upcoming .body .sub {
+      font-size: 11.5px;
+      color: #94a3b8;
+      margin-top: 2px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .sidebar .upcoming .body .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #38bdf8;
+      margin-right: 6px;
+      vertical-align: 1px;
+    }
+    .sidebar .upcoming .body .dot.green  { background: #4ade80; }
+    .sidebar .upcoming .body .dot.amber  { background: #fbbf24; }
+    .sidebar .upcoming .body .dot.purple { background: #c084fc; }
+    .sidebar .upcoming .body .dot.red    { background: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Month view with events and multi-day span. -->
+    <div>
+      <div class="caption">Month — events, multi-day span, today</div>
+      <div class="card">
+        <div class="cal-head">
+          <div class="month">
+            <button class="iconbtn" aria-label="Previous month">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <span class="lbl">April <span class="year">2026</span></span>
+            <button class="iconbtn" aria-label="Next month">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </button>
+            <button class="today">Today</button>
+          </div>
+          <span class="spacer"></span>
+          <div class="seg">
+            <button>Day</button>
+            <button>Week</button>
+            <button class="active">Month</button>
+          </div>
+        </div>
+
+        <div class="month-grid">
+          <div class="dow">Mon</div>
+          <div class="dow">Tue</div>
+          <div class="dow">Wed</div>
+          <div class="dow">Thu</div>
+          <div class="dow today">Fri</div>
+          <div class="dow weekend">Sat</div>
+          <div class="dow weekend">Sun</div>
+
+          <!-- Week 1 (Mar 30 – Apr 5) -->
+          <div class="day other"><span class="num">30</span></div>
+          <div class="day other"><span class="num">31</span></div>
+          <div class="day"><span class="num">1</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day"><span class="num">2</span>
+            <div class="ev sky"><span class="time">14:30</span> Design review</div>
+            <div class="ev purple"><span class="time">16:00</span> 1:1 Avery</div>
+          </div>
+          <div class="day"><span class="num">3</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day weekend"><span class="num">4</span></div>
+          <div class="day weekend"><span class="num">5</span></div>
+
+          <!-- Week 2 (Apr 6–12) with a Tue–Thu multi-day span -->
+          <div class="day"><span class="num">6</span>
+            <div class="ev amber"><span class="time">10:30</span> Q2 kickoff</div>
+          </div>
+          <div class="day"><span class="num">7</span>
+            <div class="ev span left">Conference: Render 2026</div>
+          </div>
+          <div class="day"><span class="num">8</span>
+            <div class="ev span mid">&nbsp;</div>
+          </div>
+          <div class="day"><span class="num">9</span>
+            <div class="ev span right">&nbsp;</div>
+          </div>
+          <div class="day"><span class="num">10</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+            <div class="ev sky"><span class="time">15:00</span> Design critique</div>
+          </div>
+          <div class="day weekend"><span class="num">11</span></div>
+          <div class="day weekend"><span class="num">12</span>
+            <div class="ev red"><span class="time">19:00</span> On-call start</div>
+          </div>
+
+          <!-- Week 3 (Apr 13–19) -->
+          <div class="day"><span class="num">13</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+            <div class="ev purple"><span class="time">11:00</span> Skip-level</div>
+          </div>
+          <div class="day"><span class="num">14</span>
+            <div class="ev sky"><span class="time">13:00</span> Release train</div>
+          </div>
+          <div class="day"><span class="num">15</span>
+            <div class="ev amber"><span class="time">09:30</span> Board prep</div>
+            <div class="ev"><span class="time">11:00</span> Widget walk-through</div>
+            <div class="more">+2 more</div>
+          </div>
+          <div class="day"><span class="num">16</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day"><span class="num">17</span>
+            <div class="ev purple"><span class="time">16:00</span> 1:1 Avery</div>
+          </div>
+          <div class="day weekend"><span class="num">18</span></div>
+          <div class="day weekend"><span class="num">19</span></div>
+
+          <!-- Week 4 (Apr 20–26) -->
+          <div class="day"><span class="num">20</span>
+            <div class="ev sky"><span class="time">10:00</span> Pricing sync</div>
+          </div>
+          <div class="day"><span class="num">21</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day"><span class="num">22</span>
+            <div class="ev amber"><span class="time">14:00</span> Q1 retro</div>
+          </div>
+          <div class="day"><span class="num">23</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day today selected"><span class="num">24</span>
+            <div class="ev sky"><span class="time">10:30</span> Elegance release</div>
+            <div class="ev purple"><span class="time">14:00</span> Customer: Nimbus</div>
+            <div class="ev red"><span class="time">17:00</span> On-call handoff</div>
+          </div>
+          <div class="day weekend"><span class="num">25</span></div>
+          <div class="day weekend"><span class="num">26</span>
+            <div class="ev amber"><span class="time">–</span> Travel day</div>
+          </div>
+
+          <!-- Week 5 (Apr 27–May 3) -->
+          <div class="day"><span class="num">27</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+          </div>
+          <div class="day"><span class="num">28</span>
+            <div class="ev sky"><span class="time">11:30</span> Architecture review</div>
+          </div>
+          <div class="day"><span class="num">29</span>
+            <div class="ev purple"><span class="time">16:00</span> 1:1 Avery</div>
+          </div>
+          <div class="day"><span class="num">30</span>
+            <div class="ev green"><span class="time">09:00</span> Standup</div>
+            <div class="ev amber"><span class="time">14:30</span> Budget close</div>
+          </div>
+          <div class="day other"><span class="num">1</span></div>
+          <div class="day weekend other"><span class="num">2</span></div>
+          <div class="day weekend other"><span class="num">3</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Week view with hour grid and current-time indicator. -->
+    <div>
+      <div class="caption">Week — hour grid with events &amp; current-time line</div>
+      <div class="card">
+        <div class="cal-head">
+          <div class="month">
+            <button class="iconbtn" aria-label="Previous week">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <span class="lbl">Apr 20 – 26 <span class="year">2026</span></span>
+            <button class="iconbtn" aria-label="Next week">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </button>
+            <button class="today">Today</button>
+          </div>
+          <span class="spacer"></span>
+          <div class="seg">
+            <button>Day</button>
+            <button class="active">Week</button>
+            <button>Month</button>
+          </div>
+        </div>
+
+        <div class="week">
+          <div class="corner"></div>
+          <div class="wk-dow"><span class="dn">Mon</span><span class="d">20</span></div>
+          <div class="wk-dow"><span class="dn">Tue</span><span class="d">21</span></div>
+          <div class="wk-dow"><span class="dn">Wed</span><span class="d">22</span></div>
+          <div class="wk-dow"><span class="dn">Thu</span><span class="d">23</span></div>
+          <div class="wk-dow today"><span class="dn">Fri</span><span class="d">24</span></div>
+          <div class="wk-dow"><span class="dn">Sat</span><span class="d">25</span></div>
+          <div class="wk-dow"><span class="dn">Sun</span><span class="d">26</span></div>
+
+          <!-- Time column (8 AM .. 6 PM = 10 hours, 48px each). -->
+          <div class="time-col">
+            <div class="hr">8 AM</div>
+            <div class="hr">9</div>
+            <div class="hr">10</div>
+            <div class="hr">11</div>
+            <div class="hr">12 PM</div>
+            <div class="hr">1</div>
+            <div class="hr">2</div>
+            <div class="hr">3</div>
+            <div class="hr">4</div>
+            <div class="hr">5</div>
+          </div>
+
+          <!-- Mon -->
+          <div class="col">
+            <div class="w-ev" style="top: 96px; height: 44px;">
+              <div class="title">Pricing sync</div>
+              <div class="meta">10:00 – 10:45</div>
+            </div>
+            <div class="w-ev green" style="top: 216px; height: 42px;">
+              <div class="title">Lunch + pairing</div>
+              <div class="meta">12:30 – 13:15</div>
+            </div>
+          </div>
+
+          <!-- Tue -->
+          <div class="col">
+            <div class="w-ev green" style="top: 48px; height: 30px;">
+              <div class="title">Standup</div>
+              <div class="meta">9:00 – 9:30</div>
+            </div>
+            <div class="w-ev purple" style="top: 144px; height: 60px;">
+              <div class="title">1:1 · Mori</div>
+              <div class="meta">11:00 – 12:00</div>
+            </div>
+          </div>
+
+          <!-- Wed -->
+          <div class="col">
+            <div class="w-ev amber" style="top: 288px; height: 58px;">
+              <div class="title">Q1 retro</div>
+              <div class="meta">14:00 – 15:00</div>
+            </div>
+          </div>
+
+          <!-- Thu -->
+          <div class="col">
+            <div class="w-ev green" style="top: 48px; height: 30px;">
+              <div class="title">Standup</div>
+              <div class="meta">9:00 – 9:30</div>
+            </div>
+            <div class="w-ev" style="top: 168px; height: 90px;">
+              <div class="title">Design review · Calendar</div>
+              <div class="meta">11:30 – 13:00</div>
+            </div>
+            <div class="w-ev red" style="top: 384px; height: 48px;">
+              <div class="title">On-call handoff</div>
+              <div class="meta">16:00 – 16:50</div>
+            </div>
+          </div>
+
+          <!-- Fri (today) with now line -->
+          <div class="col today">
+            <div class="w-ev" style="top: 120px; height: 60px;">
+              <div class="title">Elegance release</div>
+              <div class="meta">10:30 – 11:30</div>
+            </div>
+            <div class="w-ev purple" style="top: 288px; height: 90px;">
+              <div class="title">Customer: Nimbus demo</div>
+              <div class="meta">14:00 – 15:30</div>
+            </div>
+            <div class="w-ev red" style="top: 432px; height: 36px;">
+              <div class="title">On-call handoff</div>
+              <div class="meta">17:00 – 17:30</div>
+            </div>
+            <!-- Current time: ~10:45 -->
+            <div class="now-line" style="top: 132px;"></div>
+          </div>
+
+          <!-- Sat -->
+          <div class="col"></div>
+
+          <!-- Sun -->
+          <div class="col">
+            <div class="w-ev amber" style="top: 72px; height: 300px; opacity: 0.75;">
+              <div class="title">Travel day</div>
+              <div class="meta">All-day</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Month (mini) + upcoming feed side-by-side. -->
+    <div>
+      <div class="caption">Mini + upcoming — sidebar pair</div>
+      <div class="card split">
+        <div class="sidebar" style="grid-row: 1;">
+          <div class="legend">Jump to date</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 14px 6px 14px;">
+            <button class="iconbtn" style="width: 22px; height: 22px; color:#94a3b8;" aria-label="Prev">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <span style="font-size:12.5px; color:#cbd5e1; font-weight:600;">April 2026</span>
+            <button class="iconbtn" style="width: 22px; height: 22px; color:#94a3b8;" aria-label="Next">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="mini">
+            <div class="dow-mini">M</div><div class="dow-mini">T</div><div class="dow-mini">W</div>
+            <div class="dow-mini">T</div><div class="dow-mini">F</div><div class="dow-mini">S</div><div class="dow-mini">S</div>
+
+            <div class="cell other">30</div><div class="cell other">31</div>
+            <div class="cell">1<span class="ev-dot"></span></div>
+            <div class="cell">2<span class="ev-dot"></span></div>
+            <div class="cell">3<span class="ev-dot"></span></div>
+            <div class="cell other">4</div><div class="cell other">5</div>
+
+            <div class="cell">6<span class="ev-dot"></span></div>
+            <div class="cell">7<span class="ev-dot"></span></div>
+            <div class="cell">8<span class="ev-dot"></span></div>
+            <div class="cell">9<span class="ev-dot"></span></div>
+            <div class="cell">10<span class="ev-dot"></span></div>
+            <div class="cell other">11</div><div class="cell other">12</div>
+
+            <div class="cell">13<span class="ev-dot"></span></div>
+            <div class="cell">14<span class="ev-dot"></span></div>
+            <div class="cell">15<span class="ev-dot"></span></div>
+            <div class="cell">16<span class="ev-dot"></span></div>
+            <div class="cell">17<span class="ev-dot"></span></div>
+            <div class="cell other">18</div><div class="cell other">19</div>
+
+            <div class="cell range">20<span class="ev-dot"></span></div>
+            <div class="cell range">21<span class="ev-dot"></span></div>
+            <div class="cell range">22<span class="ev-dot"></span></div>
+            <div class="cell range">23<span class="ev-dot"></span></div>
+            <div class="cell today selected">24<span class="ev-dot"></span></div>
+            <div class="cell other">25</div>
+            <div class="cell other">26<span class="ev-dot"></span></div>
+
+            <div class="cell">27<span class="ev-dot"></span></div>
+            <div class="cell">28<span class="ev-dot"></span></div>
+            <div class="cell">29<span class="ev-dot"></span></div>
+            <div class="cell">30<span class="ev-dot"></span></div>
+            <div class="cell other">1</div>
+            <div class="cell other">2</div>
+            <div class="cell other">3</div>
+          </div>
+
+          <div class="upcoming">
+            <div class="legend" style="padding: 0 0 8px 0; border: none;">Upcoming</div>
+
+            <div class="item today">
+              <div class="date"><span class="d">24</span><span class="m">Fri</span></div>
+              <div class="body">
+                <div class="title"><span class="dot"></span>Elegance release</div>
+                <div class="sub">10:30 – 11:30</div>
+              </div>
+            </div>
+            <div class="item today">
+              <div class="date"><span class="d">24</span><span class="m">Fri</span></div>
+              <div class="body">
+                <div class="title"><span class="dot purple"></span>Customer: Nimbus demo</div>
+                <div class="sub">14:00 – 15:30</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="date"><span class="d">27</span><span class="m">Mon</span></div>
+              <div class="body">
+                <div class="title"><span class="dot green"></span>Standup</div>
+                <div class="sub">09:00 – 09:30</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="date"><span class="d">28</span><span class="m">Tue</span></div>
+              <div class="body">
+                <div class="title"><span class="dot"></span>Architecture review</div>
+                <div class="sub">11:30 – 12:30</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="date"><span class="d">30</span><span class="m">Thu</span></div>
+              <div class="body">
+                <div class="title"><span class="dot amber"></span>Budget close</div>
+                <div class="sub">14:30 – 15:15</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dummy content on the "main" side of the split. -->
+        <div style="padding: 14px 16px; grid-row: 1; grid-column: 1;">
+          <div class="cal-head" style="border-radius: 8px; border: 1px solid #273447; background: #172033; margin-bottom: 12px;">
+            <div class="month">
+              <span class="lbl">Friday <span class="year">April 24</span></span>
+            </div>
+            <span class="spacer"></span>
+            <div class="seg">
+              <button class="active">Day</button>
+              <button>Week</button>
+              <button>Month</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 56px 1fr; gap: 2px; background: #273447;">
+            <div style="background:#1e293b; padding: 8px 8px; color:#64748b; font-size: 10.5px; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; text-align:right;">
+              <div style="height: 44px;">09 AM</div>
+              <div style="height: 44px;">10</div>
+              <div style="height: 44px;">11</div>
+              <div style="height: 44px;">12 PM</div>
+              <div style="height: 44px;">1</div>
+              <div style="height: 44px;">2</div>
+              <div style="height: 44px;">3</div>
+              <div style="height: 44px;">4</div>
+              <div style="height: 44px;">5</div>
+            </div>
+            <div style="background:#1b2537; position: relative; min-height: 396px;
+                        background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, #273447 43px, #273447 44px);">
+              <div class="w-ev" style="position:absolute; left:6px; right:10px; top: 66px; height: 60px;
+                padding: 5px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.16);
+                color:#e0f2fe; border-left: 2px solid #38bdf8;">
+                <div style="font-weight:600; color:#f0f9ff;">Elegance release</div>
+                <div style="color:#7dd3fc; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 10.5px; margin-top: 1px;">10:30 – 11:30 · #release</div>
+              </div>
+              <div class="w-ev" style="position:absolute; left:6px; right:10px; top: 220px; height: 88px;
+                padding: 5px 8px; border-radius: 4px; background: rgba(192, 132, 252, 0.16);
+                color:#f3e8ff; border-left: 2px solid #c084fc;">
+                <div style="font-weight:600;">Customer: Nimbus demo</div>
+                <div style="color:#d8b4fe; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 10.5px; margin-top: 1px;">14:00 – 15:30 · Google Meet</div>
+              </div>
+              <div class="w-ev" style="position:absolute; left:6px; right:10px; top: 352px; height: 36px;
+                padding: 5px 8px; border-radius: 4px; background: rgba(248, 113, 113, 0.16);
+                color:#fee2e2; border-left: 2px solid #f87171;">
+                <div style="font-weight:600;">On-call handoff</div>
+                <div style="color:#fca5a5; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 10.5px; margin-top: 1px;">17:00 – 17:30</div>
+              </div>
+              <div style="position:absolute; left:0; right:0; top: 81px; height: 2px; background: #f87171; z-index: 2;">
+                <span style="position:absolute; left:-4px; top:-3px; width: 8px; height: 8px; border-radius: 999px; background: #f87171;"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CodeBlock (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    /* Outer panel — slightly deeper than card. */
+    .block {
+      position: relative;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, 'DejaVu Sans Mono', monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    /* Header: language label + copy. */
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px 6px 14px;
+      background: #111a2e;
+      border-bottom: 1px solid #334155;
+      font-family: inherit;
+    }
+    .lang {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+    }
+    .copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .copy:hover { border-color: #475569; color: #e2e8f0; }
+
+    /* Code area: gutter + scrollable code. */
+    .code {
+      display: flex;
+      padding: 10px 0;
+    }
+    .gutter {
+      flex: none;
+      padding: 0 12px 0 14px;
+      color: #475569;
+      text-align: right;
+      user-select: none;
+      white-space: pre;
+      border-right: 1px solid #1e293b;
+    }
+    .lines {
+      flex: 1;
+      padding: 0 14px;
+      white-space: pre;
+      overflow-x: auto;
+      color: #e2e8f0;
+    }
+
+    .line { display: block; }
+    .line.hl { background: rgba(251, 191, 36, 0.10); box-shadow: 4px 0 0 #d97706 inset; margin: 0 -14px; padding: 0 14px; }
+
+    /* Minimal, palette-coherent token coloring. */
+    .kw { color: #c084fc; }          /* keywords (purple) */
+    .fn  { color: #38bdf8; }          /* function names (sky) */
+    .ty { color: #4ade80; }           /* types (success green) */
+    .str { color: #fbbf24; }          /* string literals (warning) */
+    .num { color: #f87171; }          /* numeric (danger) */
+    .cm { color: #64748b; font-style: italic; } /* comments */
+    .pn { color: #94a3b8; }           /* punctuation */
+
+    /* Variant: inline (no chrome, no gutter, no copy). */
+    .inline-code {
+      display: inline;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+
+    .prose {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Rust snippet with line numbers, language badge, copy, highlighted line. -->
+    <div>
+      <div class="caption">Code block — Rust, with line numbers + highlighted line</div>
+      <div class="block">
+        <div class="head">
+          <span class="lang">Rust</span>
+          <button class="copy" aria-label="Copy code">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+        <div class="code">
+          <div class="gutter">1
+2
+3
+4
+5
+6
+7
+8</div>
+<div class="lines"><span class="line"><span class="kw">use</span> <span class="ty">elegance</span><span class="pn">::{</span><span class="ty">Callout</span><span class="pn">,</span> <span class="ty">CalloutTone</span><span class="pn">};</span></span>
+<span class="line"></span>
+<span class="line"><span class="kw">pub fn</span> <span class="fn">banner</span><span class="pn">(</span>ui<span class="pn">:</span> &<span class="kw">mut</span> <span class="ty">egui</span><span class="pn">::</span><span class="ty">Ui</span><span class="pn">)</span> <span class="pn">{</span></span>
+<span class="line hl">    <span class="ty">Callout</span><span class="pn">::</span><span class="fn">new</span><span class="pn">(</span><span class="ty">CalloutTone</span><span class="pn">::</span>Warning<span class="pn">)</span></span>
+<span class="line">        <span class="pn">.</span><span class="fn">title</span><span class="pn">(</span><span class="str">"Unsaved changes."</span><span class="pn">)</span></span>
+<span class="line">        <span class="pn">.</span><span class="fn">body</span><span class="pn">(</span><span class="str">"You have 3 edits."</span><span class="pn">)</span></span>
+<span class="line">        <span class="pn">.</span><span class="fn">show</span><span class="pn">(</span>ui<span class="pn">,</span> <span class="pn">|</span>_<span class="pn">|</span> <span class="pn">{});</span></span>
+<span class="line"><span class="pn">}</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shell / no language badge, no line numbers, tighter. -->
+    <div>
+      <div class="caption">Code block — shell, compact</div>
+      <div class="block">
+        <div class="head">
+          <span class="lang">Shell</span>
+          <button class="copy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+        <div class="code">
+<div class="lines" style="padding:0 14px;"><span class="line"><span class="cm"># Regenerate every widget's snapshot baseline.</span></span>
+<span class="line"><span class="pn">$</span> <span class="fn">UPDATE_SNAPSHOTS</span><span class="pn">=</span><span class="str">true</span> cargo test <span class="pn">--</span>test visual</span>
+<span class="line"><span class="cm">running 72 tests</span></span>
+<span class="line"><span class="ty">test result</span><span class="pn">:</span> <span class="ty">ok</span><span class="pn">.</span> <span class="num">72</span> passed<span class="pn">;</span> <span class="num">0</span> failed</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error output style. -->
+    <div>
+      <div class="caption">Code block — error output (no copy)</div>
+      <div class="block">
+        <div class="code">
+<div class="lines" style="padding:12px 14px;"><span class="line"><span class="num">error[E0432]</span><span class="pn">:</span> unresolved import <span class="str">`elegance::Callout`</span></span>
+<span class="line">  <span class="pn">--&gt;</span> src<span class="pn">/</span>main.rs<span class="pn">:</span><span class="num">3</span><span class="pn">:</span><span class="num">5</span></span>
+<span class="line"> <span class="pn">|</span></span>
+<span class="line"><span class="num">3</span> <span class="pn">|</span> <span class="kw">use</span> elegance<span class="pn">::</span><span class="ty">Callout</span><span class="pn">;</span></span>
+<span class="line"> <span class="pn">|</span>     <span class="num">^^^^^^^^^^^^^^^^^^</span> no <span class="str">`Callout`</span> in the root</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inline code showcase. -->
+    <div>
+      <div class="caption">Inline variant</div>
+      <div class="prose">
+        Install with <span class="inline-code">cargo add elegance</span>, then call
+        <span class="inline-code">Theme::slate().install(ctx)</span> once at startup.
+        The <span class="inline-code">Callout::new(...)</span> widget lives in the
+        <span class="inline-code">elegance::callout</span> module.
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

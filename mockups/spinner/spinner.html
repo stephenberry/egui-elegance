@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Spinner (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 760px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+
+    /* --- Ring spinner (sweeping arc on a faint track). --- */
+    .ring {
+      display: inline-block;
+      vertical-align: middle;
+      width: var(--size, 20px);
+      height: var(--size, 20px);
+      border-radius: 999px;
+      border: var(--thick, 2px) solid rgba(148, 163, 184, 0.22);
+      border-top-color: var(--ring-color, #38bdf8);
+      animation: spin 0.9s linear infinite;
+      box-sizing: border-box;
+    }
+    .ring.xs { --size: 12px; --thick: 1.5px; }
+    .ring.sm { --size: 16px; --thick: 2px; }
+    .ring.md { --size: 22px; --thick: 2.5px; }
+    .ring.lg { --size: 32px; --thick: 3px; }
+    .ring.xl { --size: 48px; --thick: 4px; }
+    .ring.green  { --ring-color: #4ade80; }
+    .ring.amber  { --ring-color: #fbbf24; }
+    .ring.red    { --ring-color: #f87171; }
+    .ring.purple { --ring-color: #c084fc; }
+    .ring.white  { --ring-color: #e2e8f0; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* --- Dots spinner (three bouncing). --- */
+    .dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      vertical-align: middle;
+    }
+    .dots .d {
+      width: var(--dot, 5px);
+      height: var(--dot, 5px);
+      border-radius: 999px;
+      background: var(--ring-color, #94a3b8);
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots .d:nth-child(2) { animation-delay: 0.15s; }
+    .dots .d:nth-child(3) { animation-delay: 0.30s; }
+    .dots.lg { --dot: 7px; gap: 5px; }
+    .dots.md { --dot: 6px; gap: 4px; }
+    .dots.sm { --dot: 5px; gap: 3px; }
+    .dots.sky { --ring-color: #38bdf8; }
+    .dots.green { --ring-color: #4ade80; }
+    .dots.amber { --ring-color: #fbbf24; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+      30%           { transform: translateY(-4px); opacity: 1; }
+    }
+
+    /* --- Pulsing bar (indeterminate). --- */
+    .bar {
+      position: relative;
+      width: 120px;
+      height: 4px;
+      background: #273447;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar .seg {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 40%;
+      background: linear-gradient(to right, #38bdf8, #7dd3fc);
+      border-radius: 999px;
+      animation: sweep 1.6s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { left: -40%; }
+      60%  { left: 100%; }
+      100% { left: 100%; }
+    }
+
+    /* --- Square bounce (blocks). --- */
+    .blocks {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      height: 20px;
+    }
+    .blocks .b {
+      width: 3.5px;
+      background: #38bdf8;
+      border-radius: 1px;
+      animation: wave 1s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
+    .blocks .b:nth-child(1) { animation-delay: 0.00s; height: 10px; }
+    .blocks .b:nth-child(2) { animation-delay: 0.10s; height: 14px; }
+    .blocks .b:nth-child(3) { animation-delay: 0.20s; height: 18px; }
+    .blocks .b:nth-child(4) { animation-delay: 0.30s; height: 14px; }
+    .blocks .b:nth-child(5) { animation-delay: 0.40s; height: 10px; }
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.55); opacity: 0.55; }
+      50%      { transform: scaleY(1);    opacity: 1; }
+    }
+
+    /* --- Dual-ring with center percentage. --- */
+    .donut {
+      position: relative;
+      width: 64px;
+      height: 64px;
+    }
+    .donut svg { display: block; transform: rotate(-90deg); }
+    .donut .track { stroke: #273447; fill: none; stroke-width: 6; }
+    .donut .arc {
+      stroke: #38bdf8;
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 176;
+      stroke-dashoffset: 70;
+      animation: rotate 3s linear infinite;
+      transform-origin: center;
+    }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+    .donut .pct {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Layout helpers. --- */
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 62px;
+    }
+    .cell .lbl {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    /* --- Inline usage (in text). --- */
+    .inline-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #273447;
+      font-size: 13px;
+    }
+    .inline-row:last-child { border-bottom: none; }
+    .inline-row .label {
+      color: #cbd5e1;
+      flex: 1;
+    }
+    .inline-row .status {
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+    }
+    .inline-row .status.green { color: #86efac; }
+    .inline-row .status.amber { color: #fcd34d; }
+    .inline-row .status.red   { color: #fca5a5; }
+
+    /* --- Buttons with spinners. --- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 13px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      background: transparent;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: #475569; background: rgba(226, 232, 240, 0.04); }
+    .btn.primary {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      color: #0b1120;
+    }
+    .btn.primary:hover { background: #7dd3fc; border-color: #7dd3fc; }
+    .btn.danger {
+      background: #f87171;
+      border-color: #f87171;
+      color: #0b1120;
+    }
+    .btn.loading { cursor: wait; pointer-events: none; opacity: 0.85; }
+
+    /* --- Page-level loading cards. --- */
+    .loader-card {
+      background: #172033;
+      border: 1px solid #273447;
+      border-radius: 8px;
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .loader-card .hd {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .loader-card .sub {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+      max-width: 320px;
+    }
+    .loader-card .cancel {
+      margin-top: 6px;
+      font-size: 12.5px;
+      color: #94a3b8;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    .loader-card .cancel:hover { color: #e2e8f0; text-decoration: underline; }
+
+    /* --- Step list loader (multi-step). --- */
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      column-gap: 12px;
+      align-items: center;
+      font-size: 12.5px;
+    }
+    .step .glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+    }
+    .step.done .glyph { color: #4ade80; }
+    .step.active .glyph {
+      /* Spinner slot uses the ring CSS. */
+    }
+    .step.pending .glyph {
+      width: 14px; height: 14px; border-radius: 999px;
+      border: 1px solid #475569;
+      margin: 2px;
+    }
+    .step .name { color: #e2e8f0; }
+    .step.pending .name { color: #64748b; }
+    .step.done .name { color: #94a3b8; }
+    .step .time {
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Size and style showcase. -->
+    <div>
+      <div class="caption">Styles &amp; sizes</div>
+      <div class="card">
+        <div class="legend">Ring</div>
+        <div class="row" style="margin-bottom: 22px;">
+          <div class="cell"><span class="ring xs"></span><span class="lbl">xs</span></div>
+          <div class="cell"><span class="ring sm"></span><span class="lbl">sm</span></div>
+          <div class="cell"><span class="ring md"></span><span class="lbl">md</span></div>
+          <div class="cell"><span class="ring lg"></span><span class="lbl">lg</span></div>
+          <div class="cell"><span class="ring xl"></span><span class="lbl">xl</span></div>
+          <div class="cell"><span class="ring md green"></span><span class="lbl">green</span></div>
+          <div class="cell"><span class="ring md amber"></span><span class="lbl">amber</span></div>
+          <div class="cell"><span class="ring md red"></span><span class="lbl">red</span></div>
+          <div class="cell"><span class="ring md purple"></span><span class="lbl">purple</span></div>
+        </div>
+
+        <div class="legend">Dots</div>
+        <div class="row" style="margin-bottom: 22px;">
+          <div class="cell"><span class="dots sm"><span class="d"></span><span class="d"></span><span class="d"></span></span><span class="lbl">sm</span></div>
+          <div class="cell"><span class="dots md sky"><span class="d"></span><span class="d"></span><span class="d"></span></span><span class="lbl">md · sky</span></div>
+          <div class="cell"><span class="dots lg green"><span class="d"></span><span class="d"></span><span class="d"></span></span><span class="lbl">lg · green</span></div>
+          <div class="cell"><span class="dots md amber"><span class="d"></span><span class="d"></span><span class="d"></span></span><span class="lbl">md · amber</span></div>
+        </div>
+
+        <div class="legend">Pulsing bar &amp; bars</div>
+        <div class="row" style="margin-bottom: 22px;">
+          <div class="cell"><div class="bar"><div class="seg"></div></div><span class="lbl">sweep</span></div>
+          <div class="cell"><span class="blocks"><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span><span class="b"></span></span><span class="lbl">blocks</span></div>
+        </div>
+
+        <div class="legend">Dual-ring with percent</div>
+        <div class="row">
+          <div class="cell">
+            <div class="donut">
+              <svg width="64" height="64" viewBox="0 0 64 64">
+                <circle class="track" cx="32" cy="32" r="28"/>
+                <circle class="arc" cx="32" cy="32" r="28"/>
+              </svg>
+              <span class="pct">42%</span>
+            </div>
+            <span class="lbl">determinate</span>
+          </div>
+          <div class="cell">
+            <div class="donut">
+              <svg width="64" height="64" viewBox="0 0 64 64">
+                <circle class="track" cx="32" cy="32" r="28"/>
+                <circle class="arc" cx="32" cy="32" r="28" style="stroke-dashoffset: 120;"/>
+              </svg>
+              <span class="pct" style="color:#94a3b8;">…</span>
+            </div>
+            <span class="lbl">indeterminate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-context: inline rows with spinners. -->
+    <div>
+      <div class="caption">Inline — in lists &amp; status rows</div>
+      <div class="card">
+        <div class="inline-row">
+          <span class="ring sm"></span>
+          <span class="label">Fetching commits from <code style="font-family: ui-monospace,SFMono-Regular,Menlo,monospace; color:#fbbf24;">main</code>…</span>
+          <span class="status">2.1 MB received</span>
+        </div>
+        <div class="inline-row">
+          <span class="ring sm green"></span>
+          <span class="label">Running test suite</span>
+          <span class="status">42/128</span>
+        </div>
+        <div class="inline-row">
+          <span class="ring sm amber"></span>
+          <span class="label">Waiting on upstream service…</span>
+          <span class="status amber">retry in 3s</span>
+        </div>
+        <div class="inline-row">
+          <span class="dots sm sky"><span class="d"></span><span class="d"></span><span class="d"></span></span>
+          <span class="label">Typing…</span>
+        </div>
+        <div class="inline-row">
+          <span style="width:14px; height:14px; border-radius:999px; background:#4ade80; display:inline-flex; align-items:center; justify-content:center; color:#0b1120;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <span class="label" style="color:#94a3b8;">Deploy complete</span>
+          <span class="status green">v2.3.1 · 1m 42s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons with spinners. -->
+    <div>
+      <div class="caption">Button states</div>
+      <div class="card">
+        <div style="display:flex; gap: 12px; flex-wrap: wrap; align-items:center;">
+          <button class="btn primary loading">
+            <span class="ring xs white"></span>
+            Saving…
+          </button>
+          <button class="btn primary">Save</button>
+          <button class="btn loading">
+            <span class="ring xs"></span>
+            Running query
+          </button>
+          <button class="btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Refresh
+          </button>
+          <button class="btn danger loading">
+            <span class="ring xs white"></span>
+            Deleting…
+          </button>
+          <button class="btn" disabled style="opacity: 0.6; cursor: not-allowed;">
+            <span class="dots sm sky"><span class="d"></span><span class="d"></span><span class="d"></span></span>
+            Verifying
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page-level loading cards. -->
+    <div>
+      <div class="caption">Page-level &amp; multi-step</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="loader-card">
+          <span class="ring lg"></span>
+          <div class="hd">Loading dashboard</div>
+          <div class="sub">
+            Fetching widgets, running saved queries, and warming up caches. This usually takes under 10 seconds.
+          </div>
+          <button class="cancel">Cancel</button>
+        </div>
+        <div class="loader-card">
+          <div class="donut" style="width: 56px; height: 56px;">
+            <svg width="56" height="56" viewBox="0 0 64 64">
+              <circle class="track" cx="32" cy="32" r="28"/>
+              <circle class="arc" cx="32" cy="32" r="28" style="stroke-dashoffset: 44;"/>
+            </svg>
+            <span class="pct">72%</span>
+          </div>
+          <div class="hd">Importing records</div>
+          <div class="sub">1.52M of 2.10M rows processed · 28s remaining</div>
+        </div>
+      </div>
+
+      <div style="height: 18px;"></div>
+
+      <div class="card">
+        <div class="legend">Multi-step operation</div>
+        <div class="step-list">
+          <div class="step done">
+            <span class="glyph">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+            <span class="name">Resolve dependencies</span>
+            <span class="time">0.8s</span>
+          </div>
+          <div class="step done">
+            <span class="glyph">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+            <span class="name">Compile workspace · 218 targets</span>
+            <span class="time">24.4s</span>
+          </div>
+          <div class="step active">
+            <span class="glyph"><span class="ring sm"></span></span>
+            <span class="name">Running test suite</span>
+            <span class="time" style="color:#7dd3fc;">42/128</span>
+          </div>
+          <div class="step pending">
+            <span class="glyph"></span>
+            <span class="name">Bundle assets</span>
+            <span class="time">—</span>
+          </div>
+          <div class="step pending">
+            <span class="glyph"></span>
+            <span class="name">Push artifacts</span>
+            <span class="time">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

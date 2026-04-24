@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>RangeSlider (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    /* --- Row header: label + current values. --- */
+    .row-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .row-head .label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+    .row-head .values {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      color: #cbd5e1;
+    }
+    .row-head .values .sep { color: #475569; margin: 0 4px; }
+
+    /* --- Slider track and fill. ---
+       --pad is the horizontal inset for the track (thumb-radius sized).
+       All children position along the USABLE width (100% - 2*--pad) offset
+       by --pad, so a pct of 1 lands exactly on the right end of the track. */
+    .slider {
+      --pad: 10px;
+      position: relative;
+      height: 28px;
+      padding: 0 var(--pad);
+      user-select: none;
+      touch-action: none;
+    }
+    .slider .track {
+      position: absolute;
+      left: var(--pad);
+      right: var(--pad);
+      top: 50%;
+      transform: translateY(-50%);
+      height: 4px;
+      background: #334155;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .slider.disabled .track { cursor: default; }
+
+    .slider .fill {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 4px;
+      background: #38bdf8;
+      border-radius: 999px;
+      pointer-events: none;
+      left:  calc(var(--low-pct, 0)  * (100% - 2 * var(--pad)) + var(--pad));
+      right: calc((1 - var(--high-pct, 1)) * (100% - 2 * var(--pad)) + var(--pad));
+    }
+
+    .slider .thumb {
+      position: absolute;
+      top: 50%;
+      left: calc(var(--pct, 0) * (100% - 2 * var(--pad)) + var(--pad));
+      width: 14px;
+      height: 14px;
+      background: #e2e8f0;
+      border: 1px solid #0f172a;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      cursor: grab;
+      z-index: 2;
+      transition: box-shadow 80ms, background-color 80ms;
+    }
+    .slider .thumb:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.22);
+    }
+    .slider .thumb.active {
+      background: #f1f5f9;
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.22);
+      cursor: grabbing;
+    }
+
+    /* --- Tick marks. --- */
+    .slider .tick {
+      position: absolute;
+      top: 50%;
+      left: calc(var(--pct, 0) * (100% - 2 * var(--pad)) + var(--pad));
+      width: 1px;
+      height: 8px;
+      background: #475569;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .slider .tick.on { background: #64748b; }
+    .slider .tick-label {
+      position: absolute;
+      top: calc(50% + 12px);
+      left: calc(var(--pct, 0) * (100% - 2 * var(--pad)) + var(--pad));
+      font-size: 10.5px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* --- Endpoints (min / max display). --- */
+    .endpoints {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+
+    /* --- Bubble (tooltip above active thumb). --- */
+    .slider .bubble {
+      position: absolute;
+      bottom: calc(50% + 13px);
+      left: calc(var(--pct, 0) * (100% - 2 * var(--pad)) + var(--pad));
+      transform: translateX(-50%);
+      background: #0b1120;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      line-height: 1.3;
+      pointer-events: none;
+      white-space: nowrap;
+      visibility: hidden;
+    }
+    .slider .bubble::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border: 4px solid transparent;
+      border-top-color: #0b1120;
+    }
+
+    /* --- Danger zone (end of track shaded red). --- */
+    .slider .zone {
+      position: absolute;
+      top: 50%;
+      height: 4px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      opacity: 0.55;
+      pointer-events: none;
+      left:  calc(var(--from-pct, 0) * (100% - 2 * var(--pad)) + var(--pad));
+      right: calc((1 - var(--to-pct, 1)) * (100% - 2 * var(--pad)) + var(--pad));
+    }
+    .slider .zone.amber { background: rgba(251, 191, 36, 0.45); }
+    .slider .zone.red { background: rgba(248, 113, 113, 0.55); }
+
+    /* --- Disabled. --- */
+    .slider.disabled .fill { background: #334155; }
+    .slider.disabled .thumb { background: #475569; border-color: #0a1020; cursor: not-allowed; }
+
+    /* --- Numeric inputs paired with slider. --- */
+    .pair {
+      display: grid;
+      grid-template-columns: 64px 1fr 64px;
+      gap: 12px;
+      align-items: center;
+    }
+    .num {
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #e2e8f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      text-align: right;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .num:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18); }
+
+    /* --- Stepper / unit (suffix). --- */
+    .unit-suffix {
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+
+    /* --- Slider variants spacing below row-head. --- */
+    .row + .row { margin-top: 34px; }
+    .row.paired + .row { margin-top: 26px; }
+
+    /* --- Filter-row (inline in facet). --- */
+    .facet {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #172033;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+    .facet .legend {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .facet .legend .count {
+      color: #64748b;
+      font-size: 11.5px;
+    }
+
+    .page-hint {
+      margin-top: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      font-style: italic;
+      line-height: 1.6;
+    }
+    .page-hint .kbd {
+      font-style: normal;
+      display: inline-block;
+      padding: 1px 5px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+      vertical-align: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Core: bordered card with multiple range sliders. -->
+    <div>
+      <div class="caption">Dual-handle ranges</div>
+      <div class="card">
+
+        <!-- Price: default. -->
+        <div class="row">
+          <div class="row-head">
+            <span class="label">Price</span>
+            <span class="values">$<span>24</span><span class="sep">–</span>$<span>118</span></span>
+          </div>
+          <div class="slider" data-min="0" data-max="200" data-step="1" data-low="24" data-high="118">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+          </div>
+          <div class="endpoints"><span>$0</span><span>$200</span></div>
+        </div>
+
+        <!-- Latency: with ticks and labels. -->
+        <div class="row">
+          <div class="row-head">
+            <span class="label">Latency target (ms)</span>
+            <span class="values"><span>120</span><span class="sep">–</span><span>340</span></span>
+          </div>
+          <div class="slider" data-min="0" data-max="500" data-step="10" data-low="120" data-high="340">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <span class="tick on"    style="--pct: 0;"></span>
+            <span class="tick on"    style="--pct: 0.2;"></span>
+            <span class="tick on"    style="--pct: 0.4;"></span>
+            <span class="tick"       style="--pct: 0.6;"></span>
+            <span class="tick"       style="--pct: 0.8;"></span>
+            <span class="tick"       style="--pct: 1;"></span>
+            <span class="tick-label" style="--pct: 0;">0</span>
+            <span class="tick-label" style="--pct: 0.2;">100</span>
+            <span class="tick-label" style="--pct: 0.4;">200</span>
+            <span class="tick-label" style="--pct: 0.6;">300</span>
+            <span class="tick-label" style="--pct: 0.8;">400</span>
+            <span class="tick-label" style="--pct: 1;">500</span>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+          </div>
+          <div style="height: 16px;"></div>
+        </div>
+
+        <!-- Active drag with bubble. -->
+        <div class="row">
+          <div class="row-head">
+            <span class="label">Volume</span>
+            <span class="values"><span>18</span><span class="sep">–</span><span>62</span> dB</span>
+          </div>
+          <div class="slider" data-min="0" data-max="100" data-step="1" data-low="18" data-high="62">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+            <div class="bubble">62 dB</div>
+          </div>
+          <div class="endpoints"><span>0 dB</span><span>100 dB</span></div>
+        </div>
+
+        <!-- Threshold zones (warn / danger). -->
+        <div class="row">
+          <div class="row-head">
+            <span class="label">CPU alert thresholds</span>
+            <span class="values"><span>55%</span><span class="sep">warn</span><span>82%</span><span class="sep">crit</span></span>
+          </div>
+          <div class="slider" data-min="0" data-max="100" data-step="1" data-low="55" data-high="82">
+            <div class="track"></div>
+            <div class="zone amber" data-from="low" data-to="high"></div>
+            <div class="zone red"   data-from="high" data-to="max"></div>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+          </div>
+          <div class="endpoints"><span>0%</span><span>100%</span></div>
+        </div>
+
+        <!-- Disabled. -->
+        <div class="row">
+          <div class="row-head">
+            <span class="label" style="color:#64748b;">Retention window (locked)</span>
+            <span class="values" style="color:#64748b;"><span>7</span><span class="sep">–</span><span>30</span> days</span>
+          </div>
+          <div class="slider disabled" style="--low-pct: 0.2; --high-pct: 0.86;">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <div class="thumb" style="--pct: 0.2;"></div>
+            <div class="thumb" style="--pct: 0.86;"></div>
+          </div>
+          <div class="endpoints"><span>1 day</span><span>90 days</span></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Paired numeric inputs (min / max). -->
+    <div>
+      <div class="caption">Paired with numeric inputs</div>
+      <div class="card">
+
+        <div class="row paired">
+          <div class="row-head">
+            <span class="label">Request duration</span>
+            <span class="values" style="color:#64748b;">ms</span>
+          </div>
+          <div class="pair">
+            <input class="num" value="120"/>
+            <div class="slider" style="--pad: 7px;" data-min="0" data-max="1000" data-step="10" data-low="120" data-high="340">
+              <div class="track"></div>
+              <div class="fill"></div>
+              <div class="thumb"></div>
+              <div class="thumb"></div>
+            </div>
+            <input class="num" value="340"/>
+          </div>
+        </div>
+
+        <div class="row paired">
+          <div class="row-head">
+            <span class="label">Replica count</span>
+            <span class="values" style="color:#64748b;">pods</span>
+          </div>
+          <div class="pair">
+            <input class="num" value="3"/>
+            <div class="slider" style="--pad: 7px;" data-min="0" data-max="20" data-step="1" data-low="3" data-high="12">
+              <div class="track"></div>
+              <div class="fill"></div>
+              <span class="tick on" style="--pct: 0;"></span>
+              <span class="tick on" style="--pct: 0.25;"></span>
+              <span class="tick"    style="--pct: 0.5;"></span>
+              <span class="tick"    style="--pct: 0.75;"></span>
+              <span class="tick"    style="--pct: 1;"></span>
+              <div class="thumb"></div>
+              <div class="thumb"></div>
+            </div>
+            <input class="num" value="12"/>
+          </div>
+        </div>
+
+        <div class="row paired">
+          <div class="row-head">
+            <span class="label">Discount range</span>
+            <span class="unit-suffix">%</span>
+          </div>
+          <div class="pair">
+            <input class="num" value="10"/>
+            <div class="slider" style="--pad: 7px;" data-min="0" data-max="100" data-step="1" data-low="10" data-high="40">
+              <div class="track"></div>
+              <div class="fill"></div>
+              <div class="thumb"></div>
+              <div class="thumb"></div>
+            </div>
+            <input class="num" value="40"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inside a facet sidebar. -->
+    <div>
+      <div class="caption">Inside a filter facet</div>
+      <div class="card" style="padding: 18px;">
+        <div class="facet">
+          <div class="legend">
+            <span>Price range</span>
+            <span class="count">1,248 matches</span>
+          </div>
+          <div class="slider" data-min="0" data-max="500" data-step="5" data-low="0" data-high="375">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+          </div>
+          <div class="endpoints"><span>$0</span><span>$500+</span></div>
+        </div>
+
+        <div style="height: 14px;"></div>
+
+        <div class="facet">
+          <div class="legend">
+            <span>Rating</span>
+            <span class="count">≥ <span data-rating-min>2</span> stars</span>
+          </div>
+          <div class="slider" data-min="0" data-max="5" data-step="1" data-low="2" data-high="5">
+            <div class="track"></div>
+            <div class="fill"></div>
+            <span class="tick on" style="--pct: 0;"></span>
+            <span class="tick on" style="--pct: 0.2;"></span>
+            <span class="tick on" style="--pct: 0.4;"></span>
+            <span class="tick on" style="--pct: 0.6;"></span>
+            <span class="tick on" style="--pct: 0.8;"></span>
+            <span class="tick on" style="--pct: 1;"></span>
+            <span class="tick-label" style="--pct: 0;">0</span>
+            <span class="tick-label" style="--pct: 0.2;">1</span>
+            <span class="tick-label" style="--pct: 0.4;">2</span>
+            <span class="tick-label" style="--pct: 0.6;">3</span>
+            <span class="tick-label" style="--pct: 0.8;">4</span>
+            <span class="tick-label" style="--pct: 1;">5</span>
+            <div class="thumb"></div>
+            <div class="thumb"></div>
+          </div>
+          <div style="height: 16px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-hint">
+      Drag a handle or click the track to jump. Focus a handle and use
+      <span class="kbd">←</span> <span class="kbd">→</span> to nudge,
+      <span class="kbd">Shift</span>+arrow for a larger step,
+      <span class="kbd">Home</span> / <span class="kbd">End</span> to jump to the ends.
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      var RE = /^(\D*)(\d+(?:\.\d+)?)(\D*)$/;
+
+      function updateText(el, value) {
+        var m = RE.exec(el.textContent || '');
+        if (m) el.textContent = m[1] + Math.round(value) + m[3];
+        else el.textContent = String(Math.round(value));
+      }
+
+      function initSlider(slider) {
+        if (slider.classList.contains('disabled')) return;
+
+        var min  = parseFloat(slider.dataset.min  || '0');
+        var max  = parseFloat(slider.dataset.max  || '100');
+        var step = parseFloat(slider.dataset.step || '1');
+        var padding = parseFloat(getComputedStyle(slider).paddingLeft) || 10;
+        var thumbs = Array.prototype.slice.call(slider.querySelectorAll('.thumb'));
+        if (thumbs.length < 2) return;
+        var fill   = slider.querySelector('.fill');
+        var bubble = slider.querySelector('.bubble');
+        var zones  = Array.prototype.slice.call(slider.querySelectorAll('.zone'));
+
+        var low  = parseFloat(slider.dataset.low);
+        var high = parseFloat(slider.dataset.high);
+        if (isNaN(low))  low  = min;
+        if (isNaN(high)) high = max;
+
+        var row = slider.closest('.row, .facet');
+        var spanOutputs = [];
+        if (row) {
+          var valuesEl = row.querySelector('.values');
+          if (valuesEl) {
+            valuesEl.querySelectorAll('span').forEach(function (s) {
+              if (!s.classList.contains('sep')) spanOutputs.push(s);
+            });
+          }
+          var ratingMin = row.querySelector('[data-rating-min]');
+          if (ratingMin) spanOutputs.unshift(ratingMin);
+        }
+        var inputOutputs = [];
+        var pair = slider.closest('.pair');
+        if (pair) {
+          var nums = pair.querySelectorAll('.num');
+          if (nums.length >= 2) inputOutputs = [nums[0], nums[1]];
+        }
+
+        var dragIdx = null;
+
+        function toFrac(v) { return (v - min) / (max - min); }
+        function snap(v) {
+          v = Math.round(v / step) * step;
+          return Math.max(min, Math.min(max, v));
+        }
+        function pxToValue(clientX) {
+          var rect = slider.getBoundingClientRect();
+          var usable = rect.width - 2 * padding;
+          var x = clientX - rect.left - padding;
+          var pct = Math.max(0, Math.min(1, x / usable));
+          return min + pct * (max - min);
+        }
+        function setValue(idx, v) {
+          if (idx === 0) low  = Math.min(v, high);
+          else           high = Math.max(v, low);
+        }
+        function pickNearerThumb(clientX) {
+          var v = pxToValue(clientX);
+          return Math.abs(v - low) <= Math.abs(v - high) ? 0 : 1;
+        }
+
+        function render() {
+          var lf = toFrac(low), hf = toFrac(high);
+          slider.style.setProperty('--low-pct',  lf);
+          slider.style.setProperty('--high-pct', hf);
+          thumbs[0].style.setProperty('--pct', lf);
+          thumbs[1].style.setProperty('--pct', hf);
+
+          if (spanOutputs[0]) updateText(spanOutputs[0], low);
+          if (spanOutputs[1]) updateText(spanOutputs[1], high);
+
+          if (inputOutputs[0] && document.activeElement !== inputOutputs[0]) inputOutputs[0].value = Math.round(low);
+          if (inputOutputs[1] && document.activeElement !== inputOutputs[1]) inputOutputs[1].value = Math.round(high);
+
+          zones.forEach(function (z) {
+            var f = z.dataset.from, t = z.dataset.to;
+            function resolve(n) {
+              if (n === 'low')  return lf;
+              if (n === 'high') return hf;
+              if (n === 'min')  return 0;
+              if (n === 'max')  return 1;
+              return parseFloat(n);
+            }
+            if (f != null && t != null) {
+              z.style.setProperty('--from-pct', resolve(f));
+              z.style.setProperty('--to-pct',   resolve(t));
+            }
+          });
+
+          if (bubble) {
+            var activeThumb = slider.querySelector('.thumb.active');
+            if (activeThumb) {
+              var idx = activeThumb === thumbs[0] ? 0 : 1;
+              bubble.style.setProperty('--pct', idx === 0 ? lf : hf);
+              updateText(bubble, idx === 0 ? low : high);
+              bubble.style.visibility = 'visible';
+            } else {
+              bubble.style.visibility = 'hidden';
+            }
+          }
+        }
+
+        function onMove(e) {
+          if (dragIdx == null) return;
+          setValue(dragIdx, snap(pxToValue(e.clientX)));
+          render();
+        }
+        function onUp() {
+          if (dragIdx != null) thumbs[dragIdx].classList.remove('active');
+          dragIdx = null;
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup',   onUp);
+          render();
+        }
+
+        thumbs.forEach(function (thumb, i) {
+          thumb.tabIndex = 0;
+          thumb.setAttribute('role', 'slider');
+          thumb.setAttribute('aria-valuemin', String(min));
+          thumb.setAttribute('aria-valuemax', String(max));
+
+          thumb.addEventListener('pointerdown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            thumbs.forEach(function (t) { t.classList.remove('active'); });
+            thumb.classList.add('active');
+            thumb.focus();
+            dragIdx = i;
+            render();
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup',   onUp);
+          });
+
+          thumb.addEventListener('keydown', function (e) {
+            var d = 0;
+            if      (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') d = -step;
+            else if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   d =  step;
+            else if (e.key === 'Home') { setValue(i, min); render(); e.preventDefault(); return; }
+            else if (e.key === 'End')  { setValue(i, max); render(); e.preventDefault(); return; }
+            else return;
+            if (e.shiftKey) d *= 10;
+            e.preventDefault();
+            setValue(i, snap((i === 0 ? low : high) + d));
+            render();
+          });
+        });
+
+        slider.addEventListener('pointerdown', function (e) {
+          if (e.target.classList.contains('thumb')) return;
+          if (e.target.classList.contains('bubble')) return;
+          e.preventDefault();
+          var idx = pickNearerThumb(e.clientX);
+          thumbs.forEach(function (t) { t.classList.remove('active'); });
+          thumbs[idx].classList.add('active');
+          thumbs[idx].focus();
+          dragIdx = idx;
+          setValue(idx, snap(pxToValue(e.clientX)));
+          render();
+          document.addEventListener('pointermove', onMove);
+          document.addEventListener('pointerup',   onUp);
+        });
+
+        inputOutputs.forEach(function (input, idx) {
+          function commit() {
+            var v = parseFloat(input.value);
+            if (isNaN(v)) { render(); return; }
+            setValue(idx, snap(v));
+            render();
+          }
+          input.addEventListener('change', commit);
+          input.addEventListener('blur',   commit);
+          input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); input.blur(); }
+          });
+        });
+
+        render();
+      }
+
+      document.querySelectorAll('.slider').forEach(initSlider);
+    })();
+  </script>
+</body>
+</html>

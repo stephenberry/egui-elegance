@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EmptyState (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px;
+      width: 560px;
+    }
+
+    .card-heading {
+      font-size: 16px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 0 0 12px;
+    }
+
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 48px 24px;
+      gap: 12px;
+    }
+
+    .empty-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .empty-body {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.45;
+      max-width: 360px;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 6px;
+      padding: 6.5px 14px;
+      cursor: pointer;
+      border: none;
+      color: #ffffff;
+      background: #2563eb;
+      margin-top: 6px;
+    }
+    .btn:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 class="card-heading">Deployments</h2>
+    <div class="empty" role="status">
+      <div class="empty-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.75" stroke-linecap="round"
+             stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"/>
+          <path d="M3 9h18"/>
+          <path d="M9 14h6"/>
+        </svg>
+      </div>
+      <div class="empty-title">No deployments yet</div>
+      <div class="empty-body">
+        Connect a repository and push to main to trigger your first deploy.
+        Status and logs will show up here.
+      </div>
+      <button class="btn">Connect repository</button>
+    </div>
+  </div>
+</body>
+</html>

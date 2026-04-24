@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Combobox (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 760px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      align-items: start;
+      gap: 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid #273447;
+    }
+    .row:last-child { border-bottom: none; }
+    .row .lbl {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 500;
+      padding-top: 7px;
+    }
+    .row .lbl .req { color: #f87171; margin-left: 2px; }
+    .row .lbl .optional { color: #64748b; font-size: 12px; margin-left: 4px; font-weight: 400; }
+
+    /* --- Combobox trigger. --- */
+    .cb-wrap {
+      position: relative;
+      width: 360px;
+    }
+    .cb-wrap.wide { width: 100%; }
+
+    .cb-trigger {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px 7px 10px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: border-color 80ms;
+    }
+    .cb-trigger:hover { border-color: #475569; }
+    .cb-trigger.open,
+    .cb-trigger.focused {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+    }
+    .cb-trigger .val { flex: 1; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cb-trigger .val.placeholder { color: #475569; }
+    .cb-trigger .val .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.18);
+      color: #7dd3fc;
+      font-size: 10px;
+      font-weight: 700;
+      margin-right: 8px;
+      vertical-align: -4px;
+    }
+    .cb-trigger .caret {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      color: #64748b;
+      flex: none;
+      transition: transform 120ms ease;
+    }
+    .cb-trigger.open .caret { transform: rotate(180deg); color: #94a3b8; }
+
+    .cb-trigger .clear {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      color: #64748b;
+      flex: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .cb-trigger .clear:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    .cb-wrap.disabled .cb-trigger {
+      background: #0a1020;
+      border-color: #263445;
+      color: #475569;
+      cursor: not-allowed;
+    }
+
+    /* --- Multi-select chips inside the trigger. --- */
+    .cb-trigger.multi {
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px 6px 4px 8px;
+      min-height: 32px;
+      align-items: center;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px 2px 8px;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.32);
+      color: #7dd3fc;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .chip .x {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .chip .x:hover { background: rgba(56, 189, 248, 0.24); color: #bae6fd; }
+    .cb-trigger.multi input {
+      flex: 1;
+      min-width: 80px;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font: inherit;
+      padding: 4px 0;
+    }
+    .cb-trigger.multi input::placeholder { color: #475569; }
+
+    /* --- Error / success rings around the trigger. --- */
+    .cb-wrap.error .cb-trigger { border-color: #f87171; }
+    .cb-wrap.error .cb-trigger.focused { box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.22); }
+    .cb-wrap.error .help { color: #fca5a5; }
+
+    .help { margin-top: 4px; font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
+    /* --- Dropdown panel. --- */
+    .cb-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      z-index: 20;
+    }
+
+    .cb-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-bottom: 1px solid #273447;
+      margin-bottom: 4px;
+    }
+    .cb-search svg { color: #64748b; flex: none; }
+    .cb-search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font: inherit;
+      font-size: 13px;
+      padding: 2px 0;
+    }
+    .cb-search input::placeholder { color: #475569; }
+    .cb-search .kbd {
+      display: inline-block;
+      padding: 0 5px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+      flex: none;
+    }
+
+    .cb-list {
+      max-height: 280px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .cb-list::-webkit-scrollbar { width: 8px; }
+    .cb-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+    .cb-group {
+      padding: 6px 8px 2px 10px;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+    }
+
+    .cb-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px 6px 10px;
+      border-radius: 5px;
+      color: #cbd5e1;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1.25;
+    }
+    .cb-item:hover,
+    .cb-item.hover {
+      background: rgba(56, 189, 248, 0.12);
+      color: #e2e8f0;
+    }
+    .cb-item .ic {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      color: #94a3b8;
+      flex: none;
+    }
+    .cb-item:hover .ic,
+    .cb-item.hover .ic { color: #7dd3fc; }
+
+    .cb-item .body { flex: 1; min-width: 0; }
+    .cb-item .name { color: #e2e8f0; }
+    .cb-item .sub {
+      display: block;
+      font-size: 11.5px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .cb-item .meta {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #64748b;
+      flex: none;
+    }
+
+    /* Match highlight inside option text. */
+    .cb-item .mark {
+      background: rgba(251, 191, 36, 0.22);
+      color: #fef3c7;
+      padding: 0 1px;
+      border-radius: 2px;
+    }
+
+    /* Checkmark on selected. */
+    .cb-item .selcheck {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      color: #7dd3fc;
+      flex: none;
+    }
+    .cb-item .selcheck.empty { color: transparent; }
+
+    /* Multi-select checkbox-like affordance. */
+    .cb-item .cbx {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      background: #0b1120;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      color: #0b1120;
+      flex: none;
+    }
+    .cb-item .cbx.checked {
+      background: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .cb-item.disabled {
+      color: #475569;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .cb-item.disabled .ic { color: #475569; }
+    .cb-item.disabled .sub { color: #334155; }
+
+    /* --- Avatar dot colors for inline options. --- */
+    .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      color: #0b1120;
+      font-size: 10.5px;
+      font-weight: 700;
+      flex: none;
+    }
+    .avatar.sky    { background: #7dd3fc; }
+    .avatar.green  { background: #86efac; }
+    .avatar.amber  { background: #fcd34d; }
+    .avatar.purple { background: #d8b4fe; }
+    .avatar.red    { background: #fca5a5; }
+    .avatar.slate  { background: #cbd5e1; }
+
+    /* --- Empty state inside panel. --- */
+    .cb-empty {
+      padding: 22px 12px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12.5px;
+    }
+    .cb-empty .create {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 10px;
+      padding: 5px 10px;
+      border: 1px solid #334155;
+      border-radius: 5px;
+      color: #7dd3fc;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .cb-empty .create:hover { border-color: #475569; background: rgba(226, 232, 240, 0.04); }
+
+    /* --- Footer hint row in the panel. --- */
+    .cb-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-top: 1px solid #273447;
+      margin-top: 4px;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .cb-foot .keys { display: inline-flex; gap: 10px; align-items: center; }
+    .cb-foot .keys .key {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .cb-foot .kbd {
+      display: inline-block;
+      padding: 0 5px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Single-select: closed trigger with chosen value. -->
+    <div>
+      <div class="caption">Closed — chosen value</div>
+      <div class="card">
+        <div class="row">
+          <span class="lbl">Assignee <span class="req">*</span></span>
+          <div>
+            <div class="cb-wrap">
+              <div class="cb-trigger">
+                <span class="val">
+                  <span class="avatar sky">AL</span>
+                  Avery Lin
+                </span>
+                <span class="clear" aria-label="Clear">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                    <line x1="6" y1="18" x2="18" y2="6"/>
+                  </svg>
+                </span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div class="help">Assignee receives notifications and shows up in reporting.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="lbl">Timezone</span>
+          <div>
+            <div class="cb-wrap">
+              <div class="cb-trigger">
+                <span class="val">Europe/Berlin <span style="color:#64748b; margin-left:4px;">UTC+01:00</span></span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="lbl">Project</span>
+          <div>
+            <div class="cb-wrap disabled">
+              <div class="cb-trigger">
+                <span class="val">Inherited from workspace</span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div class="help">Cannot be changed on sub-pages.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="lbl">Repo <span class="req">*</span></span>
+          <div>
+            <div class="cb-wrap error">
+              <div class="cb-trigger focused">
+                <span class="val placeholder">Pick a repository…</span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+            </div>
+            <div class="help">Required. A repository must be selected before saving.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Open single-select: filtered list with highlighted matches & groups. -->
+    <div>
+      <div class="caption">Open — typeahead with groups &amp; match highlight</div>
+      <div class="card">
+        <div class="row">
+          <span class="lbl">Assignee <span class="req">*</span></span>
+          <div>
+            <div class="cb-wrap wide" style="max-width: 420px;">
+              <div class="cb-trigger open">
+                <span class="val placeholder">Search people…</span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+              <div class="cb-panel">
+                <div class="cb-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input value="avi" autofocus/>
+                  <span class="kbd">Esc</span>
+                </div>
+
+                <div class="cb-list">
+                  <div class="cb-group">Recent</div>
+                  <div class="cb-item hover">
+                    <span class="avatar sky">AL</span>
+                    <div class="body">
+                      <span class="name"><span class="mark">Avi</span> Lin</span>
+                      <span class="sub">avery.lin@elegance.dev</span>
+                    </div>
+                    <span class="meta">⏎</span>
+                  </div>
+                  <div class="cb-item">
+                    <span class="avatar green">AK</span>
+                    <div class="body">
+                      <span class="name"><span class="mark">Avi</span>taj Kumar</span>
+                      <span class="sub">avitaj.k@elegance.dev</span>
+                    </div>
+                  </div>
+
+                  <div class="cb-group">All members</div>
+                  <div class="cb-item">
+                    <span class="avatar amber">DV</span>
+                    <div class="body">
+                      <span class="name">D<span class="mark">avi</span>d Vogel</span>
+                      <span class="sub">david.v@elegance.dev · admin</span>
+                    </div>
+                  </div>
+                  <div class="cb-item">
+                    <span class="avatar purple">MG</span>
+                    <div class="body">
+                      <span class="name">M<span class="mark">avi</span> Gupta</span>
+                      <span class="sub">mavi.g@elegance.dev</span>
+                    </div>
+                  </div>
+
+                  <div class="cb-group">Teams</div>
+                  <div class="cb-item disabled">
+                    <span class="ic">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    </span>
+                    <div class="body">
+                      <span class="name"><span class="mark">Avi</span>ation ops team</span>
+                      <span class="sub">Archived · cannot be assigned</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="cb-foot">
+                  <span class="keys">
+                    <span class="key"><span class="kbd">↑</span><span class="kbd">↓</span> navigate</span>
+                    <span class="key"><span class="kbd">⏎</span> select</span>
+                    <span class="key"><span class="kbd">Esc</span> close</span>
+                  </span>
+                  <span>4 results</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multi-select: chips in trigger, checkboxes in list. -->
+    <div>
+      <div class="caption">Multi-select — chips &amp; checkboxes</div>
+      <div class="card">
+        <div class="row">
+          <span class="lbl">Labels <span class="optional">(optional)</span></span>
+          <div>
+            <div class="cb-wrap wide" style="max-width: 480px;">
+              <div class="cb-trigger multi open">
+                <span class="chip">
+                  bug
+                  <span class="x">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                      <line x1="6" y1="18" x2="18" y2="6"/>
+                    </svg>
+                  </span>
+                </span>
+                <span class="chip" style="background: rgba(251, 191, 36, 0.14); border-color: rgba(251, 191, 36, 0.32); color: #fcd34d;">
+                  p1-critical
+                  <span class="x">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                      <line x1="6" y1="18" x2="18" y2="6"/>
+                    </svg>
+                  </span>
+                </span>
+                <span class="chip" style="background: rgba(192, 132, 252, 0.14); border-color: rgba(192, 132, 252, 0.32); color: #d8b4fe;">
+                  needs-triage
+                  <span class="x">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                      <line x1="6" y1="18" x2="18" y2="6"/>
+                    </svg>
+                  </span>
+                </span>
+                <input placeholder="Add label…"/>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+
+              <div class="cb-panel">
+                <div class="cb-list" style="max-height: 240px;">
+                  <div class="cb-group">Already applied</div>
+                  <div class="cb-item">
+                    <span class="cbx checked">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </span>
+                    <span class="ic" style="color:#f87171;">
+                      <svg width="8" height="8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
+                    </span>
+                    <div class="body">
+                      <span class="name">bug</span>
+                      <span class="sub">Unexpected behavior or error</span>
+                    </div>
+                    <span class="meta">214</span>
+                  </div>
+                  <div class="cb-item">
+                    <span class="cbx checked">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </span>
+                    <span class="ic" style="color:#fbbf24;">
+                      <svg width="8" height="8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
+                    </span>
+                    <div class="body">
+                      <span class="name">p1-critical</span>
+                      <span class="sub">Blocks usage / production outage</span>
+                    </div>
+                    <span class="meta">12</span>
+                  </div>
+
+                  <div class="cb-group">Suggestions</div>
+                  <div class="cb-item hover">
+                    <span class="cbx">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </span>
+                    <span class="ic" style="color:#4ade80;">
+                      <svg width="8" height="8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
+                    </span>
+                    <div class="body">
+                      <span class="name">regression</span>
+                      <span class="sub">Was working in a previous release</span>
+                    </div>
+                    <span class="meta">36</span>
+                  </div>
+                  <div class="cb-item">
+                    <span class="cbx">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </span>
+                    <span class="ic" style="color:#38bdf8;">
+                      <svg width="8" height="8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
+                    </span>
+                    <div class="body">
+                      <span class="name">documentation</span>
+                      <span class="sub">Related to guides or API reference</span>
+                    </div>
+                    <span class="meta">58</span>
+                  </div>
+                  <div class="cb-item">
+                    <span class="cbx">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </span>
+                    <span class="ic" style="color:#64748b;">
+                      <svg width="8" height="8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
+                    </span>
+                    <div class="body">
+                      <span class="name">good-first-issue</span>
+                      <span class="sub">Scoped for new contributors</span>
+                    </div>
+                    <span class="meta">9</span>
+                  </div>
+                </div>
+
+                <div class="cb-foot">
+                  <span class="keys">
+                    <span class="key"><span class="kbd">⏎</span> toggle</span>
+                    <span class="key"><span class="kbd">⌘</span><span class="kbd">↵</span> apply</span>
+                  </span>
+                  <span>3 selected</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state with create-new affordance. -->
+    <div>
+      <div class="caption">Empty — no results, create new</div>
+      <div class="card">
+        <div class="row">
+          <span class="lbl">Tag</span>
+          <div>
+            <div class="cb-wrap wide" style="max-width: 380px;">
+              <div class="cb-trigger open">
+                <span class="val placeholder">Search or create…</span>
+                <span class="caret">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </span>
+              </div>
+              <div class="cb-panel">
+                <div class="cb-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input value="nimbus"/>
+                </div>
+                <div class="cb-empty">
+                  No tags match <strong style="color:#cbd5e1;">nimbus</strong>.
+                  <div>
+                    <span class="create">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Create tag "nimbus"
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      var wraps = Array.prototype.slice.call(document.querySelectorAll('.cb-wrap'));
+
+      function esc(s) {
+        return (s || '').replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function rgbToRgba(rgb, a) {
+        var m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(rgb || '');
+        return m ? 'rgba(' + m[1] + ',' + m[2] + ',' + m[3] + ',' + a + ')' : rgb;
+      }
+
+      function closeAllExcept(except) {
+        wraps.forEach(function (w) {
+          if (w === except) return;
+          if (w._ctx) w._ctx.close();
+        });
+      }
+
+      function chipLabel(chip) {
+        var t = '';
+        for (var i = 0; i < chip.childNodes.length; i++) {
+          var n = chip.childNodes[i];
+          if (n.nodeType === 3) t += n.textContent;
+        }
+        return t.trim();
+      }
+
+      function initWrap(wrap) {
+        if (wrap.classList.contains('disabled')) return null;
+        var trigger = wrap.querySelector(':scope > .cb-trigger');
+        var panel   = wrap.querySelector(':scope > .cb-panel');
+        if (!trigger || !panel) return null;
+
+        var isMulti = trigger.classList.contains('multi');
+        var list    = panel.querySelector('.cb-list');
+        var items   = list ? Array.prototype.slice.call(list.querySelectorAll('.cb-item')) : [];
+        var searchInput = isMulti
+          ? trigger.querySelector('input')
+          : panel.querySelector('.cb-search input');
+        var valEl    = trigger.querySelector('.val');
+        var clearBtn = trigger.querySelector('.clear');
+
+        // Cache raw text for re-rendering match highlights cleanly.
+        items.forEach(function (it) {
+          var n = it.querySelector('.name');
+          var s = it.querySelector('.sub');
+          if (n) it._origName = n.textContent;
+          if (s) it._origSub  = s.textContent;
+        });
+
+        function isOpen() { return trigger.classList.contains('open'); }
+
+        function open() {
+          closeAllExcept(wrap);
+          trigger.classList.add('open', 'focused');
+          panel.style.display = '';
+          applyFilter('');
+          setTimeout(function () { if (searchInput) searchInput.focus(); }, 0);
+        }
+
+        function close() {
+          trigger.classList.remove('open', 'focused');
+          panel.style.display = 'none';
+          if (searchInput) {
+            searchInput.value = '';
+            applyFilter('');
+          }
+        }
+
+        if (!isOpen()) panel.style.display = 'none';
+
+        trigger.addEventListener('mousedown', function (e) {
+          if (e.target.closest('.chip .x')) return;
+          if (clearBtn && e.target.closest('.clear')) return;
+          if (isMulti) {
+            var input = trigger.querySelector('input');
+            if (input && e.target !== input) {
+              e.preventDefault();
+              input.focus();
+            }
+            if (!isOpen()) open();
+            return;
+          }
+          e.preventDefault();
+          if (isOpen()) close(); else open();
+        });
+
+        if (clearBtn) {
+          clearBtn.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (valEl) {
+              valEl.textContent = 'Select…';
+              valEl.classList.add('placeholder');
+            }
+            clearBtn.style.display = 'none';
+          });
+        }
+
+        function wireChipX(chip) {
+          var x = chip.querySelector('.x');
+          if (!x) return;
+          x.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var match = items.find(function (it) { return (it._origName || '').trim() === chipLabel(chip); });
+            if (match) {
+              var cbx = match.querySelector('.cbx');
+              if (cbx) cbx.classList.remove('checked');
+            }
+            chip.remove();
+            applyFilter(searchInput ? searchInput.value : '');
+          });
+        }
+        trigger.querySelectorAll('.chip').forEach(wireChipX);
+
+        function renderHighlight(el, text, q) {
+          if (!q) { el.textContent = text; return; }
+          var lower = text.toLowerCase();
+          var i = lower.indexOf(q.toLowerCase());
+          if (i < 0) { el.textContent = text; return; }
+          el.innerHTML =
+            esc(text.substring(0, i)) +
+            '<span class="mark">' + esc(text.substring(i, i + q.length)) + '</span>' +
+            esc(text.substring(i + q.length));
+        }
+
+        function applyFilter(q) {
+          q = (q || '').trim();
+          var lq = q.toLowerCase();
+          var visibleCount = 0;
+
+          items.forEach(function (it) {
+            var name = it._origName || '';
+            var sub  = it._origSub  || '';
+            var matches = !q || (name + ' ' + sub).toLowerCase().indexOf(lq) !== -1;
+            it.style.display = matches ? '' : 'none';
+            if (matches) visibleCount++;
+
+            var nameEl = it.querySelector('.name');
+            var subEl  = it.querySelector('.sub');
+            if (nameEl) renderHighlight(nameEl, name, q);
+            if (subEl)  subEl.textContent = sub;
+          });
+
+          if (list) {
+            list.querySelectorAll('.cb-group').forEach(function (g) {
+              var n = g.nextElementSibling;
+              var any = false;
+              while (n && !n.classList.contains('cb-group')) {
+                if (n.classList.contains('cb-item') && n.style.display !== 'none') { any = true; break; }
+                n = n.nextElementSibling;
+              }
+              g.style.display = any ? '' : 'none';
+            });
+          }
+
+          var footSpans = panel.querySelectorAll('.cb-foot > span');
+          if (footSpans.length) {
+            var last = footSpans[footSpans.length - 1];
+            if (isMulti) {
+              last.textContent = trigger.querySelectorAll('.chip').length + ' selected';
+            } else {
+              last.textContent = visibleCount + (visibleCount === 1 ? ' result' : ' results');
+            }
+          }
+
+          items.forEach(function (it) { it.classList.remove('hover'); });
+          var first = items.find(function (it) {
+            return it.style.display !== 'none' && !it.classList.contains('disabled');
+          });
+          if (first) first.classList.add('hover');
+        }
+
+        function addChip(text, color) {
+          var input = trigger.querySelector('input');
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          if (color) {
+            chip.style.color = color;
+            chip.style.background  = rgbToRgba(color, 0.14);
+            chip.style.borderColor = rgbToRgba(color, 0.32);
+          }
+          chip.innerHTML = esc(text) +
+            '<span class="x"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" ' +
+            'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+            '<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg></span>';
+          if (input) trigger.insertBefore(chip, input);
+          else trigger.insertBefore(chip, trigger.firstChild);
+          wireChipX(chip);
+        }
+
+        function selectItem(item) {
+          if (!item || item.classList.contains('disabled')) return;
+          if (isMulti) {
+            var cbx = item.querySelector('.cbx');
+            var wasChecked = cbx && cbx.classList.contains('checked');
+            if (cbx) cbx.classList.toggle('checked', !wasChecked);
+
+            var name = item._origName || '';
+            var existing = Array.prototype.slice.call(trigger.querySelectorAll('.chip'))
+              .find(function (c) { return chipLabel(c) === name; });
+
+            if (!wasChecked) {
+              if (!existing) {
+                var ic = item.querySelector('.ic');
+                var color = ic ? getComputedStyle(ic).color : null;
+                addChip(name, color);
+              }
+            } else {
+              if (existing) existing.remove();
+            }
+
+            if (searchInput) {
+              searchInput.value = '';
+              applyFilter('');
+              searchInput.focus();
+            }
+          } else {
+            if (valEl) {
+              var avatar = item.querySelector('.avatar');
+              var nameText = item._origName || '';
+              if (avatar) valEl.innerHTML = avatar.outerHTML + ' ' + esc(nameText);
+              else valEl.textContent = nameText;
+              valEl.classList.remove('placeholder');
+            }
+            if (clearBtn) clearBtn.style.display = '';
+            close();
+          }
+        }
+
+        items.forEach(function (it) {
+          if (it.classList.contains('disabled')) return;
+          it.addEventListener('mouseenter', function () {
+            items.forEach(function (x) { x.classList.remove('hover'); });
+            it.classList.add('hover');
+          });
+          it.addEventListener('click', function (e) {
+            e.stopPropagation();
+            selectItem(it);
+          });
+        });
+
+        if (searchInput) {
+          searchInput.addEventListener('input', function () {
+            applyFilter(searchInput.value);
+          });
+          searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              close();
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              var visible = items.filter(function (it) {
+                return it.style.display !== 'none' && !it.classList.contains('disabled');
+              });
+              if (!visible.length) return;
+              var cur = visible.findIndex(function (it) { return it.classList.contains('hover'); });
+              items.forEach(function (it) { it.classList.remove('hover'); });
+              var next;
+              if (e.key === 'ArrowDown') next = cur < 0 ? 0 : (cur + 1) % visible.length;
+              else                       next = cur <= 0 ? visible.length - 1 : cur - 1;
+              visible[next].classList.add('hover');
+              visible[next].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              var hovered = items.find(function (it) { return it.classList.contains('hover'); });
+              if (hovered) selectItem(hovered);
+            } else if (e.key === 'Backspace' && isMulti && !searchInput.value) {
+              var chips = trigger.querySelectorAll('.chip');
+              if (chips.length) {
+                var last = chips[chips.length - 1];
+                var match = items.find(function (it) { return (it._origName || '').trim() === chipLabel(last); });
+                if (match) {
+                  var cbx = match.querySelector('.cbx');
+                  if (cbx) cbx.classList.remove('checked');
+                }
+                last.remove();
+                applyFilter(searchInput.value);
+              }
+            }
+          });
+        }
+
+        return { open: open, close: close };
+      }
+
+      wraps.forEach(function (w) { w._ctx = initWrap(w); });
+
+      document.addEventListener('mousedown', function (e) {
+        if (e.target.closest('.cb-wrap')) return;
+        closeAllExcept(null);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAllExcept(null);
+      });
+    })();
+  </script>
+</body>
+</html>

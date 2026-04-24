@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Match the crate's `rust-version` in Cargo.toml. Bump both together.
+  MSRV: "1.92.0"
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      # eframe (dev-dep) pulls native deps for xcb/xkb/gtk on Linux; these
+      # are required even for `cargo clippy --all-targets` because clippy
+      # builds the test/example targets to lint them.
+      - name: Install eframe Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libssl-dev libgtk-3-dev
+      - run: cargo clippy --all-targets -- -D warnings
+
+  docs:
+    name: Rustdoc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --no-deps
+
+  tests:
+    name: Tests (snapshots)
+    # macOS so `egui_kittest` with the wgpu feature can pick a real GPU
+    # adapter. Mirrors egui's own CI — Linux would need a Vulkan software
+    # rasterizer (lavapipe + Vulkan SDK pin), which is much more setup.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --all-targets
+      - name: Run doc-tests
+        run: cargo test --doc
+      # When a snapshot mismatches, `egui_kittest` writes `*.new.png` and
+      # `*.diff.png` next to the baseline; upload them so the diff can be
+      # inspected without re-running locally.
+      - name: Upload snapshot diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-diffs
+          path: |
+            tests/snapshots/**/*.new.png
+            tests/snapshots/**/*.diff.png
+          if-no-files-found: ignore
+          retention-days: 7

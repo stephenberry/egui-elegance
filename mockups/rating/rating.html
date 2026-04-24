@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Rating (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+
+    /* --- Core stars --- */
+    .stars {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      color: #475569; /* empty color */
+      line-height: 0;
+    }
+    .stars .st {
+      position: relative;
+      display: inline-block;
+      line-height: 0;
+    }
+    .stars .st svg { display: block; }
+    /* Filled layer stacked on top of empty, clipped via width. */
+    .stars .st .fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      overflow: hidden;
+      color: #fbbf24;
+    }
+
+    /* Sizes. */
+    .sz-sm .st svg { width: 14px; height: 14px; }
+    .sz-md .st svg { width: 18px; height: 18px; }
+    .sz-lg .st svg { width: 26px; height: 26px; }
+    .sz-xl .st svg { width: 36px; height: 36px; }
+
+    /* Inline label + count. */
+    .summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13.5px;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary .num { font-weight: 600; }
+    .summary .count { color: #94a3b8; }
+
+    /* Interactive hover band: show hint star above current. */
+    .stars.interactive .st { cursor: pointer; }
+    .stars.interactive .st:hover ~ .st .fill { width: 0 !important; }
+    .stars.interactive:hover .st .fill { color: #facc15; }
+
+    /* Read-only indicator. */
+    .stars.readonly .st { cursor: default; }
+
+    /* --- Card: aggregate rating + distribution --- */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 20px;
+    }
+    .card .big {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding-right: 20px;
+      border-right: 1px solid #334155;
+    }
+    .card .big .score {
+      font-size: 44px;
+      font-weight: 600;
+      color: #e2e8f0;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .card .big .n {
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dist { display: flex; flex-direction: column; gap: 6px; }
+    .dist .r { display: grid; grid-template-columns: 24px 1fr 48px; align-items: center; gap: 10px; font-size: 12.5px; color: #94a3b8; }
+    .dist .r .lab { font-variant-numeric: tabular-nums; }
+    .dist .r .bar {
+      height: 8px;
+      background: #0b1120;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .dist .r .fill {
+      height: 100%;
+      background: #fbbf24;
+      border-radius: 999px;
+    }
+    .dist .r .pct { text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* --- Input form with rating --- */
+    .formrow {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .formrow .lab { font-size: 13.5px; color: #e2e8f0; }
+    .formrow .hint { font-size: 12.5px; color: #94a3b8; margin-top: 2px; }
+    .formrow .right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .formrow .right .live { font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+
+    /* Table row with rating — compact. */
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead th {
+      text-align: left;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 10px 14px;
+      background: #182438;
+      border-bottom: 1px solid #334155;
+    }
+    td { padding: 10px 14px; color: #e2e8f0; border-bottom: 1px solid #263445; }
+    tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Sizes, read-only. -->
+    <div>
+      <div class="caption">Read-only — sizes, half-stars allowed</div>
+      <div class="row">
+        <span class="stars readonly sz-sm" aria-label="3.5 of 5" title="3.5">
+          <!-- 5 stars, filled at 3.5 → 70% -->
+          <span class="st">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg>
+            <span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+          </span>
+          <span class="st">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg>
+            <span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+          </span>
+          <span class="st">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg>
+            <span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+          </span>
+          <span class="st">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg>
+            <span class="fill" style="width:50%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+          </span>
+          <span class="st">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg>
+          </span>
+        </span>
+
+        <span class="stars readonly sz-md">
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+        </span>
+
+        <span class="stars readonly sz-lg">
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:65%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Summary with count. -->
+    <div>
+      <div class="caption">Summary — stars + numeric score + review count</div>
+      <div class="row">
+        <span class="summary">
+          <span class="num">4.6</span>
+          <span class="stars readonly sz-md">
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:60%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          </span>
+          <span class="count">· 1,284 reviews</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Aggregate card. -->
+    <div>
+      <div class="caption">Aggregate — big score + distribution bars</div>
+      <div class="card">
+        <div class="big">
+          <div class="score">4.6</div>
+          <span class="stars readonly sz-md">
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:60%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+          </span>
+          <div class="n">1,284 reviews</div>
+        </div>
+        <div class="dist">
+          <div class="r"><span class="lab">5</span><span class="bar"><span class="fill" style="width:72%"></span></span><span class="pct">72%</span></div>
+          <div class="r"><span class="lab">4</span><span class="bar"><span class="fill" style="width:18%"></span></span><span class="pct">18%</span></div>
+          <div class="r"><span class="lab">3</span><span class="bar"><span class="fill" style="width:6%"></span></span><span class="pct">6%</span></div>
+          <div class="r"><span class="lab">2</span><span class="bar"><span class="fill" style="width:2%"></span></span><span class="pct">2%</span></div>
+          <div class="r"><span class="lab">1</span><span class="bar"><span class="fill" style="width:2%"></span></span><span class="pct">2%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive input (hover band emulated via CSS siblings). -->
+    <div>
+      <div class="caption">Interactive input — hover to preview, click to commit</div>
+      <div class="formrow">
+        <div>
+          <div class="lab">Rate this release</div>
+          <div class="hint">Hover stars to preview; click to submit.</div>
+        </div>
+        <div class="right">
+          <span class="stars interactive sz-lg" id="r1" aria-label="Rating">
+            <span class="st" data-val="1"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st" data-val="2"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st" data-val="3"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st" data-val="4"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+            <span class="st" data-val="5"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+          </span>
+          <div class="live">4 · Pretty good</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In a table. -->
+    <div>
+      <div class="caption">In a DataTable row</div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Plugin</th>
+              <th>Author</th>
+              <th>Rating</th>
+              <td class="num"></td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>elegance-charts</td>
+              <td>stephen.b</td>
+              <td>
+                <span class="stars readonly sz-sm">
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:80%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                </span>
+              </td>
+              <td class="num">4.8 · 312</td>
+            </tr>
+            <tr>
+              <td>elegance-kittest</td>
+              <td>mila.r</td>
+              <td>
+                <span class="stars readonly sz-sm">
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:30%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span>
+                </span>
+              </td>
+              <td class="num">3.3 · 48</td>
+            </tr>
+            <tr>
+              <td>elegance-icons</td>
+              <td>jules.k</td>
+              <td>
+                <span class="stars readonly sz-sm">
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:100%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                  <span class="st"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg><span class="fill" style="width:40%"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L10 15.3 4.8 18l1-5.8L1.6 8.1l5.8-.8L10 2z"/></svg></span></span>
+                </span>
+              </td>
+              <td class="num">4.4 · 189</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

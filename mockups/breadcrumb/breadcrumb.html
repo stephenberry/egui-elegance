@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breadcrumb (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .crumb {
+      color: #38bdf8;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .crumb:hover {
+      text-decoration: underline;
+    }
+
+    .crumb.root {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .crumb.current {
+      color: #e2e8f0;
+      cursor: default;
+      font-weight: 600;
+    }
+    .crumb.current:hover { text-decoration: none; }
+
+    .sep {
+      color: #475569;
+      user-select: none;
+      padding: 0 2px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+    <div>
+      <div class="caption">Breadcrumb</div>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <span class="crumb root">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round"
+               stroke-linejoin="round">
+            <path d="M3 11l9-8 9 8"/>
+            <path d="M5 10v10h14V10"/>
+          </svg>
+          Home
+        </span>
+        <span class="sep">/</span>
+        <span class="crumb">Workspaces</span>
+        <span class="sep">/</span>
+        <span class="crumb">soul-live</span>
+        <span class="sep">/</span>
+        <span class="crumb">Settings</span>
+        <span class="sep">/</span>
+        <span class="crumb current" aria-current="page">Security</span>
+      </nav>
+    </div>
+
+    <div>
+      <div class="caption">Chevron separator</div>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <span class="crumb">Repositories</span>
+        <span class="sep">›</span>
+        <span class="crumb">soul-live</span>
+        <span class="sep">›</span>
+        <span class="crumb">src</span>
+        <span class="sep">›</span>
+        <span class="crumb">node_editor</span>
+        <span class="sep">›</span>
+        <span class="crumb current" aria-current="page">graph.rs</span>
+      </nav>
+    </div>
+  </div>
+</body>
+</html>

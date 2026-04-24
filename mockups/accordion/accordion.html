@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Accordion (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* --- Accordion container (bordered, stacked). --- */
+    .acc {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .acc .item { border-bottom: 1px solid #334155; }
+    .acc .item:last-child { border-bottom: none; }
+
+    .acc .head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 80ms;
+      outline: none;
+    }
+    .acc .head:hover { background: rgba(226, 232, 240, 0.03); }
+    .acc .head:focus-visible {
+      background: rgba(226, 232, 240, 0.04);
+      box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.40);
+    }
+
+    .acc .chev {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      color: #64748b;
+      flex: none;
+      transition: transform 140ms ease;
+    }
+    .acc .item.open > .head .chev { transform: rotate(90deg); color: #94a3b8; }
+
+    .acc .title {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+    .acc .subtitle {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .acc .meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #94a3b8;
+      flex: none;
+    }
+
+    .acc .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.30);
+      color: #7dd3fc;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .acc .badge.green {
+      background: rgba(74, 222, 128, 0.14);
+      border-color: rgba(74, 222, 128, 0.30);
+      color: #86efac;
+    }
+    .acc .badge.amber {
+      background: rgba(251, 191, 36, 0.14);
+      border-color: rgba(251, 191, 36, 0.30);
+      color: #fcd34d;
+    }
+
+    .acc .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #64748b;
+    }
+    .acc .dot.green { background: #4ade80; }
+    .acc .dot.amber { background: #fbbf24; }
+    .acc .dot.red { background: #f87171; }
+
+    .acc .panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 200ms ease;
+    }
+    .acc .item.open > .panel { max-height: 1200px; }
+
+    .acc .panel .body {
+      padding: 6px 16px 16px 42px;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.55;
+    }
+    .acc .panel .body p { margin: 0 0 10px 0; }
+    .acc .panel .body p:last-child { margin-bottom: 0; }
+    .acc .panel .body a { color: #7dd3fc; text-decoration: none; }
+    .acc .panel .body a:hover { text-decoration: underline; }
+
+    .acc .panel .body kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #e2e8f0;
+      line-height: 1.1;
+    }
+
+    /* --- Flush variant: no outer border, dividers only. --- */
+    .acc.flush {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+    }
+    .acc.flush .head { padding: 12px 0; }
+    .acc.flush .panel .body { padding: 0 0 14px 24px; }
+    .acc.flush .item { border-bottom: 1px solid #334155; }
+    .acc.flush .item:last-child { border-bottom: none; }
+
+    /* --- Settings row: icon + title + subtitle + summary on right. --- */
+    .icon-square {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: rgba(226, 232, 240, 0.05);
+      border: 1px solid #334155;
+      color: #94a3b8;
+      flex: none;
+    }
+    .icon-square.sky { color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); background: rgba(56, 189, 248, 0.10); }
+    .icon-square.green { color: #4ade80; border-color: rgba(74, 222, 128, 0.35); background: rgba(74, 222, 128, 0.10); }
+    .icon-square.amber { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.10); }
+
+    .acc .title-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .acc .title-stack .t { font-size: 13.5px; font-weight: 500; color: #e2e8f0; }
+    .acc .title-stack .s { font-size: 12px; color: #64748b; }
+
+    /* --- Nested FAQ-style content. --- */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* --- Log-style panel contents: table-ish rows. --- */
+    .kv {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      row-gap: 6px;
+      column-gap: 14px;
+      font-size: 12.5px;
+      margin: 6px 0 12px 0;
+    }
+    .kv .k { color: #64748b; }
+    .kv .v { color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+    .btn-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: transparent;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 80ms, background-color 80ms;
+    }
+    .btn-link:hover { border-color: #475569; background: rgba(226, 232, 240, 0.04); }
+
+    /* --- Disabled head. --- */
+    .acc .head.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .acc .head.disabled:hover { background: transparent; }
+
+    /* --- Section caption inside accordion content. --- */
+    .inline-label {
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 10.5px;
+      color: #64748b;
+      margin: 4px 0 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- FAQ style: bordered card, chevron left. -->
+    <div>
+      <div class="caption">FAQ — standard</div>
+      <div class="acc" data-exclusive>
+
+        <div class="item open">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="title">How do I invite teammates to my workspace?</span>
+          </div>
+          <div class="panel">
+            <div class="body">
+              <p>Open <strong>Settings ▸ Members</strong> and click <em>Invite</em>. You can paste a list of emails or share a signup link scoped to a specific role.</p>
+              <p>Invitations expire after 7 days. Re-sending a link generates a fresh token; older links become invalid immediately.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="item">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="title">What happens when I archive a project?</span>
+          </div>
+          <div class="panel"><div class="body"><p>Archived projects are hidden from the sidebar and read-only. You can restore them from the archive list at any time within 90 days.</p></div></div>
+        </div>
+
+        <div class="item">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="title">Is there an API for bulk imports?</span>
+          </div>
+          <div class="panel"><div class="body"><p>Yes. See the <a href="#">Imports API reference</a>. Rate limits apply per workspace; contact support if you need a larger quota.</p></div></div>
+        </div>
+
+        <div class="item">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="title">Can I use SSO with a custom IdP?</span>
+          </div>
+          <div class="panel"><div class="body"><p>SAML 2.0 and OIDC are supported on the Business plan and above. SCIM provisioning is in private beta.</p></div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Settings: icon squares, subtitle, side summary. -->
+    <div>
+      <div class="caption">Settings — with summary metadata (exclusive: one open at a time)</div>
+      <div class="acc" data-exclusive>
+
+        <div class="item open">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="icon-square sky">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </span>
+            <div class="title-stack">
+              <span class="t">Notifications</span>
+              <span class="s">Email, Slack, and in-app alerts</span>
+            </div>
+            <span class="meta">
+              <span class="dot green"></span>
+              <span>3 channels</span>
+            </span>
+          </div>
+          <div class="panel">
+            <div class="body">
+              <span class="inline-label">Enabled channels</span>
+              <div class="kv">
+                <span class="k">Email</span><span class="v">avery@example.com</span>
+                <span class="k">Slack</span><span class="v">#ops-alerts</span>
+                <span class="k">In-app</span><span class="v">All severities</span>
+              </div>
+              <button class="btn-link">Manage channels</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="item">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="icon-square green">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </span>
+            <div class="title-stack">
+              <span class="t">Security</span>
+              <span class="s">2FA, sessions, and trusted devices</span>
+            </div>
+            <span class="meta">
+              <span class="badge green">Strong</span>
+            </span>
+          </div>
+          <div class="panel"><div class="body"><p>Two-factor authentication is enabled for all admins. 4 active sessions across 2 devices.</p></div></div>
+        </div>
+
+        <div class="item">
+          <div class="head">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="icon-square amber">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </span>
+            <div class="title-stack">
+              <span class="t">Integrations</span>
+              <span class="s">GitHub, Linear, PagerDuty, and 2 more</span>
+            </div>
+            <span class="meta">
+              <span class="badge amber">1 needs auth</span>
+            </span>
+          </div>
+          <div class="panel"><div class="body"><p>PagerDuty requires re-authorization. Other integrations are healthy.</p></div></div>
+        </div>
+
+        <div class="item">
+          <div class="head disabled">
+            <span class="chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 6 15 12 9 18"/>
+              </svg>
+            </span>
+            <span class="icon-square">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              </svg>
+            </span>
+            <div class="title-stack">
+              <span class="t">Billing (owner-only)</span>
+              <span class="s">Invoices, plan, and seats</span>
+            </div>
+            <span class="meta" style="color:#64748b;">Admin required</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Flush variant: no outer border, used inline in forms or sidebars. -->
+    <div>
+      <div class="caption">Flush — inline, no outer card</div>
+      <div style="padding: 0 4px;">
+        <div class="acc flush">
+
+          <div class="item open">
+            <div class="head">
+              <span class="chev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+              </span>
+              <span class="title">Advanced options <span class="subtitle">(rarely needed)</span></span>
+            </div>
+            <div class="panel">
+              <div class="body">
+                <p>Override the default request timeout and retry behavior. These values are scoped per-workspace and are applied to all API calls.</p>
+                <div class="kv">
+                  <span class="k">Timeout</span><span class="v">30s</span>
+                  <span class="k">Max retries</span><span class="v">3</span>
+                  <span class="k">Backoff</span><span class="v">exponential, 1.5x</span>
+                </div>
+                <p>Press <kbd>⌘</kbd> <kbd>K</kbd> to search for additional configuration keys.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="item">
+            <div class="head">
+              <span class="chev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+              </span>
+              <span class="title">Experimental features</span>
+            </div>
+            <div class="panel"><div class="body"><p>Toggle features that are still in development. Expect bugs; please report them via the feedback link.</p></div></div>
+          </div>
+
+          <div class="item">
+            <div class="head">
+              <span class="chev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+              </span>
+              <span class="title">Danger zone</span>
+            </div>
+            <div class="panel"><div class="body"><p>Destructive actions. Deleting a workspace immediately removes all associated data and cannot be undone.</p></div></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      var accordions = document.querySelectorAll('.acc');
+
+      function getPanel(item) { return item.querySelector(':scope > .panel'); }
+      function getHead(item)  { return item.querySelector(':scope > .head'); }
+
+      function open(item) {
+        var head = getHead(item), panel = getPanel(item);
+        if (!panel) return;
+        item.classList.add('open');
+        head.setAttribute('aria-expanded', 'true');
+        panel.style.maxHeight = panel.scrollHeight + 'px';
+        // Release the cap after the transition so dynamic content can grow.
+        var onEnd = function (e) {
+          if (e.propertyName !== 'max-height') return;
+          panel.removeEventListener('transitionend', onEnd);
+          if (item.classList.contains('open')) panel.style.maxHeight = 'none';
+        };
+        panel.addEventListener('transitionend', onEnd);
+      }
+
+      function close(item) {
+        var head = getHead(item), panel = getPanel(item);
+        if (!panel) return;
+        // If maxHeight is 'none', snap it back to a measurable value so the
+        // collapse transition has a starting point.
+        panel.style.maxHeight = panel.scrollHeight + 'px';
+        void panel.offsetHeight;
+        item.classList.remove('open');
+        head.setAttribute('aria-expanded', 'false');
+        panel.style.maxHeight = '0px';
+      }
+
+      accordions.forEach(function (acc) {
+        var exclusive = acc.hasAttribute('data-exclusive');
+        var items = Array.prototype.slice.call(acc.querySelectorAll(':scope > .item'));
+        var heads = [];
+
+        items.forEach(function (item, idx) {
+          var head = getHead(item), panel = getPanel(item);
+          if (!head || !panel) return;
+
+          var suffix = Math.random().toString(36).slice(2, 7) + '-' + idx;
+          head.id  = head.id  || 'acc-head-'  + suffix;
+          panel.id = panel.id || 'acc-panel-' + suffix;
+          head.setAttribute('role', 'button');
+          head.setAttribute('aria-controls', panel.id);
+          head.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+          panel.setAttribute('role', 'region');
+          panel.setAttribute('aria-labelledby', head.id);
+
+          var disabled = head.classList.contains('disabled');
+          if (!disabled) {
+            if (head.tabIndex < 0) head.tabIndex = 0;
+            heads.push(head);
+          } else {
+            head.tabIndex = -1;
+            head.setAttribute('aria-disabled', 'true');
+          }
+
+          // If this item started open via CSS, let natural content height
+          // take over now that JS will control transitions.
+          if (item.classList.contains('open')) {
+            panel.style.maxHeight = 'none';
+          }
+
+          head.addEventListener('click', function () {
+            if (disabled) return;
+            if (item.classList.contains('open')) {
+              close(item);
+            } else {
+              if (exclusive) {
+                items.forEach(function (other) {
+                  if (other !== item && other.classList.contains('open')) close(other);
+                });
+              }
+              open(item);
+            }
+          });
+
+          head.addEventListener('keydown', function (e) {
+            if (disabled) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              head.click();
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              var i = heads.indexOf(head);
+              if (i >= 0 && i < heads.length - 1) heads[i + 1].focus();
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              var j = heads.indexOf(head);
+              if (j > 0) heads[j - 1].focus();
+            } else if (e.key === 'Home') {
+              e.preventDefault();
+              if (heads[0]) heads[0].focus();
+            } else if (e.key === 'End') {
+              e.preventDefault();
+              if (heads.length) heads[heads.length - 1].focus();
+            }
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SidebarNav (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 980px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* Outer shell paired with the nav for context. */
+    .shell {
+      display: grid;
+      grid-template-columns: 248px 1fr;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 520px;
+    }
+    .shell.collapsed {
+      grid-template-columns: 56px 1fr;
+    }
+
+    /* --- Sidebar container. --- */
+    .sb {
+      display: flex;
+      flex-direction: column;
+      background: #172033;
+      border-right: 1px solid #273447;
+      min-width: 0;
+    }
+
+    /* --- Workspace switcher at top. --- */
+    .sb .workspace {
+      display: grid;
+      grid-template-columns: 24px 1fr 18px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #273447;
+      cursor: pointer;
+    }
+    .sb .workspace:hover { background: rgba(226, 232, 240, 0.03); }
+    .sb .workspace .logo {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #38bdf8, #c084fc);
+      flex: none;
+    }
+    .sb .workspace .name {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb .workspace .plan {
+      font-size: 11px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .sb .workspace .chev { color: #64748b; }
+
+    /* Search box. */
+    .sb .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 10px 6px 10px;
+      padding: 5px 8px;
+      background: #0b1120;
+      border: 1px solid #273447;
+      border-radius: 6px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    .sb .search svg { color: #64748b; flex: none; }
+    .sb .search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e2e8f0;
+      font: inherit;
+      font-size: 12.5px;
+      min-width: 0;
+    }
+    .sb .search input::placeholder { color: #475569; }
+    .sb .search .kbd {
+      display: inline-block;
+      padding: 0 5px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #cbd5e1;
+    }
+
+    /* Section. */
+    .sb .section {
+      padding: 10px 14px 4px 14px;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+    }
+    .sb .section .add {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .sb .section .add:hover { background: rgba(226, 232, 240, 0.05); color: #cbd5e1; }
+
+    /* Nav items. */
+    .sb .list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 0 6px;
+    }
+
+    .sb .item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .sb .item:hover { background: rgba(226, 232, 240, 0.04); color: #e2e8f0; }
+    .sb .item.active {
+      background: rgba(56, 189, 248, 0.10);
+      color: #e2e8f0;
+      box-shadow: inset 2px 0 0 #38bdf8;
+      padding-left: 10px;
+    }
+
+    .sb .item .ic {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      color: #64748b;
+      flex: none;
+    }
+    .sb .item:hover .ic { color: #cbd5e1; }
+    .sb .item.active .ic { color: #7dd3fc; }
+
+    .sb .item .label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sb .item .count {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #64748b;
+      padding: 0 5px;
+      flex: none;
+      min-width: 16px;
+      text-align: right;
+    }
+    .sb .item.active .count { color: #7dd3fc; }
+    .sb .item .count.pill {
+      background: #273447;
+      color: #94a3b8;
+      border-radius: 999px;
+      min-width: 20px;
+      text-align: center;
+    }
+    .sb .item .count.pill.new {
+      background: rgba(56, 189, 248, 0.18);
+      color: #7dd3fc;
+    }
+    .sb .item .count.pill.alert {
+      background: rgba(248, 113, 113, 0.18);
+      color: #fca5a5;
+    }
+
+    /* Expandable project group. */
+    .sb .grp {
+      display: flex;
+      flex-direction: column;
+    }
+    .sb .grp > .item .chev {
+      color: #64748b;
+      transition: transform 120ms ease;
+      width: 12px;
+      height: 12px;
+      flex: none;
+    }
+    .sb .grp.open > .item .chev { transform: rotate(90deg); color: #94a3b8; }
+    .sb .grp .children {
+      display: none;
+      flex-direction: column;
+      gap: 1px;
+      padding-left: 24px;
+    }
+    .sb .grp.open .children { display: flex; }
+    .sb .grp .children .item {
+      font-size: 12.5px;
+      padding: 4px 8px;
+    }
+    .sb .grp .children .item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #64748b;
+      flex: none;
+    }
+    .sb .grp .children .item .dot.sky    { background: #38bdf8; }
+    .sb .grp .children .item .dot.green  { background: #4ade80; }
+    .sb .grp .children .item .dot.amber  { background: #fbbf24; }
+    .sb .grp .children .item .dot.purple { background: #c084fc; }
+    .sb .grp .children .item .dot.red    { background: #f87171; }
+
+    /* Star / favorite indicator in favorites row. */
+    .sb .fav-row .star { color: #fbbf24; }
+
+    /* Presence dot on user avatar. */
+    .sb .footer {
+      margin-top: auto;
+      padding: 10px;
+      border-top: 1px solid #273447;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .sb .footer:hover { background: rgba(226, 232, 240, 0.03); }
+    .sb .footer .avatar {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #38bdf8;
+      color: #0b1120;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: none;
+    }
+    .sb .footer .avatar .presence {
+      position: absolute;
+      right: -1px;
+      bottom: -1px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 0 2px #172033;
+    }
+    .sb .footer .name-stack {
+      flex: 1;
+      min-width: 0;
+    }
+    .sb .footer .who {
+      font-size: 12.5px;
+      color: #e2e8f0;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb .footer .role {
+      font-size: 11px;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sb .footer .more {
+      color: #64748b;
+      flex: none;
+    }
+
+    /* Separator. */
+    .sb .sep {
+      height: 1px;
+      background: #273447;
+      margin: 8px 12px;
+    }
+
+    /* --- Collapsed (icon-only) version. --- */
+    .sb.mini {
+      align-items: center;
+    }
+    .sb.mini .workspace {
+      grid-template-columns: 24px;
+      padding: 10px 0;
+      justify-content: center;
+    }
+    .sb.mini .workspace .name,
+    .sb.mini .workspace .plan,
+    .sb.mini .workspace .chev { display: none; }
+    .sb.mini .search,
+    .sb.mini .section,
+    .sb.mini .grp .children { display: none; }
+    .sb.mini .list { padding: 8px 6px; gap: 2px; width: 100%; align-items: center; }
+    .sb.mini .item {
+      display: inline-flex;
+      justify-content: center;
+      padding: 8px;
+      width: 36px;
+      box-sizing: border-box;
+    }
+    .sb.mini .item.active {
+      box-shadow: none;
+      padding: 8px;
+    }
+    .sb.mini .item .label,
+    .sb.mini .item .count,
+    .sb.mini .item .chev { display: none; }
+    .sb.mini .item .ic { color: #cbd5e1; }
+    .sb.mini .item.active .ic { color: #7dd3fc; }
+    .sb.mini .item {
+      position: relative;
+    }
+    .sb.mini .item .count.pill.alert,
+    .sb.mini .item .count.pill.new {
+      display: block;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      padding: 0 4px;
+      min-width: 14px;
+      height: 14px;
+      line-height: 14px;
+      font-size: 9.5px;
+      border-radius: 999px;
+    }
+    .sb.mini .footer {
+      justify-content: center;
+      padding: 10px 6px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .sb.mini .footer .name-stack,
+    .sb.mini .footer .more { display: none; }
+
+    /* Main pane stub. */
+    .main {
+      display: flex;
+      flex-direction: column;
+    }
+    .main .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      border-bottom: 1px solid #273447;
+      font-size: 12.5px;
+      color: #94a3b8;
+    }
+    .main .topbar .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .main .topbar .spacer { flex: 1; }
+    .main .body {
+      padding: 18px 20px;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .main .body .ph {
+      height: 8px;
+      background: #273447;
+      border-radius: 3px;
+      margin-bottom: 10px;
+    }
+    .main .body .ph.short { width: 58%; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Expanded sidebar. -->
+    <div>
+      <div class="caption">Expanded — sections, expandable projects, favorites</div>
+      <div class="shell">
+        <div class="sb">
+
+          <div class="workspace">
+            <span class="logo"></span>
+            <div>
+              <div class="name">Elegance Labs</div>
+              <div class="plan">Team plan · 24 seats</div>
+            </div>
+            <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+
+          <div class="search">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input placeholder="Search"/>
+            <span class="kbd">⌘K</span>
+          </div>
+
+          <div class="list">
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                </svg>
+              </span>
+              <span class="label">Home</span>
+            </div>
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+                  <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                </svg>
+              </span>
+              <span class="label">Inbox</span>
+              <span class="count pill new">3</span>
+            </div>
+            <div class="item active">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12" y2="17.01"/>
+                </svg>
+              </span>
+              <span class="label">Incidents</span>
+              <span class="count pill alert">28</span>
+            </div>
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </span>
+              <span class="label">Metrics</span>
+            </div>
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </span>
+              <span class="label">Dashboards</span>
+              <span class="count">6</span>
+            </div>
+          </div>
+
+          <div class="section">
+            Favorites
+            <span class="add" aria-label="Add">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </span>
+          </div>
+          <div class="list">
+            <div class="item fav-row">
+              <span class="ic star">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </span>
+              <span class="label">p95 latency — production</span>
+            </div>
+            <div class="item fav-row">
+              <span class="ic star">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </span>
+              <span class="label">Weekly on-call summary</span>
+            </div>
+          </div>
+
+          <div class="section">
+            Projects
+            <span class="add" aria-label="New project">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </span>
+          </div>
+
+          <div class="list">
+            <!-- Expanded project with children. -->
+            <div class="grp open">
+              <div class="item">
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+                <span class="ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </span>
+                <span class="label">elegance-charts</span>
+                <span class="count">47</span>
+              </div>
+              <div class="children">
+                <div class="item"><span class="dot sky"></span><span class="label">Sprint 42</span><span class="count">6</span></div>
+                <div class="item"><span class="dot amber"></span><span class="label">Backlog</span><span class="count">14</span></div>
+                <div class="item"><span class="dot green"></span><span class="label">Releases</span></div>
+                <div class="item"><span class="dot purple"></span><span class="label">Design specs</span></div>
+              </div>
+            </div>
+
+            <div class="grp">
+              <div class="item">
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+                <span class="ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </span>
+                <span class="label">ingestion</span>
+                <span class="count">18</span>
+              </div>
+            </div>
+
+            <div class="grp">
+              <div class="item">
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+                <span class="ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </span>
+                <span class="label">billing</span>
+                <span class="count">4</span>
+              </div>
+            </div>
+
+            <div class="grp">
+              <div class="item">
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 6 15 12 9 18"/>
+                </svg>
+                <span class="ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </span>
+                <span class="label">design-system</span>
+                <span class="count">9</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sep"></div>
+          <div class="list" style="padding-bottom: 6px;">
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 4.27 16.9l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.27l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </span>
+              <span class="label">Settings</span>
+            </div>
+            <div class="item">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12" y2="17.01"/>
+                </svg>
+              </span>
+              <span class="label">Help &amp; docs</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <div class="avatar">AL<span class="presence"></span></div>
+            <div class="name-stack">
+              <div class="who">Avery Lin</div>
+              <div class="role">Admin · Online</div>
+            </div>
+            <span class="more">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="main">
+          <div class="topbar">
+            <span class="title">Incidents</span>
+            <span style="color:#64748b; font-size:12px;">28 open · 12 assigned to you</span>
+            <span class="spacer"></span>
+            <span style="color:#64748b; font-size:12px;">Last refreshed 2m ago</span>
+          </div>
+          <div class="body">
+            <div class="ph"></div>
+            <div class="ph short"></div>
+            <div class="ph"></div>
+            <div class="ph"></div>
+            <div class="ph short"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsed icon-only variant. -->
+    <div>
+      <div class="caption">Collapsed — icon-only rail</div>
+      <div class="shell collapsed">
+        <div class="sb mini">
+          <div class="workspace"><span class="logo"></span></div>
+
+          <div class="list">
+            <div class="item" title="Home">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="item" title="Inbox">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+                  <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                </svg>
+              </span>
+              <span class="count pill new">3</span>
+            </div>
+            <div class="item active" title="Incidents">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12" y2="17.01"/>
+                </svg>
+              </span>
+              <span class="count pill alert">28</span>
+            </div>
+            <div class="item" title="Metrics">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </span>
+            </div>
+            <div class="item" title="Dashboards">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+              </span>
+            </div>
+            <div class="sep" style="width: 30px; margin: 6px auto;"></div>
+            <div class="item" title="Projects">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="item" title="Team">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                </svg>
+              </span>
+            </div>
+            <div class="item" title="Settings">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 4.27 16.9l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.27l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <div class="avatar">AL<span class="presence"></span></div>
+          </div>
+        </div>
+
+        <div class="main">
+          <div class="topbar">
+            <span class="title">Incidents</span>
+            <span class="spacer"></span>
+            <span style="color:#64748b; font-size:12px;">rail collapsed · hover for labels</span>
+          </div>
+          <div class="body">
+            <div class="ph"></div>
+            <div class="ph short"></div>
+            <div class="ph"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

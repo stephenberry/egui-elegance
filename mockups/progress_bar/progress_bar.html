@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ProgressBar (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    /* --- Row header (label + value). --- */
+    .bar-row + .bar-row { margin-top: 22px; }
+    .bar-row .hd {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .bar-row .hd .label {
+      font-size: 13px;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .bar-row .hd .sub {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 400;
+      margin-left: 6px;
+    }
+    .bar-row .hd .pct {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      color: #cbd5e1;
+    }
+    .bar-row .hint {
+      margin-top: 6px;
+      font-size: 11.5px;
+      color: #64748b;
+      line-height: 1.45;
+    }
+
+    /* --- Track + fill (variable-driven). --- */
+    .pb {
+      position: relative;
+      width: 100%;
+      height: 6px;
+      background: #273447;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .pb .fill {
+      height: 100%;
+      width: var(--pct, 0%);
+      background: linear-gradient(to right, #38bdf8, #7dd3fc);
+      border-radius: 999px 0 0 999px;
+      transition: width 220ms ease-out;
+    }
+    .pb.full-round .fill { border-radius: 999px; }
+
+    .pb.sm { height: 4px; }
+    .pb.lg { height: 10px; }
+    .pb.xl { height: 14px; }
+
+    /* --- Color variants. --- */
+    .pb.green .fill { background: linear-gradient(to right, #22c55e, #4ade80); }
+    .pb.amber .fill { background: linear-gradient(to right, #f59e0b, #fbbf24); }
+    .pb.red   .fill { background: linear-gradient(to right, #ef4444, #f87171); }
+    .pb.slate .fill { background: linear-gradient(to right, #475569, #64748b); }
+
+    /* --- Indeterminate (animated sweep). --- */
+    .pb.indet .fill {
+      width: 40%;
+      position: absolute;
+      left: -40%;
+      animation: sweep 1.6s ease-in-out infinite;
+      border-radius: 999px;
+    }
+    @keyframes sweep {
+      0%   { left: -40%; }
+      60%  { left: 100%; }
+      100% { left: 100%; }
+    }
+
+    /* --- Stripes (for active / uploading emphasis). --- */
+    .pb.striped .fill {
+      background-image:
+        linear-gradient(to right, #38bdf8, #7dd3fc),
+        repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.14) 0,
+          rgba(255, 255, 255, 0.14) 6px,
+          transparent 6px,
+          transparent 12px);
+      background-blend-mode: overlay;
+      animation: stripes 0.9s linear infinite;
+    }
+    @keyframes stripes {
+      0%   { background-position: 0 0, 0 0; }
+      100% { background-position: 0 0, -24px 0; }
+    }
+
+    /* --- Paused / error. --- */
+    .pb.paused .fill { background: linear-gradient(to right, #475569, #64748b); }
+    .pb.error  .fill { background: linear-gradient(to right, #ef4444, #f87171); }
+
+    /* --- Stepped (segmented into cells). --- */
+    .pb.stepped {
+      background: transparent;
+      display: flex;
+      gap: 4px;
+      height: 6px;
+      overflow: visible;
+    }
+    .pb.stepped .seg {
+      flex: 1;
+      height: 100%;
+      background: #273447;
+      border-radius: 4px;
+    }
+    .pb.stepped .seg.done { background: #4ade80; }
+    .pb.stepped .seg.active { background: #38bdf8; }
+    .pb.stepped .seg.error  { background: #f87171; }
+
+    /* --- Stepped (large numbered). --- */
+    .stepped-num {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-top: 6px;
+    }
+    .stepped-num .dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #273447;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      flex: none;
+    }
+    .stepped-num .dot.done { background: #4ade80; color: #0b1120; }
+    .stepped-num .dot.active {
+      background: #38bdf8;
+      color: #0b1120;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+    }
+    .stepped-num .conn {
+      flex: 1;
+      height: 2px;
+      background: #273447;
+      margin: 0 4px;
+    }
+    .stepped-num .conn.done { background: #4ade80; }
+
+    /* --- Multi-band stack: overall + sub-progresses. --- */
+    .stack-rows > * + * { margin-top: 10px; }
+
+    /* --- Upload item (icon + name + size + bar + controls). --- */
+    .upload {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      grid-template-rows: auto auto;
+      column-gap: 12px;
+      row-gap: 4px;
+      align-items: center;
+      padding: 10px 12px;
+      background: #172033;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+    .upload + .upload { margin-top: 8px; }
+    .upload .file-ic {
+      grid-row: 1 / span 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #7dd3fc;
+    }
+    .upload .file-ic.green { background: rgba(74, 222, 128, 0.12); color: #86efac; }
+    .upload .file-ic.amber { background: rgba(251, 191, 36, 0.12); color: #fbbf24; }
+    .upload .file-ic.red   { background: rgba(248, 113, 113, 0.12); color: #fca5a5; }
+    .upload .file-ic.slate { background: rgba(148, 163, 184, 0.10); color: #94a3b8; }
+
+    .upload .name {
+      font-size: 13px;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .upload .meta {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #94a3b8;
+      margin-left: 8px;
+    }
+    .upload .status {
+      font-size: 12px;
+      color: #94a3b8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-align: right;
+    }
+    .upload .status.green { color: #4ade80; }
+    .upload .status.amber { color: #fbbf24; }
+    .upload .status.red   { color: #f87171; }
+    .upload .ctrl {
+      grid-row: 1 / span 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .upload .ctrl:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+    .upload .pb-wrap {
+      grid-column: 2 / span 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .upload .pb-wrap .pb { flex: 1; }
+
+    /* --- Summary / inline table progress bar. --- */
+    .quota-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 80px;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid #273447;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .quota-row:last-child { border-bottom: none; }
+    .quota-row .label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .quota-row .label .dot-sm {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      flex: none;
+    }
+    .quota-row .value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: right;
+    }
+    .quota-row .value .used { color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Determinate variants: label + value, sizes, colors. -->
+    <div>
+      <div class="caption">Determinate — sizes &amp; variants</div>
+      <div class="card">
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Importing records <span class="sub">1.48M of 2.10M</span></span>
+            <span class="pct">70%</span>
+          </div>
+          <div class="pb"><div class="fill" style="--pct: 70%;"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Backup</span>
+            <span class="pct">24%</span>
+          </div>
+          <div class="pb sm"><div class="fill" style="--pct: 24%;"></div></div>
+          <div class="hint">Compressing shard 12 of 50. ~8 min remaining.</div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Storage quota used</span>
+            <span class="pct">82.4 GB / 100 GB</span>
+          </div>
+          <div class="pb lg amber"><div class="fill" style="--pct: 82.4%;"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Seats consumed</span>
+            <span class="pct">98 / 100</span>
+          </div>
+          <div class="pb xl red"><div class="fill" style="--pct: 98%;"></div></div>
+          <div class="hint" style="color: #fca5a5;">
+            Upgrade your plan to add more seats.
+          </div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Deploy</span>
+            <span class="pct" style="color:#4ade80;">Complete</span>
+          </div>
+          <div class="pb green full-round"><div class="fill" style="--pct: 100%;"></div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Indeterminate, striped, paused, error. -->
+    <div>
+      <div class="caption">States — indeterminate / striped / paused / error</div>
+      <div class="card">
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Analyzing repository</span>
+            <span class="pct" style="color:#64748b;">working…</span>
+          </div>
+          <div class="pb indet"><div class="fill"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Uploading <span class="sub">assets-bundle.tar.gz</span></span>
+            <span class="pct">312.4 / 540.0 MB</span>
+          </div>
+          <div class="pb striped lg"><div class="fill" style="--pct: 58%;"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Sync <span class="sub">paused</span></span>
+            <span class="pct" style="color:#94a3b8;">42%</span>
+          </div>
+          <div class="pb paused"><div class="fill" style="--pct: 42%;"></div></div>
+          <div class="hint">Auto-resume in 4 s, or resume now.</div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Restore <span class="sub">failed at 67%</span></span>
+            <span class="pct" style="color:#fca5a5;">blocked</span>
+          </div>
+          <div class="pb error"><div class="fill" style="--pct: 67%;"></div></div>
+          <div class="hint" style="color:#fca5a5;">
+            shard 12: checksum mismatch — run <code style="font-family: ui-monospace,SFMono-Regular,Menlo,monospace; color:#fbbf24;">elg restore --verify</code> to diagnose.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Stepped: segmented cells + numbered dots. -->
+    <div>
+      <div class="caption">Stepped — cells &amp; numbered</div>
+      <div class="card">
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Release pipeline</span>
+            <span class="pct">4 / 6 steps</span>
+          </div>
+          <div class="pb stepped">
+            <span class="seg done"></span>
+            <span class="seg done"></span>
+            <span class="seg done"></span>
+            <span class="seg done"></span>
+            <span class="seg active"></span>
+            <span class="seg"></span>
+          </div>
+          <div class="hint">Currently running: <strong style="color:#cbd5e1;">integration tests</strong></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Migration</span>
+            <span class="pct" style="color:#f87171;">failed on step 3</span>
+          </div>
+          <div class="pb stepped">
+            <span class="seg done"></span>
+            <span class="seg done"></span>
+            <span class="seg error"></span>
+            <span class="seg"></span>
+            <span class="seg"></span>
+          </div>
+        </div>
+
+        <div class="bar-row">
+          <div class="hd">
+            <span class="label">Onboarding</span>
+            <span class="pct">Step 3 of 5</span>
+          </div>
+          <div class="stepped-num">
+            <span class="dot done">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+            <span class="conn done"></span>
+            <span class="dot done">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+            <span class="conn done"></span>
+            <span class="dot active">3</span>
+            <span class="conn"></span>
+            <span class="dot">4</span>
+            <span class="conn"></span>
+            <span class="dot">5</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Multi-file upload list. -->
+    <div>
+      <div class="caption">Upload list — per-file progress</div>
+      <div class="card">
+
+        <div class="bar-row" style="margin-bottom: 14px;">
+          <div class="hd">
+            <span class="label">Overall <span class="sub">3 of 5 files complete</span></span>
+            <span class="pct">68%</span>
+          </div>
+          <div class="pb"><div class="fill" style="--pct: 68%;"></div></div>
+        </div>
+
+        <div class="upload">
+          <span class="file-ic green">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <div><span class="name">design-system.fig</span><span class="meta">24.1 MB</span></div>
+          <div class="pb-wrap">
+            <div class="pb sm green"><div class="fill" style="--pct: 100%;"></div></div>
+            <span class="status green">Complete</span>
+          </div>
+          <button class="ctrl" aria-label="Remove">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="6" y1="18" x2="18" y2="6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="upload">
+          <span class="file-ic green">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <div><span class="name">tokens.json</span><span class="meta">3.2 KB</span></div>
+          <div class="pb-wrap">
+            <div class="pb sm green"><div class="fill" style="--pct: 100%;"></div></div>
+            <span class="status green">Complete</span>
+          </div>
+          <button class="ctrl" aria-label="Remove">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="6" y1="18" x2="18" y2="6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="upload">
+          <span class="file-ic">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+          </span>
+          <div><span class="name">video-walkthrough.mp4</span><span class="meta">486.2 MB</span></div>
+          <div class="pb-wrap">
+            <div class="pb sm striped"><div class="fill" style="--pct: 42%;"></div></div>
+            <span class="status">204 MB · 1.8 MB/s</span>
+          </div>
+          <button class="ctrl" aria-label="Cancel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="6" y1="18" x2="18" y2="6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="upload">
+          <span class="file-ic amber">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="5" width="4" height="14"/>
+              <rect x="14" y="5" width="4" height="14"/>
+            </svg>
+          </span>
+          <div><span class="name">presentation.key</span><span class="meta">128.4 MB</span></div>
+          <div class="pb-wrap">
+            <div class="pb sm paused"><div class="fill" style="--pct: 31%;"></div></div>
+            <span class="status amber">Paused · Wi-Fi required</span>
+          </div>
+          <button class="ctrl" aria-label="Resume">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="upload">
+          <span class="file-ic red">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </span>
+          <div><span class="name">archive-backup.zip</span><span class="meta">2.1 GB</span></div>
+          <div class="pb-wrap">
+            <div class="pb sm error"><div class="fill" style="--pct: 7%;"></div></div>
+            <span class="status red">Failed · 413 Too Large</span>
+          </div>
+          <button class="ctrl" aria-label="Retry">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Quota summary: breakdown of capacity by category. -->
+    <div>
+      <div class="caption">Quota breakdown — inline rows</div>
+      <div class="card">
+        <div class="legend">Workspace usage (this month)</div>
+
+        <div class="quota-row">
+          <span class="label">
+            <span class="dot-sm" style="background:#38bdf8;"></span>
+            Ingest events
+          </span>
+          <div class="pb"><div class="fill" style="--pct: 62%;"></div></div>
+          <span class="value"><span class="used">6.2M</span> / 10M</span>
+        </div>
+
+        <div class="quota-row">
+          <span class="label">
+            <span class="dot-sm" style="background:#4ade80;"></span>
+            Storage
+          </span>
+          <div class="pb green"><div class="fill" style="--pct: 34%;"></div></div>
+          <span class="value"><span class="used">34 GB</span> / 100 GB</span>
+        </div>
+
+        <div class="quota-row">
+          <span class="label">
+            <span class="dot-sm" style="background:#fbbf24;"></span>
+            API requests
+          </span>
+          <div class="pb amber"><div class="fill" style="--pct: 88%;"></div></div>
+          <span class="value"><span class="used">4.4M</span> / 5M</span>
+        </div>
+
+        <div class="quota-row">
+          <span class="label">
+            <span class="dot-sm" style="background:#f87171;"></span>
+            Seats
+          </span>
+          <div class="pb red"><div class="fill" style="--pct: 98%;"></div></div>
+          <span class="value"><span class="used">98</span> / 100</span>
+        </div>
+
+        <div class="quota-row">
+          <span class="label">
+            <span class="dot-sm" style="background:#64748b;"></span>
+            Retention (avg)
+          </span>
+          <div class="pb slate"><div class="fill" style="--pct: 16%;"></div></div>
+          <span class="value"><span class="used">14</span> / 90 days</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

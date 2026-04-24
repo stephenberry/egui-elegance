@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Command Palette (Slate)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --input-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sky: #38bdf8;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --amber: #d97706;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); }
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: var(--text);
+      position: relative;
+    }
+
+    .app-behind {
+      position: absolute;
+      inset: 0;
+      padding: 32px 40px;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .app-behind .crumb {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+    .app-behind .placeholder-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      height: 220px;
+      max-width: 720px;
+    }
+
+    .open-hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: var(--text-faint);
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 3;
+    }
+
+    .scrim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      transition: opacity 0.12s ease-out;
+      pointer-events: none;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+
+    .palette {
+      position: fixed;
+      top: 96px;
+      left: 50%;
+      transform: translate(-50%, -8px);
+      width: min(560px, calc(100vw - 48px));
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 28px 64px rgba(0, 0, 0, 0.55),
+                  0 2px 0 rgba(56, 189, 248, 0.05) inset;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+      z-index: 2;
+    }
+    .palette.open {
+      opacity: 1;
+      transform: translate(-50%, 0);
+      pointer-events: auto;
+    }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search svg { flex: none; color: var(--text-muted); }
+    .search input {
+      flex: 1;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      padding: 2px 0;
+    }
+    .search input::placeholder { color: var(--text-faint); }
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      line-height: 1.4;
+    }
+
+    .results {
+      padding: 6px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .group-label {
+      padding: 10px 12px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    .empty {
+      padding: 28px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-faint);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 80ms ease-out;
+    }
+    .row:hover { background: rgba(226, 232, 240, 0.03); }
+    .row.selected {
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+    }
+    .row.run-flash {
+      animation: flash 260ms ease-out;
+    }
+    @keyframes flash {
+      0%   { background: rgba(74, 222, 128, 0.22); }
+      100% { background: rgba(56, 189, 248, 0.08); }
+    }
+
+    .row .icon-box {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .row.selected .icon-box {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--sky);
+    }
+    .icon-box.icon-danger  { color: #f87171; }
+    .icon-box.icon-green   { color: #4ade80; }
+    .icon-box.icon-purple  { color: #a78bfa; }
+    .icon-box.icon-amber   { color: #fbbf24; }
+    .icon-box.icon-blue    { color: #93c5fd; }
+
+    .row .title { font-size: 14px; color: var(--text); }
+    .row .title mark {
+      background: transparent;
+      color: var(--sky);
+      font-weight: 600;
+    }
+    .row .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .row .subtitle mark {
+      background: transparent;
+      color: var(--sky);
+      font-weight: 600;
+    }
+    .row .shortcut { display: flex; gap: 4px; }
+
+    .footer {
+      display: flex;
+      gap: 16px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.35);
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+    .footer span { display: inline-flex; align-items: center; gap: 6px; }
+    .footer .kbd { font-size: 10.5px; padding: 1px 5px; }
+
+    /* Toast shown when a command "runs" --------------------------------- */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid #4ade80;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .toast .label {
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-right: 6px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="app-behind">
+    <div class="crumb">projects &nbsp;/&nbsp; soul-live &nbsp;/&nbsp; deploys</div>
+    <div class="placeholder-card"></div>
+  </div>
+
+  <div class="open-hint">Press <span class="kbd" style="font-size:10.5px">⌘K</span> or <span class="kbd" style="font-size:10.5px">/</span> to open</div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="palette" id="palette" role="dialog" aria-label="Command palette">
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round"
+           stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="q" placeholder="Jump to anything…" autocomplete="off" spellcheck="false" />
+      <span class="kbd">⌘K</span>
+    </div>
+
+    <div class="results" id="results" role="listbox"></div>
+
+    <div class="footer">
+      <span><span class="kbd">↑</span><span class="kbd">↓</span> navigate</span>
+      <span><span class="kbd">↵</span> select</span>
+      <span><span class="kbd">esc</span> close</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <span class="label">ran</span><span id="toast-body"></span>
+  </div>
+
+<script>
+const COMMANDS = [
+  { section: 'Actions', tint: 'icon-green',  shortcut: ['⌘','⇧','D'], title: 'Deploy to production',        subtitle: 'Ship the current build to all regions', icon: 'check' },
+  { section: 'Actions', tint: 'icon-amber',  shortcut: ['⌘','R'],      title: 'Rollback latest deploy',      subtitle: 'Revert to previous release · 12m ago',  icon: 'undo' },
+  { section: 'Actions', tint: 'icon-purple', shortcut: [],             title: 'Schedule deploy…',            subtitle: 'Queue a build for a future time',       icon: 'clock' },
+  { section: 'Actions', tint: '',            shortcut: ['⌘','.'],      title: 'Restart workers',             subtitle: 'Rolling restart of the worker pool',    icon: 'refresh' },
+  { section: 'Actions', tint: 'icon-danger', shortcut: [],             title: 'Abort running deploy',        subtitle: 'api-west-01 · stage 2 of 4',            icon: 'x' },
+  { section: 'Actions', tint: 'icon-blue',   shortcut: ['⌘','N'],      title: 'New incident…',               subtitle: 'Open a new incident in the tracker',     icon: 'plus' },
+  { section: 'Actions', tint: '',            shortcut: ['⌘','⇧','P'],  title: 'Pause ingest pipeline',       subtitle: 'Stop accepting new events',             icon: 'pause' },
+
+  { section: 'Recent',  tint: '',            shortcut: [],             title: 'Open deploy log — #4129',     subtitle: 'us-east · 08:14 · succeeded',           icon: 'file' },
+  { section: 'Recent',  tint: '',            shortcut: [],             title: 'Switch to workspace: staging', subtitle: '3 people active',                       icon: 'folder' },
+  { section: 'Recent',  tint: '',            shortcut: [],             title: 'View worker metrics',          subtitle: 'Grafana · worker-pool-a',                icon: 'chart' },
+];
+
+const ICONS = {
+  check:   '<path d="M5 12l5 5L20 7"/>',
+  undo:    '<path d="M3 2v6h6"/><path d="M21 12A9 9 0 1 1 6.7 5.3L3 8"/>',
+  clock:   '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  refresh: '<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9A9 9 0 0 1 18 5.3L23 10"/><path d="M20.5 15A9 9 0 0 1 6 18.7L1 14"/>',
+  x:       '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  plus:    '<line x1="12" y1="5"  x2="12" y2="19"/><line x1="5"  y1="12" x2="19" y2="12"/>',
+  pause:   '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>',
+  file:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  folder:  '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  chart:   '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6"  y1="20" x2="6"  y2="14"/>',
+};
+
+const palette = document.getElementById('palette');
+const scrim   = document.getElementById('scrim');
+const input   = document.getElementById('q');
+const results = document.getElementById('results');
+const toast   = document.getElementById('toast');
+const toastBody = document.getElementById('toast-body');
+
+let filtered = [];
+let selectedIdx = 0;
+
+// Fuzzy-ish match: require all query chars to appear in order in title+subtitle.
+// Score = 0 for substring match in title, 1 for substring in subtitle, 2 for
+// subsequence. Preserves positions so we can highlight.
+function match(cmd, q) {
+  if (!q) return { score: 0, positions: { title: [], subtitle: [] } };
+  const low = q.toLowerCase();
+  const title = cmd.title.toLowerCase();
+  const sub   = cmd.subtitle.toLowerCase();
+
+  // Substring in title.
+  const ti = title.indexOf(low);
+  if (ti >= 0) {
+    const positions = [];
+    for (let i = 0; i < low.length; i++) positions.push(ti + i);
+    return { score: 0, positions: { title: positions, subtitle: [] } };
+  }
+  // Substring in subtitle.
+  const si = sub.indexOf(low);
+  if (si >= 0) {
+    const positions = [];
+    for (let i = 0; i < low.length; i++) positions.push(si + i);
+    return { score: 1, positions: { title: [], subtitle: positions } };
+  }
+  // Subsequence in title.
+  const seq = subseq(title, low);
+  if (seq) return { score: 2, positions: { title: seq, subtitle: [] } };
+  // Subsequence in subtitle.
+  const seq2 = subseq(sub, low);
+  if (seq2) return { score: 3, positions: { title: [], subtitle: seq2 } };
+  return null;
+}
+function subseq(hay, needle) {
+  const positions = [];
+  let j = 0;
+  for (let i = 0; i < hay.length && j < needle.length; i++) {
+    if (hay[i] === needle[j]) { positions.push(i); j++; }
+  }
+  return j === needle.length ? positions : null;
+}
+
+function highlight(text, positions) {
+  if (!positions || positions.length === 0) return escapeHtml(text);
+  let out = '';
+  let set = new Set(positions);
+  for (let i = 0; i < text.length; i++) {
+    if (set.has(i)) out += '<mark>' + escapeHtml(text[i]) + '</mark>';
+    else out += escapeHtml(text[i]);
+  }
+  return out;
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+
+function filter() {
+  const q = input.value.trim();
+  const scored = [];
+  for (const cmd of COMMANDS) {
+    const m = match(cmd, q);
+    if (m) scored.push({ cmd, ...m });
+  }
+  scored.sort((a, b) => a.score - b.score);
+  filtered = scored;
+  selectedIdx = filtered.length ? 0 : -1;
+  render();
+}
+
+function render() {
+  if (filtered.length === 0) {
+    results.innerHTML = '<div class="empty">No matches for <strong>' + escapeHtml(input.value) + '</strong></div>';
+    return;
+  }
+  let html = '';
+  let currentSection = null;
+  filtered.forEach((item, i) => {
+    if (item.cmd.section !== currentSection) {
+      currentSection = item.cmd.section;
+      html += '<div class="group-label">' + currentSection + '</div>';
+    }
+    const iconPath = ICONS[item.cmd.icon] || '';
+    const selected = i === selectedIdx ? ' selected' : '';
+    const shortcut = item.cmd.shortcut.map(k =>
+      '<span class="kbd">' + escapeHtml(k) + '</span>'
+    ).join('');
+    html +=
+      '<div class="row' + selected + '" data-idx="' + i + '" role="option" aria-selected="' + (i === selectedIdx) + '">' +
+        '<div class="icon-box ' + item.cmd.tint + '">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          iconPath + '</svg>' +
+        '</div>' +
+        '<div>' +
+          '<div class="title">' + highlight(item.cmd.title, item.positions.title) + '</div>' +
+          '<div class="subtitle">' + highlight(item.cmd.subtitle, item.positions.subtitle) + '</div>' +
+        '</div>' +
+        '<div class="shortcut">' + shortcut + '</div>' +
+      '</div>';
+  });
+  results.innerHTML = html;
+
+  results.querySelectorAll('.row').forEach(el => {
+    const idx = +el.dataset.idx;
+    el.addEventListener('mousemove', () => {
+      if (selectedIdx !== idx) { selectedIdx = idx; paintSelection(); }
+    });
+    el.addEventListener('click', () => { selectedIdx = idx; run(); });
+  });
+  scrollSelectedIntoView();
+}
+
+function paintSelection() {
+  results.querySelectorAll('.row').forEach(el => {
+    const idx = +el.dataset.idx;
+    el.classList.toggle('selected', idx === selectedIdx);
+    el.setAttribute('aria-selected', idx === selectedIdx);
+  });
+  scrollSelectedIntoView();
+}
+
+function scrollSelectedIntoView() {
+  const el = results.querySelector('.row.selected');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const p = results.getBoundingClientRect();
+  if (r.top < p.top)    results.scrollTop -= (p.top - r.top) + 4;
+  if (r.bottom > p.bottom) results.scrollTop += (r.bottom - p.bottom) + 4;
+}
+
+function move(delta) {
+  if (filtered.length === 0) return;
+  selectedIdx = (selectedIdx + delta + filtered.length) % filtered.length;
+  paintSelection();
+}
+
+function run() {
+  if (selectedIdx < 0 || !filtered[selectedIdx]) return;
+  const cmd = filtered[selectedIdx].cmd;
+  const el  = results.querySelector('.row.selected');
+  if (el) {
+    el.classList.remove('run-flash');
+    // Re-trigger the animation.
+    void el.offsetWidth;
+    el.classList.add('run-flash');
+  }
+  toastBody.textContent = cmd.title;
+  toast.classList.add('show');
+  clearTimeout(run._toastTimer);
+  run._toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+  setTimeout(() => close(), 180);
+}
+
+function open() {
+  palette.classList.add('open');
+  scrim.classList.add('open');
+  input.value = '';
+  filter();
+  setTimeout(() => input.focus(), 20);
+}
+function close() {
+  palette.classList.remove('open');
+  scrim.classList.remove('open');
+  input.blur();
+}
+
+input.addEventListener('input', filter);
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+  else if (e.key === 'Enter') { e.preventDefault(); run(); }
+  else if (e.key === 'Escape') {
+    if (input.value) { input.value = ''; filter(); }
+    else close();
+  }
+});
+scrim.addEventListener('click', close);
+
+window.addEventListener('keydown', (e) => {
+  const typing = document.activeElement === input;
+  if (!palette.classList.contains('open')) {
+    if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault(); open();
+    } else if (e.key === '/' && !typing) {
+      e.preventDefault(); open();
+    }
+  }
+});
+
+// Open on load so the demo is immediately usable.
+window.addEventListener('DOMContentLoaded', () => {
+  open();
+});
+</script>
+</body>
+</html>

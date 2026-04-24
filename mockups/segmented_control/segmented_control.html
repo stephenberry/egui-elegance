@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SegmentedControl (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 720px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 22px 24px;
+    }
+
+    /* --- Segmented core. ---
+       A rounded container that houses equal-width buttons. The selected
+       segment draws a raised pill inside the track. */
+    .seg {
+      display: inline-flex;
+      align-items: stretch;
+      padding: 3px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      gap: 0;
+      font-family: inherit;
+      vertical-align: middle;
+    }
+
+    .seg button {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: color 80ms, background-color 80ms;
+      white-space: nowrap;
+    }
+    .seg button:hover:not(.active):not(:disabled) { color: #e2e8f0; background: rgba(226, 232, 240, 0.05); }
+    .seg button:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+    }
+    .seg button.active {
+      background: #1e293b;
+      color: #e2e8f0;
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 1px #334155;
+    }
+    .seg button:disabled {
+      color: #475569;
+      cursor: not-allowed;
+    }
+
+    /* Dividers between inactive segments. */
+    .seg button + button:not(.active):not(:hover)::before {
+      content: "";
+      position: absolute;
+      left: -1px;
+      top: 7px;
+      bottom: 7px;
+      width: 1px;
+      background: #273447;
+    }
+    .seg button.active + button::before,
+    .seg button:hover + button::before { display: none; }
+
+    /* Size variants. */
+    .seg.sm button { padding: 3px 10px; font-size: 12px; }
+    .seg.sm { padding: 2px; border-radius: 6px; }
+    .seg.lg button { padding: 7px 16px; font-size: 13.5px; }
+    .seg.lg { padding: 4px; border-radius: 8px; }
+
+    /* Icon-only (square cells). */
+    .seg.icon button { padding: 6px 9px; }
+    .seg.icon svg { width: 14px; height: 14px; }
+
+    /* Equal-width fill variant: forces every segment to the same width. */
+    .seg.fill { display: flex; width: 100%; }
+    .seg.fill button { flex: 1; }
+
+    /* Count/badge inside a segment. */
+    .seg .count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      background: rgba(148, 163, 184, 0.18);
+      color: #94a3b8;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .seg button.active .count {
+      background: rgba(56, 189, 248, 0.20);
+      color: #7dd3fc;
+    }
+
+    /* Dot indicator. */
+    .seg .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #64748b;
+    }
+    .seg button.active .dot { background: #38bdf8; }
+    .seg .dot.amber { background: #fbbf24; }
+    .seg .dot.red   { background: #f87171; }
+    .seg .dot.green { background: #4ade80; }
+
+    /* Row layout: label left, control right. */
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 18px;
+      padding: 12px 0;
+      border-bottom: 1px solid #273447;
+    }
+    .row:last-child { border-bottom: none; }
+    .row .title { font-size: 13.5px; font-weight: 500; color: #e2e8f0; }
+    .row .sub   { font-size: 12px; color: #64748b; margin-top: 3px; line-height: 1.45; }
+
+    /* Toolbar strip. */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      background: #172033;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+    .toolbar .muted {
+      font-size: 12px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    /* Chart-ish panel anchored to a segmented timeframe switcher. */
+    .chart-card {
+      background: #172033;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .chart-card .hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .chart-card .hd .label {
+      font-size: 13px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+    .chart-card .hd .value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      color: #94a3b8;
+    }
+    .chart-card .plot {
+      height: 90px;
+      background:
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0)) 0 0 / 100% 100% no-repeat,
+        repeating-linear-gradient(to right, rgba(51, 65, 85, 0.6) 0, rgba(51, 65, 85, 0.6) 1px, transparent 1px, transparent 40px) 0 0 / 100% 100%;
+      border-bottom: 1px solid #334155;
+      position: relative;
+    }
+    .chart-card .plot::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: 14px;
+      height: 2px;
+      background: linear-gradient(to right, #38bdf8, #7dd3fc);
+      mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'><path d='M0 20 L12 14 L25 22 L40 10 L55 16 L70 8 L84 14 L100 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      mask-size: 100% 100%;
+      -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 30' preserveAspectRatio='none'><path d='M0 20 L12 14 L25 22 L40 10 L55 16 L70 8 L84 14 L100 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      -webkit-mask-size: 100% 100%;
+    }
+
+    .page-hint {
+      margin-top: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      font-style: italic;
+      line-height: 1.6;
+    }
+    .page-hint .kbd {
+      font-style: normal;
+      display: inline-block;
+      padding: 1px 5px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #e2e8f0;
+      vertical-align: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Sizes and kinds. -->
+    <div>
+      <div class="caption">Sizes &amp; kinds</div>
+      <div class="card">
+        <div class="legend">Text segments</div>
+        <div style="display:flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+          <div class="seg sm">
+            <button>Day</button>
+            <button class="active">Week</button>
+            <button>Month</button>
+          </div>
+          <div class="seg">
+            <button>Day</button>
+            <button class="active">Week</button>
+            <button>Month</button>
+            <button>Year</button>
+          </div>
+          <div class="seg lg">
+            <button>Private</button>
+            <button class="active">Internal</button>
+            <button>Public</button>
+          </div>
+        </div>
+
+        <div style="height: 22px;"></div>
+
+        <div class="legend">Icon-only</div>
+        <div style="display:flex; gap: 16px; align-items: center;">
+          <div class="seg icon">
+            <button aria-label="List" class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </button>
+            <button aria-label="Grid">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+            </button>
+            <button aria-label="Board">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="5" height="16"/>
+                <rect x="10" y="4" width="5" height="10"/>
+                <rect x="17" y="4" width="4" height="13"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="seg icon">
+            <button aria-label="Align left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6"  x2="15" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="13" y2="18"/>
+              </svg>
+            </button>
+            <button aria-label="Align center" class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="6"  x2="17" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="6" y1="18" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <button aria-label="Align right">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="9"  y1="6"  x2="21" y2="6"/>
+                <line x1="3"  y1="12" x2="21" y2="12"/>
+                <line x1="11" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <button aria-label="Justify">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6"  x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="seg icon">
+            <button aria-label="Desktop" class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="13" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </button>
+            <button aria-label="Tablet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+            </button>
+            <button aria-label="Mobile" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <rect x="8" y="2" width="8" height="20" rx="1.5"/>
+                <line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="height: 22px;"></div>
+
+        <div class="legend">With icon + label</div>
+        <div style="display:flex; gap: 16px; align-items: center;">
+          <div class="seg">
+            <button class="active">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 11 12 14 22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              Unified
+            </button>
+            <button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="8" height="18"/>
+                <rect x="13" y="3" width="8" height="18"/>
+              </svg>
+              Split
+            </button>
+          </div>
+
+          <div class="seg">
+            <button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="6" x2="12" y2="12"/>
+                <line x1="12" y1="12" x2="16" y2="14"/>
+              </svg>
+              Live
+            </button>
+            <button class="active">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                <polyline points="12 7 12 12 15 14"/>
+              </svg>
+              Historical
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings list with segmented controls as row affordance. -->
+    <div>
+      <div class="caption">In a settings list</div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="title">Theme</div>
+            <div class="sub">Applies to all members of the workspace.</div>
+          </div>
+          <div class="seg">
+            <button>Light</button>
+            <button class="active">Dark</button>
+            <button>System</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="title">Density</div>
+            <div class="sub">Compact reduces row heights and paddings across tables.</div>
+          </div>
+          <div class="seg">
+            <button>Compact</button>
+            <button class="active">Comfortable</button>
+            <button>Spacious</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="title">Default view</div>
+            <div class="sub">Where the workspace lands after sign-in.</div>
+          </div>
+          <div class="seg">
+            <button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              Dashboard
+            </button>
+            <button class="active">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6"  x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+              Inbox
+            </button>
+            <button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              Calendar
+            </button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="title">Default language</div>
+            <div class="sub" style="color:#f87171;">SCIM-provisioned users can't override this.</div>
+          </div>
+          <div class="seg">
+            <button class="active">EN</button>
+            <button>DE</button>
+            <button>JA</button>
+            <button disabled>FR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anchored to a chart: timeframe switcher + filters with counts. -->
+    <div>
+      <div class="caption">Anchored — timeframe &amp; filter with counts</div>
+      <div class="card">
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <span class="muted">Timeframe</span>
+          <div class="seg">
+            <button>1h</button>
+            <button>6h</button>
+            <button class="active">24h</button>
+            <button>7d</button>
+            <button>30d</button>
+          </div>
+          <span style="flex:1;"></span>
+          <span class="muted">Region</span>
+          <div class="seg sm">
+            <button class="active">All</button>
+            <button>us-east</button>
+            <button>us-west</button>
+            <button>eu</button>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="hd">
+            <span class="label">Request volume</span>
+            <span class="value">last 24h · 1.42M requests</span>
+          </div>
+          <div class="plot"></div>
+          <div style="display:flex; justify-content: space-between; margin-top: 10px; font-size: 11.5px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>now</span>
+          </div>
+        </div>
+
+        <div style="height: 16px;"></div>
+
+        <div class="seg fill">
+          <button class="active">
+            <span class="dot amber"></span>
+            Open
+            <span class="count">12</span>
+          </button>
+          <button>
+            <span class="dot"></span>
+            Triaged
+            <span class="count">84</span>
+          </button>
+          <button>
+            <span class="dot green"></span>
+            Resolved
+            <span class="count">1,204</span>
+          </button>
+          <button>
+            <span class="dot red"></span>
+            Rejected
+            <span class="count">31</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-hint">
+      Click a segment to select it; only one is active at a time.
+      <span class="kbd">←</span> / <span class="kbd">→</span> move between segments when one is focused.
+    </div>
+
+  </div>
+
+  <script>
+    // Single-selection within each .seg group, skipping disabled buttons.
+    // Keyboard left/right moves between enabled segments.
+    document.querySelectorAll('.seg').forEach(function (group) {
+      var buttons = Array.prototype.slice.call(group.querySelectorAll(':scope > button'));
+      buttons.forEach(function (btn, i) {
+        btn.addEventListener('click', function () {
+          if (btn.disabled) return;
+          buttons.forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+        });
+        btn.addEventListener('keydown', function (e) {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          e.preventDefault();
+          var dir = e.key === 'ArrowRight' ? 1 : -1;
+          var j = i + dir;
+          while (j >= 0 && j < buttons.length && buttons[j].disabled) j += dir;
+          if (j >= 0 && j < buttons.length) buttons[j].focus();
+        });
+      });
+    });
+  </script>
+</body>
+</html>

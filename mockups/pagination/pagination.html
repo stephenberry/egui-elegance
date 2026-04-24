@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pagination (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 820px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* --- Core pager --- */
+    .pager {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .pager button,
+    .pager .ellipsis {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+    .pager button:hover {
+      background: rgba(226, 232, 240, 0.05);
+      border-color: #334155;
+    }
+    .pager button.num { color: #94a3b8; }
+    .pager button.num:hover { color: #e2e8f0; }
+    .pager button.active {
+      background: rgba(56, 189, 248, 0.16);
+      color: #e2e8f0;
+      border-color: transparent;
+      font-weight: 600;
+    }
+    .pager button[disabled] {
+      color: #475569;
+      cursor: not-allowed;
+      background: transparent;
+      border-color: transparent;
+    }
+    .pager .ellipsis {
+      color: #64748b;
+      cursor: default;
+      padding: 0 4px;
+      min-width: 20px;
+    }
+    .pager .icon { width: 14px; height: 14px; }
+
+    /* Bar layout: info on left, pager on right, page-size selector on far right. */
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 14px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+    }
+    .bar .info { color: #94a3b8; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .bar .info b { color: #e2e8f0; font-weight: 600; }
+    .bar .right {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Page-size select — visually matches the input widget family. */
+    .size {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .size select {
+      appearance: none;
+      background: #0b1120;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 28px 5px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.2;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 8 10 12 14 8'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px 14px;
+    }
+
+    /* Compact inline variant — prev/next + "page x of y". */
+    .compact {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+    .compact button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+    .compact button:hover { border-color: #475569; background: rgba(226,232,240,0.03); }
+    .compact button[disabled] { color: #475569; border-color: #263445; cursor: not-allowed; }
+    .compact b { color: #e2e8f0; font-weight: 600; }
+
+    /* Jumper — "Go to page ___" */
+    .jumper {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .jumper input {
+      width: 54px;
+      background: #0b1120;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .jumper input:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.20);
+    }
+
+    /* Demo: a mock data panel so pagination reads in context. */
+    .panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .panel .head, .panel .foot {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #182438;
+      border-bottom: 1px solid #334155;
+      color: #94a3b8;
+      font-size: 12.5px;
+    }
+    .panel .foot {
+      border-bottom: none;
+      border-top: 1px solid #334155;
+    }
+    .panel .rows {
+      display: flex;
+      flex-direction: column;
+    }
+    .panel .rr {
+      padding: 10px 14px;
+      border-bottom: 1px solid #263445;
+      font-size: 13.5px;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel .rr:last-child { border-bottom: none; }
+    .panel .rr .sub { color: #94a3b8; font-size: 12.5px; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Numbered variant with ellipsis, prev/next, and active page. -->
+    <div>
+      <div class="caption">Numbered pager (with ellipsis)</div>
+      <div class="pager">
+        <button aria-label="Previous page">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="12 6 8 10 12 14"/>
+          </svg>
+        </button>
+        <button class="num">1</button>
+        <span class="ellipsis">…</span>
+        <button class="num">6</button>
+        <button class="num">7</button>
+        <button class="active" aria-current="page">8</button>
+        <button class="num">9</button>
+        <button class="num">10</button>
+        <span class="ellipsis">…</span>
+        <button class="num">24</button>
+        <button aria-label="Next page">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="8 6 12 10 8 14"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- First-page boundary: prev disabled, no leading ellipsis. -->
+    <div>
+      <div class="caption">First page — no leading ellipsis, prev disabled</div>
+      <div class="pager">
+        <button disabled aria-label="Previous page">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="12 6 8 10 12 14"/>
+          </svg>
+        </button>
+        <button class="active" aria-current="page">1</button>
+        <button class="num">2</button>
+        <button class="num">3</button>
+        <button class="num">4</button>
+        <button class="num">5</button>
+        <span class="ellipsis">…</span>
+        <button class="num">24</button>
+        <button aria-label="Next page">
+          <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="8 6 12 10 8 14"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Compact inline variant and jumper. -->
+    <div>
+      <div class="caption">Compact variants — prev/next only and page jumper</div>
+      <div style="display:flex; gap: 28px; flex-wrap: wrap; align-items: center;">
+        <div class="compact">
+          <button aria-label="Previous page">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="12 6 8 10 12 14"/>
+            </svg>
+          </button>
+          <span>Page <b>8</b> of <b>24</b></span>
+          <button aria-label="Next page">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="8 6 12 10 8 14"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="jumper">
+          <span>Go to</span>
+          <input type="text" value="8" aria-label="Page number">
+          <span>of 24</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full bar: info + pager + page size. -->
+    <div>
+      <div class="caption">Full bar — info, pager, page-size</div>
+      <div class="bar">
+        <div class="info">
+          Showing <b>71–80</b> of <b>234</b> results
+        </div>
+        <div class="right">
+          <div class="pager">
+            <button aria-label="Previous page">
+              <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="12 6 8 10 12 14"/>
+              </svg>
+            </button>
+            <button class="num">1</button>
+            <span class="ellipsis">…</span>
+            <button class="num">7</button>
+            <button class="active" aria-current="page">8</button>
+            <button class="num">9</button>
+            <span class="ellipsis">…</span>
+            <button class="num">24</button>
+            <button aria-label="Next page">
+              <svg class="icon" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="8 6 12 10 8 14"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="size">
+            <label for="pagesize">Rows</label>
+            <select id="pagesize">
+              <option>10</option>
+              <option selected>25</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In context: at the foot of a mock list. -->
+    <div>
+      <div class="caption">Attached to a list — typical placement</div>
+      <div class="panel">
+        <div class="head">
+          <span>Recent deploys</span>
+          <span>Updated 3m ago</span>
+        </div>
+        <div class="rows">
+          <div class="rr"><span>api-east · v1.42.0</span><span class="sub">2m ago</span></div>
+          <div class="rr"><span>api-west · v1.42.0</span><span class="sub">4m ago</span></div>
+          <div class="rr"><span>api-eu · v1.41.2</span><span class="sub">18m ago</span></div>
+          <div class="rr"><span>worker · v0.9.1</span><span class="sub">42m ago</span></div>
+        </div>
+        <div class="foot">
+          <span class="info" style="color:#94a3b8; font-size:12.5px;">Showing <b style="color:#e2e8f0;">1–4</b> of <b style="color:#e2e8f0;">57</b></span>
+          <div class="compact">
+            <button aria-label="Previous page" disabled>
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="12 6 8 10 12 14"/>
+              </svg>
+            </button>
+            <span>Page <b>1</b> of <b>15</b></span>
+            <button aria-label="Next page">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="8 6 12 10 8 14"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

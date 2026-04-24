@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SplitPane (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 900px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    /* Frame around each example so you can see pane extents. */
+    .frame {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+    }
+    .frame.v { flex-direction: column; }
+
+    .pane {
+      background: #182438;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .pane .head {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      background: #111a2e;
+      border-bottom: 1px solid #334155;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pane .body {
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #94a3b8;
+      flex: 1;
+      overflow: auto;
+      line-height: 1.55;
+    }
+
+    /* --- Horizontal splitter (between left/right panes) --- */
+    .hsplit {
+      flex: none;
+      width: 6px;
+      background: #0f172a;
+      border-left: 1px solid #334155;
+      border-right: 1px solid #334155;
+      cursor: col-resize;
+      position: relative;
+      transition: background 80ms;
+    }
+    .hsplit:hover { background: rgba(56, 189, 248, 0.10); }
+    .hsplit .grip {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .hsplit .grip span {
+      display: block;
+      width: 2px;
+      height: 2px;
+      background: #64748b;
+      border-radius: 1px;
+    }
+    .hsplit:hover .grip span { background: #38bdf8; }
+
+    /* --- Vertical splitter (between top/bottom panes) --- */
+    .vsplit {
+      flex: none;
+      height: 6px;
+      background: #0f172a;
+      border-top: 1px solid #334155;
+      border-bottom: 1px solid #334155;
+      cursor: row-resize;
+      position: relative;
+      transition: background 80ms;
+    }
+    .vsplit:hover { background: rgba(56, 189, 248, 0.10); }
+    .vsplit .grip {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 2px;
+      display: flex;
+      flex-direction: row;
+      gap: 2px;
+    }
+    .vsplit .grip span {
+      display: block;
+      width: 2px;
+      height: 2px;
+      background: #64748b;
+      border-radius: 1px;
+    }
+    .vsplit:hover .grip span { background: #38bdf8; }
+
+    /* --- Sidebar file tree look. --- */
+    .filelist {
+      padding: 8px 4px;
+    }
+    .filelist .item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 13px;
+      color: #e2e8f0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filelist .item:hover { background: rgba(226, 232, 240, 0.04); }
+    .filelist .item.selected { background: rgba(56, 189, 248, 0.16); }
+    .filelist .item.indent { padding-left: 26px; }
+    .filelist .item svg { width: 14px; height: 14px; color: #64748b; flex: none; }
+    .filelist .item.dir svg { color: #38bdf8; }
+
+    /* Mock editor content. */
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre;
+    }
+    .kw { color: #c084fc; }
+    .fn  { color: #38bdf8; }
+    .ty { color: #4ade80; }
+    .str { color: #fbbf24; }
+    .cm { color: #64748b; font-style: italic; }
+    .pn { color: #94a3b8; }
+
+    /* Terminal look. */
+    .term {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      background: #0b1120;
+      color: #e2e8f0;
+      padding: 10px 14px;
+      flex: 1;
+      overflow: auto;
+    }
+    .term .prompt { color: #4ade80; }
+    .term .cmd { color: #e2e8f0; }
+    .term .out { color: #94a3b8; }
+    .term .warn { color: #fbbf24; }
+
+    /* Pane label chip in header. */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #7dd3fc;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Three-pane frame height control. */
+    .h160 { height: 160px; }
+    .h220 { height: 220px; }
+    .h360 { height: 360px; }
+
+    /* Nested split inner padding. */
+    .inner-vsplit-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Horizontal split (left + right). -->
+    <div>
+      <div class="caption">Horizontal split — draggable divider between two panes</div>
+      <div class="frame h220">
+        <div class="pane" style="flex: 0 0 280px;">
+          <div class="head">
+            <span>Explorer</span>
+            <span class="chip">12</span>
+          </div>
+          <div class="filelist body" style="padding: 4px 0;">
+            <div class="item dir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              </svg>
+              src
+            </div>
+            <div class="item indent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              button.rs
+            </div>
+            <div class="item indent selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              callout.rs
+            </div>
+            <div class="item indent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              slider.rs
+            </div>
+          </div>
+        </div>
+
+        <div class="hsplit" role="separator" aria-orientation="vertical" aria-label="Resize">
+          <div class="grip"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="pane" style="flex: 1;">
+          <div class="head">callout.rs</div>
+          <div class="body">
+            <div class="code"><span class="kw">pub fn</span> <span class="fn">banner</span><span class="pn">(</span>ui<span class="pn">:</span> &amp;<span class="kw">mut</span> <span class="ty">Ui</span><span class="pn">)</span> <span class="pn">{</span>
+    <span class="ty">Callout</span><span class="pn">::</span><span class="fn">new</span><span class="pn">(</span><span class="ty">CalloutTone</span><span class="pn">::</span>Warning<span class="pn">)</span>
+        <span class="pn">.</span><span class="fn">title</span><span class="pn">(</span><span class="str">"Unsaved changes."</span><span class="pn">)</span>
+        <span class="pn">.</span><span class="fn">show</span><span class="pn">(</span>ui<span class="pn">,</span> <span class="pn">|</span>_<span class="pn">|</span> <span class="pn">{});</span>
+<span class="pn">}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vertical split (top + bottom). -->
+    <div>
+      <div class="caption">Vertical split — editor above, terminal below</div>
+      <div class="frame v h360">
+        <div class="pane" style="flex: 1; min-height: 0;">
+          <div class="head">src/main.rs</div>
+          <div class="body">
+            <div class="code"><span class="kw">fn</span> <span class="fn">main</span><span class="pn">()</span> <span class="pn">-&gt;</span> <span class="ty">eframe</span><span class="pn">::</span><span class="ty">Result</span> <span class="pn">{</span>
+    <span class="ty">Theme</span><span class="pn">::</span><span class="fn">slate</span><span class="pn">()</span><span class="pn">.</span><span class="fn">install</span><span class="pn">(</span>ctx<span class="pn">);</span>
+    eframe<span class="pn">::</span><span class="fn">run_simple_native</span><span class="pn">(</span><span class="str">"elegance"</span><span class="pn">,</span> <span class="ty">NativeOptions</span><span class="pn">::</span><span class="fn">default</span><span class="pn">(),</span> <span class="pn">|</span>ctx<span class="pn">,</span> _<span class="pn">|</span> <span class="pn">{</span>
+        <span class="ty">CentralPanel</span><span class="pn">::</span><span class="fn">default</span><span class="pn">()</span><span class="pn">.</span><span class="fn">show</span><span class="pn">(</span>ctx<span class="pn">,</span> <span class="pn">|</span>ui<span class="pn">|</span> <span class="pn">{</span>
+            ui<span class="pn">.</span><span class="fn">heading</span><span class="pn">(</span><span class="str">"Widgets"</span><span class="pn">);</span>
+        <span class="pn">});</span>
+    <span class="pn">})</span>
+<span class="pn">}</span></div>
+          </div>
+        </div>
+
+        <div class="vsplit" role="separator" aria-orientation="horizontal" aria-label="Resize">
+          <div class="grip"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="pane" style="flex: 0 0 140px; min-height: 0;">
+          <div class="head">
+            <span>Terminal · cargo</span>
+            <span class="chip" style="background: rgba(74,222,128,0.12); color: #4ade80;">running</span>
+          </div>
+          <div class="term">
+<span class="prompt">$</span> <span class="cmd">cargo test --test visual</span>
+<span class="out">   Compiling elegance v0.1.0 (./egui-elegance)</span>
+<span class="out">    Finished `test` profile in 2.43s</span>
+<span class="out">     Running unittests src/lib.rs</span>
+<span class="out">test result: <span class="cmd">ok</span>. 72 passed; 0 failed</span>
+<span class="warn">warning: unused variable `_theme`</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nested: sidebar | (editor above, terminal below) -->
+    <div>
+      <div class="caption">Nested — sidebar + editor/terminal stack (IDE layout)</div>
+      <div class="frame h360">
+        <div class="pane" style="flex: 0 0 240px;">
+          <div class="head">
+            <span>Explorer</span>
+            <span class="chip">4</span>
+          </div>
+          <div class="filelist body" style="padding: 4px 0;">
+            <div class="item dir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              </svg>
+              src
+            </div>
+            <div class="item indent selected">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              main.rs
+            </div>
+            <div class="item indent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              lib.rs
+            </div>
+            <div class="item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              Cargo.toml
+            </div>
+          </div>
+        </div>
+
+        <div class="hsplit" role="separator" aria-orientation="vertical">
+          <div class="grip"><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="inner-vsplit-wrap">
+          <div class="pane" style="flex: 1;">
+            <div class="head">src/main.rs</div>
+            <div class="body">
+              <div class="code"><span class="kw">fn</span> <span class="fn">main</span><span class="pn">()</span> <span class="pn">{</span>
+    <span class="ty">Theme</span><span class="pn">::</span><span class="fn">slate</span><span class="pn">()</span><span class="pn">.</span><span class="fn">install</span><span class="pn">(</span>ctx<span class="pn">);</span>
+<span class="pn">}</span></div>
+            </div>
+          </div>
+
+          <div class="vsplit" role="separator" aria-orientation="horizontal">
+            <div class="grip"><span></span><span></span><span></span><span></span><span></span></div>
+          </div>
+
+          <div class="pane" style="flex: 0 0 120px; min-height: 0;">
+            <div class="head">
+              <span>Problems</span>
+              <span class="chip" style="background: rgba(248,113,113,0.12); color: #f87171;">2 errors</span>
+            </div>
+            <div class="term">
+<span class="warn">error[E0432]</span>: unresolved import `elegance::Callout`
+  <span class="out">→ src/main.rs:3:5</span>
+<span class="warn">warning</span>: unused variable `_theme`
+  <span class="out">→ src/main.rs:8:9</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

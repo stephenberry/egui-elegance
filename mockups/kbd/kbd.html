@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Kbd (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      width: 560px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    /* Core key-cap. */
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 20px;
+      padding: 0 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #e2e8f0;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+
+    .combo {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      color: #64748b;
+      font-size: 12px;
+    }
+    .combo .plus { color: #475569; padding: 0 1px; }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+    .row .inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Menu-item example. */
+    .menu {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 6px;
+      width: 260px;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      color: #e2e8f0;
+      cursor: default;
+    }
+    .item + .item { margin-top: 2px; }
+    .item:hover { background: #0f172a; }
+    .item .shortcut {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Prose example. */
+    .prose {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <div>
+      <div class="caption">Single keys & combos</div>
+      <div class="row">
+        <div class="inline"><span class="kbd">⌘</span><span class="kbd">K</span></div>
+        <div class="inline"><span class="kbd">Ctrl</span><span class="plus combo">+</span><span class="kbd">Shift</span><span class="plus combo">+</span><span class="kbd">P</span></div>
+        <div class="inline"><span class="kbd">⇧</span><span class="plus combo">+</span><span class="kbd">↑</span></div>
+        <div class="inline"><span class="kbd">Esc</span></div>
+        <div class="inline"><span class="kbd">Enter</span></div>
+        <div class="inline"><span class="kbd">⌫</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="caption">In a menu</div>
+      <div class="menu" role="menu">
+        <div class="item">
+          <span>Save</span>
+          <span class="shortcut"><span class="kbd">⌘</span><span class="kbd">S</span></span>
+        </div>
+        <div class="item">
+          <span>Save As…</span>
+          <span class="shortcut"><span class="kbd">⇧</span><span class="kbd">⌘</span><span class="kbd">S</span></span>
+        </div>
+        <div class="item">
+          <span>Duplicate</span>
+          <span class="shortcut"><span class="kbd">⌘</span><span class="kbd">D</span></span>
+        </div>
+        <div class="item">
+          <span>Close Window</span>
+          <span class="shortcut"><span class="kbd">⌘</span><span class="kbd">W</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="caption">Inline in prose</div>
+      <div class="prose">
+        Press <span class="kbd">⌘</span><span class="kbd">K</span> to open the command palette,
+        then <span class="kbd">Enter</span> to run the highlighted command.
+        Press <span class="kbd">Esc</span> to dismiss.
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

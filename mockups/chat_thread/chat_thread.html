@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChatThread (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 780px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --- Header. --- */
+    .ct-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #273447;
+      background: #1a2537;
+    }
+    .ct-head .title-stack {
+      flex: 1;
+      min-width: 0;
+    }
+    .ct-head .title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ct-head .presence {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 0 2px #1a2537;
+    }
+    .ct-head .presence.away { background: #fbbf24; }
+    .ct-head .presence.off  { background: #64748b; }
+    .ct-head .sub {
+      font-size: 11.5px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .ct-head .iconbtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .ct-head .iconbtn:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    /* --- Body (messages). --- */
+    .ct-body {
+      flex: 1;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: #1e293b;
+      min-height: 420px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+    .ct-body::-webkit-scrollbar { width: 8px; }
+    .ct-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+    /* Date separator. */
+    .day-sep {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0 8px 0;
+      color: #64748b;
+      font-size: 11px;
+    }
+    .day-sep::before,
+    .day-sep::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #273447;
+    }
+
+    /* System message (pills centered). */
+    .system {
+      align-self: center;
+      padding: 3px 10px;
+      margin: 4px 0;
+      font-size: 11.5px;
+      color: #94a3b8;
+      background: #0f1830;
+      border: 1px solid #273447;
+      border-radius: 999px;
+    }
+
+    /* --- Message row. --- */
+    .row {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .row.own {
+      grid-template-columns: 1fr 32px;
+    }
+    .row.stacked { margin-top: 2px; }
+
+    .row .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #38bdf8;
+      color: #0b1120;
+      font-size: 11px;
+      font-weight: 700;
+      flex: none;
+      margin-top: 4px;
+    }
+    .row.stacked .avatar { visibility: hidden; }
+    .row .avatar.green  { background: #4ade80; }
+    .row .avatar.amber  { background: #fbbf24; }
+    .row .avatar.purple { background: #c084fc; }
+    .row .avatar.red    { background: #f87171; }
+    .row .avatar.slate  { background: #94a3b8; }
+
+    .row .content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-width: 70%;
+      min-width: 0;
+    }
+    .row.own .content {
+      align-items: flex-end;
+      justify-self: end;
+    }
+
+    .row .meta {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      font-size: 11.5px;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+    .row .meta .name {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .row .meta .time {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #64748b;
+    }
+    .row .meta .badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      background: #273447;
+      color: #94a3b8;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    .row .meta .badge.admin { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+    .row .meta .badge.bot   { background: rgba(192, 132, 252, 0.18); color: #d8b4fe; }
+
+    /* Bubble. */
+    .bubble {
+      position: relative;
+      padding: 7px 11px;
+      background: #273447;
+      color: #e2e8f0;
+      font-size: 13px;
+      line-height: 1.48;
+      border-radius: 10px 10px 10px 2px;
+      word-break: break-word;
+    }
+    .row.own .bubble {
+      background: #1d4f70;
+      color: #e0f2fe;
+      border-radius: 10px 10px 2px 10px;
+    }
+    .row.stacked .bubble { border-radius: 10px; }
+    .bubble code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      background: #0b1120;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #fbbf24;
+    }
+    .bubble strong { color: #f0f9ff; }
+    .row.own .bubble strong { color: #ffffff; }
+
+    /* Inline code block inside bubble. */
+    .codeblock {
+      display: block;
+      margin: 6px 0 2px 0;
+      padding: 8px 10px;
+      background: #0b1120;
+      border: 1px solid #273447;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      line-height: 1.55;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .codeblock .kw   { color: #fbbf24; }
+    .codeblock .str  { color: #86efac; }
+    .codeblock .com  { color: #64748b; font-style: italic; }
+    .codeblock .num  { color: #7dd3fc; }
+
+    /* File attachment inside bubble. */
+    .attachment {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: rgba(11, 17, 32, 0.45);
+      border: 1px solid #334155;
+      border-radius: 6px;
+    }
+    .attachment .ic {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 5px;
+      background: rgba(56, 189, 248, 0.14);
+      color: #7dd3fc;
+      flex: none;
+    }
+    .attachment .name {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #e2e8f0;
+    }
+    .attachment .size {
+      font-size: 11.5px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .attachment .dl {
+      margin-left: auto;
+      color: #94a3b8;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+    }
+    .attachment .dl:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+
+    /* Image thumbnail. */
+    .thumb {
+      display: block;
+      width: 200px;
+      height: 110px;
+      margin-top: 6px;
+      border-radius: 6px;
+      background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.32), rgba(192, 132, 252, 0.36)),
+        repeating-linear-gradient(45deg,
+          rgba(255, 255, 255, 0.06) 0 8px,
+          transparent 8px 16px);
+    }
+
+    /* Quote / reply. */
+    .quote {
+      padding: 4px 8px;
+      margin-bottom: 4px;
+      border-left: 2px solid #475569;
+      background: rgba(11, 17, 32, 0.35);
+      border-radius: 2px 6px 6px 2px;
+      font-size: 11.5px;
+      color: #94a3b8;
+      max-width: 100%;
+    }
+    .quote .qn {
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-right: 6px;
+    }
+
+    /* Reaction row. */
+    .rx {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+    .row.own .rx { justify-content: flex-end; }
+    .rx .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 6px 1px 5px;
+      border-radius: 999px;
+      background: #273447;
+      border: 1px solid #334155;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+    .rx .chip .e { font-size: 12px; line-height: 1; }
+    .rx .chip.mine {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.36);
+      color: #7dd3fc;
+    }
+    .rx .add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 20px;
+      border-radius: 999px;
+      border: 1px dashed #475569;
+      color: #64748b;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .rx .add:hover { border-color: #94a3b8; color: #cbd5e1; }
+
+    /* Status (sent/delivered/read) on own messages. */
+    .status {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10.5px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .status .t { margin-right: 4px; }
+    .status.read { color: #7dd3fc; }
+
+    /* Typing indicator. */
+    .typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      background: #273447;
+      border-radius: 10px 10px 10px 2px;
+      color: #94a3b8;
+    }
+    .typing .dot {
+      width: 5px; height: 5px; border-radius: 999px; background: #94a3b8;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing .dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing .dot:nth-child(3) { animation-delay: 0.30s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+      30%           { transform: translateY(-3px); opacity: 1; }
+    }
+
+    /* --- Composer. --- */
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px 12px 12px;
+      border-top: 1px solid #273447;
+      background: #1a2537;
+    }
+    .composer .input {
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 42px;
+      outline: none;
+      transition: border-color 80ms;
+    }
+    .composer .input:focus, .composer .input.focused {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+    }
+    .composer .input .cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 13px;
+      background: #e2e8f0;
+      vertical-align: -2px;
+      animation: blink 1s steps(2) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .composer .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .composer .toolbar .tool {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .composer .toolbar .tool:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+    .composer .toolbar .sep {
+      width: 1px;
+      height: 18px;
+      background: #273447;
+      margin: 0 4px;
+    }
+    .composer .toolbar .spacer { flex: 1; }
+    .composer .toolbar .kbd {
+      display: inline-block;
+      padding: 0 5px;
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-bottom-width: 2px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .composer .send {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      background: #38bdf8;
+      border: none;
+      color: #0b1120;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .composer .send:hover { background: #7dd3fc; }
+    .composer .send.disabled {
+      background: #273447;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    /* Reply-to bar in the composer. */
+    .replying {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 10px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      border-left-width: 3px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      color: #cbd5e1;
+    }
+    .replying .qn { color: #7dd3fc; font-weight: 600; }
+    .replying .text {
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    .replying .close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      color: #94a3b8;
+      cursor: pointer;
+      flex: none;
+    }
+    .replying .close:hover { background: rgba(226, 232, 240, 0.06); color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Group channel style thread. -->
+    <div>
+      <div class="caption">Group thread — #release-train</div>
+      <div class="card">
+        <div class="ct-head">
+          <div class="title-stack">
+            <div class="title">
+              #release-train
+              <span class="presence"></span>
+            </div>
+            <div class="sub">12 members · 3 typing</div>
+          </div>
+          <button class="iconbtn" aria-label="Search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          <button class="iconbtn" aria-label="Pinned">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="17" x2="12" y2="22"/>
+              <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/>
+            </svg>
+          </button>
+          <button class="iconbtn" aria-label="More">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="ct-body">
+          <div class="day-sep">Yesterday</div>
+
+          <div class="system">Mori created the channel · 14:08</div>
+
+          <div class="row">
+            <span class="avatar purple">MG</span>
+            <div class="content">
+              <div class="meta">
+                <span class="name">Mavi Gupta</span>
+                <span class="badge admin">admin</span>
+                <span class="time">14:09</span>
+              </div>
+              <div class="bubble">
+                Kicking this channel off for the <strong>v2.3</strong> release cut. We'll use it to coordinate QA sign-off and the prod rollout.
+              </div>
+            </div>
+          </div>
+
+          <div class="row stacked">
+            <span class="avatar purple">MG</span>
+            <div class="content">
+              <div class="bubble">
+                Release-train doc is here:
+                <code>docs/releases/v2.3.md</code>. Reviews close Thursday EOD.
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <span class="avatar green">DV</span>
+            <div class="content">
+              <div class="meta">
+                <span class="name">David Vogel</span>
+                <span class="time">14:22</span>
+              </div>
+              <div class="bubble">
+                I've staged the migration plan. One concern: we're dropping a nullable column while the old API still reads it. Dual-write during the rollout window?
+                <span class="codeblock"><span class="com">-- safe sequence:</span>
+<span class="kw">ALTER TABLE</span> users <span class="kw">ADD COLUMN</span> email_hash <span class="kw">TEXT</span>;
+<span class="kw">UPDATE</span> users <span class="kw">SET</span> email_hash = <span class="str">sha256(email)</span>;
+<span class="kw">ALTER TABLE</span> users <span class="kw">DROP COLUMN</span> email_raw;</span>
+              </div>
+              <div class="rx">
+                <span class="chip mine"><span class="e">👀</span>3</span>
+                <span class="chip"><span class="e">🔥</span>2</span>
+                <span class="add">+</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="row own">
+            <div class="content">
+              <div class="meta">
+                <span class="time">14:24</span>
+                <span class="name" style="color:#bae6fd;">You</span>
+              </div>
+              <div class="bubble">
+                <div class="quote"><span class="qn">David Vogel</span>Dual-write during the rollout window?</div>
+                +1, dual-write for 24h then flip reads. I'll prep the feature flag.
+              </div>
+              <div class="status read"><span class="t">✓✓</span> Read by 5</div>
+            </div>
+            <span class="avatar">AL</span>
+          </div>
+
+          <div class="row">
+            <span class="avatar amber">CB</span>
+            <div class="content">
+              <div class="meta">
+                <span class="name">Cora Benz</span>
+                <span class="badge bot">bot</span>
+                <span class="time">16:02</span>
+              </div>
+              <div class="bubble" style="background: #101c32; border: 1px solid #1e3657; border-left: 2px solid #7dd3fc;">
+                <strong>CI · elegance-charts#4182</strong> <span style="color:#94a3b8;">is now green.</span>
+                <span class="codeblock"><span class="com">✓ cargo test</span>        <span class="num">1289</span> passed
+<span class="com">✓ cargo clippy</span>      <span class="num">0</span> warnings
+<span class="com">✓ cargo fmt --check</span> ok</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="day-sep">Today · Apr 24</div>
+
+          <div class="row">
+            <span class="avatar sky">AL</span>
+            <div class="content">
+              <div class="meta">
+                <span class="name">Avery Lin</span>
+                <span class="time">09:42</span>
+              </div>
+              <div class="bubble">
+                Morning. Pushing the staging migration in 15 min. Will post back once the dual-write starts ingesting.
+              </div>
+              <div class="rx">
+                <span class="chip"><span class="e">👍</span>4</span>
+                <span class="chip"><span class="e">🚀</span>1</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="row own">
+            <div class="content">
+              <div class="meta">
+                <span class="time">10:18</span>
+                <span class="name" style="color:#bae6fd;">You</span>
+              </div>
+              <div class="bubble">
+                Staging looks stable after 30 min of traffic. Attaching the run report — latency is within budget but watch queue depth.
+                <div class="attachment">
+                  <span class="ic">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <div class="name">v2.3-staging-run.pdf</div>
+                    <div class="size">1.4 MB · 8 pages</div>
+                  </div>
+                  <span class="dl" aria-label="Download">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </span>
+                </div>
+                <span class="thumb"></span>
+              </div>
+              <div class="status"><span class="t">✓✓</span> Delivered</div>
+            </div>
+            <span class="avatar">AL</span>
+          </div>
+
+          <div class="row">
+            <span class="avatar purple">MG</span>
+            <div class="content">
+              <div class="meta">
+                <span class="name">Mavi Gupta</span>
+                <span class="time">10:20</span>
+              </div>
+              <div class="typing">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="replying">
+            <span class="qn">Replying to Avery Lin</span>
+            <span class="text">Staging looks stable after 30 min of traffic. Attaching the run report…</span>
+            <span class="close" aria-label="Cancel reply">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>
+              </svg>
+            </span>
+          </div>
+          <div class="input focused" contenteditable="false">Queue depth looks fine from my side too<span class="cursor"></span></div>
+          <div class="toolbar">
+            <span class="tool" aria-label="Bold">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"/>
+              </svg>
+            </span>
+            <span class="tool" aria-label="Italic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="4" x2="10" y2="4"/>
+                <line x1="14" y1="20" x2="5" y2="20"/>
+                <line x1="15" y1="4" x2="9" y2="20"/>
+              </svg>
+            </span>
+            <span class="tool" aria-label="Code">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </span>
+            <span class="sep"></span>
+            <span class="tool" aria-label="Attach">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.48-8.48l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.17a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </span>
+            <span class="tool" aria-label="Emoji">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                <line x1="15" y1="9" x2="15.01" y2="9"/>
+              </svg>
+            </span>
+            <span class="tool" aria-label="Mention">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>
+              </svg>
+            </span>
+            <span class="spacer"></span>
+            <span style="font-size:11px; color:#64748b;">
+              <span class="kbd">⇧</span>+<span class="kbd">↵</span> newline · <span class="kbd">↵</span> send
+            </span>
+            <button class="send">
+              Send
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct-message style thread with reactions + disabled composer. -->
+    <div>
+      <div class="caption">Direct message — compact, archived</div>
+      <div class="card">
+        <div class="ct-head">
+          <div class="title-stack">
+            <div class="title" style="gap: 10px;">
+              <span class="avatar" style="width:22px; height:22px; margin-top:0; font-size:10px;">DV</span>
+              David Vogel
+              <span class="presence away"></span>
+            </div>
+            <div class="sub">Away · back at 14:00</div>
+          </div>
+          <button class="iconbtn" aria-label="Call">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </button>
+          <button class="iconbtn" aria-label="Info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="8.01"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="ct-body" style="min-height: 260px;">
+          <div class="day-sep">Mar 12</div>
+
+          <div class="row">
+            <span class="avatar green">DV</span>
+            <div class="content">
+              <div class="meta"><span class="name">David Vogel</span><span class="time">11:03</span></div>
+              <div class="bubble">Hey — any chance you can review the Q1 retro doc before noon? I want to send it out with the weekly.</div>
+            </div>
+          </div>
+
+          <div class="row own">
+            <div class="content">
+              <div class="meta"><span class="time">11:06</span><span class="name" style="color:#bae6fd;">You</span></div>
+              <div class="bubble">On it. Give me 20 min.</div>
+              <div class="rx"><span class="chip mine"><span class="e">🙏</span>1</span></div>
+              <div class="status read"><span class="t">✓✓</span> Read 11:06</div>
+            </div>
+            <span class="avatar">AL</span>
+          </div>
+
+          <div class="row">
+            <span class="avatar green">DV</span>
+            <div class="content">
+              <div class="bubble">You're the best 💙</div>
+            </div>
+          </div>
+
+          <div class="system">Conversation archived by you · Mar 12, 12:34</div>
+        </div>
+
+        <div class="composer">
+          <div class="input" style="color:#475569; font-style:italic;">This conversation is archived. Unarchive to send messages.</div>
+          <div class="toolbar">
+            <span class="spacer"></span>
+            <button class="send disabled">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

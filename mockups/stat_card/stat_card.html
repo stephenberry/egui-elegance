@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Stat Card (Slate)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --input-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sky: #38bdf8;
+      --blue: #2563eb;
+      --green: #16a34a;
+      --red: #dc2626;
+      --purple: #7c3aed;
+      --amber: #d97706;
+      --success: #4ade80;
+      --danger: #f87171;
+      --warning: #fbbf24;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: var(--text);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      width: min(1100px, 100%);
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* Card ------------------------------------------------------------- */
+    .stat {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px 14px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .stat .accent-bar {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px;
+      height: 28px;
+      border-radius: 0 2px 2px 0;
+    }
+    .stat.accent-blue   .accent-bar { background: var(--blue); }
+    .stat.accent-green  .accent-bar { background: var(--green); }
+    .stat.accent-purple .accent-bar { background: var(--purple); }
+    .stat.accent-amber  .accent-bar { background: var(--amber); }
+    .stat.accent-sky    .accent-bar { background: var(--sky); }
+
+    .label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .label .info {
+      color: var(--text-faint);
+      cursor: default;
+    }
+
+    .value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .value {
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      transition: color 120ms;
+    }
+    .value .unit {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+    .value.flash { color: var(--sky); }
+
+    /* Delta chip */
+    .delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px 2px 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-variant-numeric: tabular-nums;
+    }
+    .delta.up   { color: var(--success); background: rgba(74,222,128,0.1);  border-color: rgba(74,222,128,0.25); }
+    .delta.down { color: var(--danger);  background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); }
+    .delta.flat { color: var(--text-muted); background: rgba(148,163,184,0.08); border-color: rgba(148,163,184,0.2); }
+
+    .trend {
+      margin-top: 2px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+    }
+
+    .spark {
+      margin-top: 14px;
+      display: block;
+      width: 100%;
+      height: 44px;
+    }
+
+    /* Loading skeleton ------------------------------------------------- */
+    .skeleton .bar {
+      background: linear-gradient(
+        90deg,
+        rgba(148, 163, 184, 0.08) 0%,
+        rgba(148, 163, 184, 0.16) 50%,
+        rgba(148, 163, 184, 0.08) 100%
+      );
+      background-size: 200% 100%;
+      border-radius: 4px;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .skeleton .label-sk { width: 55%; height: 10px; margin: 2px 0 12px; }
+    .skeleton .value-sk { width: 40%; height: 28px; }
+    .skeleton .spark-sk { width: 100%; height: 44px; margin-top: 18px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+
+<script>
+// Metrics --------------------------------------------------------------
+// invertDelta = true means "down is good" (error rate, latency).
+const METRICS = [
+  {
+    id: 'deploys',
+    label: 'Active deploys',
+    accent: 'blue',
+    value: 24, unit: '',
+    delta: +0.12,
+    trend: 'vs last 7 days',
+    series: [12,14,13,15,17,16,18,20,19,22,21,24,22,24,26,24,27,28,30,28,26,24],
+    color: 'var(--blue)',
+  },
+  {
+    id: 'error',
+    label: 'Error rate',
+    accent: 'purple',
+    value: 0.42, unit: '%',
+    delta: -0.08,
+    invertDelta: true,
+    trend: 'vs last 24h',
+    series: [0.8,0.9,0.82,0.75,0.7,0.62,0.6,0.58,0.55,0.5,0.48,0.46,0.44,0.45,0.4,0.42,0.4,0.38,0.42,0.4,0.41,0.42],
+    color: 'var(--purple)',
+  },
+  {
+    id: 'p95',
+    label: 'P95 latency',
+    accent: 'amber',
+    value: 184, unit: 'ms',
+    delta: +0.24,
+    invertDelta: true,
+    trend: 'regressed vs last hour',
+    series: [120,118,122,125,128,130,135,140,142,148,150,155,160,162,168,170,175,178,182,180,184,186],
+    color: 'var(--amber)',
+  },
+  {
+    id: 'revenue',
+    label: 'Revenue today',
+    accent: 'green',
+    skeleton: true,
+  },
+];
+
+// Render ---------------------------------------------------------------
+const grid = document.getElementById('grid');
+METRICS.forEach(m => {
+  if (m.skeleton) {
+    grid.insertAdjacentHTML('beforeend',
+      '<div class="stat skeleton accent-' + m.accent + '" data-id="' + m.id + '">' +
+        '<span class="accent-bar"></span>' +
+        '<div class="label">' + m.label + '</div>' +
+        '<div class="bar label-sk"></div>' +
+        '<div class="bar value-sk"></div>' +
+        '<div class="bar spark-sk"></div>' +
+      '</div>');
+    return;
+  }
+  grid.insertAdjacentHTML('beforeend', renderCard(m));
+});
+
+function renderCard(m) {
+  const deltaCls = m.delta > 0.005 ? 'up' : m.delta < -0.005 ? 'down' : 'flat';
+  const goodDirection = m.invertDelta ? 'down' : 'up';
+  const semanticCls = deltaCls === 'flat'
+    ? 'flat'
+    : (deltaCls === goodDirection ? 'up' : 'down');
+  const arrow = deltaCls === 'up' ? '↑' : deltaCls === 'down' ? '↓' : '→';
+  const pct = (Math.abs(m.delta) * 100).toFixed(1) + '%';
+  return (
+    '<div class="stat accent-' + m.accent + '" data-id="' + m.id + '">' +
+      '<span class="accent-bar"></span>' +
+      '<div class="label">' + m.label + '<span class="info" title="Sampled every 5m">ⓘ</span></div>' +
+      '<div class="value-row">' +
+        '<span class="value">' + formatValue(m) + '</span>' +
+        '<span class="delta ' + semanticCls + '">' + arrow + ' ' + pct + '</span>' +
+      '</div>' +
+      '<div class="trend">' + m.trend + '</div>' +
+      sparkSvg(m) +
+    '</div>'
+  );
+}
+
+function formatValue(m) {
+  const v = m.unit === '%' ? m.value.toFixed(2) : (
+    Number.isInteger(m.value) ? m.value : m.value.toFixed(1));
+  return v + (m.unit ? '<span class="unit">' + m.unit + '</span>' : '');
+}
+
+// Tiny filled-area sparkline (SVG).
+function sparkSvg(m) {
+  const W = 240, H = 44, P = 2;
+  const xs = m.series;
+  const min = Math.min(...xs), max = Math.max(...xs);
+  const span = max - min || 1;
+  const step = (W - P * 2) / (xs.length - 1);
+  const pts = xs.map((v, i) => {
+    const x = P + i * step;
+    const y = P + (H - P * 2) * (1 - (v - min) / span);
+    return [x, y];
+  });
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = line + ' L' + (W - P).toFixed(1) + ' ' + (H - P).toFixed(1) + ' L' + P + ' ' + (H - P).toFixed(1) + ' Z';
+  const gradId = 'g-' + m.id;
+  return (
+    '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="' + m.color + '" stop-opacity="0.35"/>' +
+        '<stop offset="100%" stop-color="' + m.color + '" stop-opacity="0"/>' +
+      '</linearGradient></defs>' +
+      '<path d="' + area + '" fill="url(#' + gradId + ')"/>' +
+      '<path d="' + line + '" fill="none" stroke="' + m.color + '" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<circle cx="' + pts[pts.length - 1][0].toFixed(1) + '" cy="' + pts[pts.length - 1][1].toFixed(1) + '" r="2.5" fill="' + m.color + '"/>' +
+    '</svg>'
+  );
+}
+
+// Live tick ------------------------------------------------------------
+// Every 2.5s, push a new sample and flash the value briefly.
+setInterval(() => {
+  METRICS.forEach(m => {
+    if (m.skeleton) return;
+    const last = m.series[m.series.length - 1];
+    const spread = (Math.max(...m.series) - Math.min(...m.series)) * 0.15 || 1;
+    const next = Math.max(0, last + (Math.random() - 0.5) * spread);
+    m.series.push(next);
+    if (m.series.length > 24) m.series.shift();
+
+    const prevValue = m.value;
+    if (m.unit === '%') m.value = +(next).toFixed(2);
+    else if (m.unit === 'ms') m.value = Math.round(next);
+    else m.value = Math.round(next);
+    m.delta = prevValue ? (m.value - prevValue) / prevValue : 0;
+  });
+  rerender();
+}, 2500);
+
+function rerender() {
+  METRICS.forEach(m => {
+    if (m.skeleton) return;
+    const el = grid.querySelector('[data-id="' + m.id + '"]');
+    if (!el) return;
+    el.outerHTML = renderCard(m);
+    // Flash the new value for a beat.
+    const next = grid.querySelector('[data-id="' + m.id + '"] .value');
+    next.classList.add('flash');
+    setTimeout(() => next.classList.remove('flash'), 260);
+  });
+}
+
+// Promote the skeleton card after a couple of seconds for demo liveness.
+setTimeout(() => {
+  const idx = METRICS.findIndex(m => m.id === 'revenue');
+  METRICS[idx] = {
+    id: 'revenue',
+    label: 'Revenue today',
+    accent: 'green',
+    value: 12.4, unit: 'k',
+    delta: +0.034,
+    trend: 'vs yesterday',
+    series: [8.2,8.5,8.8,9.2,9.5,9.8,10.1,10.4,10.7,11.0,11.2,11.4,11.6,11.8,12.0,12.1,12.2,12.3,12.35,12.38,12.4,12.4],
+    color: 'var(--success)',
+  };
+  const el = grid.querySelector('[data-id="revenue"]');
+  if (el) el.outerHTML = renderCard(METRICS[idx]);
+}, 1800);
+</script>
+</body>
+</html>
