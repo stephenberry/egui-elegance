@@ -6,9 +6,12 @@
 use std::borrow::Cow;
 use std::hash::Hash;
 
-use egui::{Color32, ComboBox, Response, Stroke, Ui, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{
+    Color32, ComboBox, CornerRadius, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
+    WidgetText, WidgetType,
+};
 
-use crate::theme::Theme;
+use crate::theme::{with_alpha, Theme};
 
 /// A styled drop-down select.
 ///
@@ -188,14 +191,11 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
                     })
                     .show_ui(ui, |ui| {
                         ui.set_min_width(width);
+                        // Tight stacking. `select_option` handles its own padding.
+                        ui.spacing_mut().item_spacing.y = 2.0;
                         for (opt_value, opt_label) in self.options.iter() {
-                            let label = egui::RichText::new(opt_label.as_ref())
-                                .color(p.text)
-                                .size(t.body);
-                            if ui
-                                .selectable_label(opt_value == &*self.value, label)
-                                .clicked()
-                            {
+                            let selected = opt_value == &*self.value;
+                            if select_option(ui, opt_label.as_ref(), selected, &theme).clicked() {
                                 *self.value = opt_value.clone();
                             }
                         }
@@ -244,4 +244,41 @@ fn paint_chevron(ui: &egui::Ui, rect: egui::Rect, color: Color32, is_popup_open:
 
     painter.line_segment([left, tip], stroke);
     painter.line_segment([tip, right], stroke);
+}
+
+/// Render a single option row inside the Select popup. Keeps the text anchored
+/// at a fixed offset across hover/selected/inactive states. egui's own
+/// `ui.selectable_label` goes through `Button::selectable`, whose frame's
+/// `expansion` changes between states, which shifts the text by ~1px on hover.
+fn select_option(ui: &mut Ui, label: &str, selected: bool, theme: &Theme) -> Response {
+    let p = &theme.palette;
+    let t = &theme.typography;
+
+    let pad_x = 10.0;
+    let pad_y = 6.0;
+
+    let galley = crate::theme::placeholder_galley(ui, label, t.body, false, f32::INFINITY);
+    let content_w = galley.size().x;
+    let desired = Vec2::new(
+        ui.available_width().max(content_w + pad_x * 2.0),
+        galley.size().y.max(t.body) + pad_y * 2.0,
+    );
+    let (rect, response) = ui.allocate_exact_size(desired, Sense::click());
+
+    if ui.is_rect_visible(rect) {
+        let bg = if response.hovered() {
+            with_alpha(p.sky, 60)
+        } else if selected {
+            with_alpha(p.sky, 40)
+        } else {
+            Color32::TRANSPARENT
+        };
+        if bg.a() > 0 {
+            let radius = CornerRadius::same((theme.control_radius as u8).saturating_sub(2));
+            ui.painter().rect_filled(rect, radius, bg);
+        }
+        let label_pos = Pos2::new(rect.min.x + pad_x, rect.center().y - galley.size().y * 0.5);
+        ui.painter().galley(label_pos, galley, p.text);
+    }
+    response
 }
