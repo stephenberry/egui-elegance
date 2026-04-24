@@ -6,7 +6,7 @@ Opinionated widgets for [`egui`]: six-accent rounded buttons, text inputs with a
 
 The design aims to make native apps feel as polished as modern web UIs.
 
-![Buttons](docs/images/buttons.png)
+![Buttons](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/buttons.png)
 
 ## Install
 
@@ -71,7 +71,7 @@ Reference for each widget follows. Tiles are rendered headlessly by `cargo rende
 
 ### Button
 
-![Buttons](docs/images/buttons.png)
+![Buttons](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/buttons.png)
 
 Chunky rounded button in six accent colours plus an outline variant, in three sizes.
 
@@ -87,7 +87,7 @@ ui.add(Button::new("Disabled").accent(Accent::Blue).enabled(false));
 
 ### TextInput
 
-![Text inputs — normal, hint, dirty, password](docs/images/text_inputs.png)
+![Text inputs — normal, hint, dirty, password](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/text_inputs.png)
 
 Single-line text input. See also [Submit-flash feedback](#submit-flash-feedback) for success / error tinting on submit.
 
@@ -105,7 +105,7 @@ ui.add(TextInput::new(&mut name).label("Name").dirty(true));
 
 ### TextArea
 
-![Text areas — regular and monospace](docs/images/text_areas.png)
+![Text areas — regular and monospace](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/text_areas.png)
 
 Multi-line counterpart to `TextInput` with a configurable visible row count. Optional monospace for code, JSON, or keys.
 
@@ -123,7 +123,7 @@ ui.add(TextArea::new(&mut json).monospace(true).rows(8));
 
 ### Select
 
-![Selects](docs/images/selects.png)
+![Selects](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/selects.png)
 
 Themed combo-box generic over any `PartialEq + Clone` value type.
 
@@ -144,7 +144,7 @@ ui.add(Select::strings("env", &mut env, ["Production", "Staging", "Development"]
 
 ### Checkbox · Switch · SegmentedButton
 
-![Toggles — checkbox, switch, segmented](docs/images/toggles.png)
+![Toggles — checkbox, switch, segmented](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/toggles.png)
 
 Three flavours of boolean input. Pick `Checkbox` for list-style selection, `Switch` for feature/settings flags, `SegmentedButton` for mode toggles where the on-state should read as a distinct accent pill.
 
@@ -162,7 +162,7 @@ ui.add(
 
 ### TabBar
 
-![TabBar](docs/images/tabs.png)
+![TabBar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/tabs.png)
 
 Horizontal tab strip. The active tab gets a sky underline.
 
@@ -174,7 +174,7 @@ ui.add(TabBar::new(&mut tab, ["Overview", "Settings", "Activity", "Logs"]));
 
 ### StatusPill · Indicator · Badge
 
-![Status](docs/images/status.png)
+![Status](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/status.png)
 
 `IndicatorState` has three visual modes: `On` (solid green dot), `Off` (red bar), `Connecting` (amber ring). `Badge` carries a `BadgeTone`: `Ok`, `Warning`, `Danger`, `Info`, or `Neutral`.
 
@@ -193,7 +193,7 @@ ui.add(Badge::new("Dev build", BadgeTone::Info));
 
 ### Slider
 
-![Sliders](docs/images/sliders.png)
+![Sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/sliders.png)
 
 Pill-track slider generic over `egui::emath::Numeric` — works with any integer or float type. Value readout on the right; `.value_fmt(|v| …)` for custom formatting.
 
@@ -211,7 +211,7 @@ ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 
 ### Spinner · ProgressBar
 
-![Spinners and progress bars](docs/images/feedback.png)
+![Spinners and progress bars](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/feedback.png)
 
 `Spinner` is the indeterminate loader — an animated sweeping arc. `ProgressBar` is determinate: a pill-shaped bar with an optional inline label.
 
@@ -226,7 +226,7 @@ ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 
 ### Card · CollapsingSection
 
-![Containers](docs/images/containers.png)
+![Containers](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/containers.png)
 
 Both take a body closure and return an `InnerResponse<R>`.
 
@@ -244,7 +244,7 @@ CollapsingSection::new("advanced", "Show advanced options").show(ui, |ui| {
 
 ### Menu · MenuItem
 
-![Menu](docs/images/menu.png)
+![Menu](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/menu.png)
 
 Click-to-open popup attached to any trigger `Response`. `Esc`, outside-click, or item-click all dismiss.
 
@@ -262,7 +262,7 @@ Menu::new("row_actions").show_below(&trigger, |ui| {
 
 ### Modal
 
-![Modal](docs/images/modal.png)
+![Modal](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/modal.png)
 
 Centered dialog over a dimmed backdrop. `Esc`, backdrop-click, or the built-in × button all flip the bound `open` flag back to `false`.
 
@@ -296,7 +296,7 @@ Unlike [`Toast`](#toast--toasts) it does not auto-dismiss, and unlike [submit-fl
 
 ### Toast · Toasts
 
-![Toast](docs/images/toast.png)
+![Toast](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/toast.png)
 
 Non-blocking notifications. `Toast::show(ctx)` enqueues from any callback that has `&Context`; `Toasts::new().render(ctx)` draws the stack once per frame. Auto-dismissed with fade-out after ~4 s (override with `.duration(…)` or `.persistent()`).
 
@@ -334,7 +334,7 @@ log.show(ui);
 
 ### Pairing
 
-![Pairing](docs/images/pairing.png)
+![Pairing](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/pairing.png)
 
 One-to-one pairing between two lists, drawn as bezier curves between port circles. Click a port to start a connection, then click an opposite-side port to complete it. Hovering an opposite-side node during selection latches the ghost line to its port. Clicking a paired node breaks its connection *and* starts a new pairing from it — one-click reconnection. Clicking a line unpairs. Optional `.align_left()` / `.align_right()` auto-arranges the chosen side so every pairing renders as a straight horizontal line.
 
