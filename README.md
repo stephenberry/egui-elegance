@@ -160,6 +160,8 @@ ui.add(
 );
 ```
 
+`SegmentedButton` accepts the same `ButtonSize` scale as `Button`, so a mixed row (e.g. `Button::new("Collect")` next to `SegmentedButton::new(&mut continuous, "Continuous")`) stays aligned at any size. Pass matching `.size(ButtonSize::Large)` on both for a chunkier action row without touching the theme.
+
 ### TabBar
 
 ![TabBar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/tabs.png)

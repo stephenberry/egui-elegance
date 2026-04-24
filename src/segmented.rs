@@ -10,15 +10,26 @@ use crate::theme::{with_alpha, Accent, Theme};
 
 /// A toggle button with a built-in LED dot.
 ///
+/// `SegmentedButton` shares [`ButtonSize`] with [`Button`](crate::Button), so a
+/// mixed action row stays aligned when both widgets pass matching
+/// `.size(...)` values.
+///
 /// ```no_run
-/// # use elegance::{Accent, SegmentedButton};
+/// # use elegance::{Accent, Button, ButtonSize, SegmentedButton};
 /// # egui::__run_test_ui(|ui| {
 /// let mut on = false;
-/// if ui.add(SegmentedButton::new(&mut on, "Continuous").accent(Accent::Green))
-///     .clicked()
-/// {
-///     // ...
-/// }
+/// // Default: ButtonSize::Medium — aligns with Medium Button.
+/// ui.add(SegmentedButton::new(&mut on, "Continuous").accent(Accent::Green));
+///
+/// // Chunkier row — Button + SegmentedButton, same height.
+/// ui.horizontal(|ui| {
+///     ui.add(Button::new("Collect").size(ButtonSize::Large));
+///     ui.add(
+///         SegmentedButton::new(&mut on, "Continuous")
+///             .accent(Accent::Green)
+///             .size(ButtonSize::Large),
+///     );
+/// });
 /// # });
 /// ```
 #[must_use = "Add with `ui.add(...)`."]
