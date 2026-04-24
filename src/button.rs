@@ -23,6 +23,31 @@ pub enum ButtonSize {
     Large,
 }
 
+impl ButtonSize {
+    /// Resolve the `(pad_x, pad_y)` padding for a given size against the
+    /// active theme. Used by [`Button`] and [`SegmentedButton`](crate::SegmentedButton)
+    /// so both widgets produce identical control heights at a given size.
+    pub fn padding(self, theme: &Theme) -> Vec2 {
+        match self {
+            ButtonSize::Small => vec2(theme.control_padding_x * 0.6, theme.control_padding_y * 0.6),
+            ButtonSize::Medium => vec2(theme.control_padding_x, theme.control_padding_y),
+            ButtonSize::Large => vec2(
+                theme.control_padding_x * 1.25,
+                theme.control_padding_y * 1.2,
+            ),
+        }
+    }
+
+    /// Resolve the label font size for a given size against the active theme.
+    pub fn font_size(self, theme: &Theme) -> f32 {
+        match self {
+            ButtonSize::Small => theme.typography.small,
+            ButtonSize::Medium => theme.typography.button,
+            ButtonSize::Large => theme.typography.body + 1.0,
+        }
+    }
+}
+
 /// A coloured, rounded button.
 ///
 /// ```no_run
@@ -116,22 +141,11 @@ impl Button {
     }
 
     fn padding(&self, theme: &Theme) -> Vec2 {
-        match self.size {
-            ButtonSize::Small => vec2(theme.control_padding_x * 0.6, theme.control_padding_y * 0.6),
-            ButtonSize::Medium => vec2(theme.control_padding_x, theme.control_padding_y),
-            ButtonSize::Large => vec2(
-                theme.control_padding_x * 1.25,
-                theme.control_padding_y * 1.2,
-            ),
-        }
+        self.size.padding(theme)
     }
 
     fn font_size(&self, theme: &Theme) -> f32 {
-        match self.size {
-            ButtonSize::Small => theme.typography.small,
-            ButtonSize::Medium => theme.typography.button,
-            ButtonSize::Large => theme.typography.body + 1.0,
-        }
+        self.size.font_size(theme)
     }
 }
 

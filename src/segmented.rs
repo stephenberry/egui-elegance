@@ -5,6 +5,7 @@ use egui::{
     WidgetType,
 };
 
+use crate::button::ButtonSize;
 use crate::theme::{with_alpha, Accent, Theme};
 
 /// A toggle button with a built-in LED dot.
@@ -25,6 +26,7 @@ pub struct SegmentedButton<'a> {
     on: &'a mut bool,
     label: WidgetText,
     accent: Accent,
+    size: ButtonSize,
     /// When `true`, the `on` state is dimmed — useful for showing that a
     /// linked toggle or prerequisite isn't active.
     dim_when_on: bool,
@@ -39,6 +41,7 @@ impl<'a> std::fmt::Debug for SegmentedButton<'a> {
             .field("on", &*self.on)
             .field("label", &self.label.text())
             .field("accent", &self.accent)
+            .field("size", &self.size)
             .field("dim_when_on", &self.dim_when_on)
             .field("rounded", &self.rounded)
             .field("corner_radius", &self.corner_radius)
@@ -54,6 +57,7 @@ impl<'a> SegmentedButton<'a> {
             on,
             label: label.into(),
             accent: Accent::Green,
+            size: ButtonSize::Medium,
             dim_when_on: false,
             rounded: true,
             corner_radius: None,
@@ -64,6 +68,15 @@ impl<'a> SegmentedButton<'a> {
     /// Pick the `on`-state colour from one of the theme's accents. Default: [`Accent::Green`].
     pub fn accent(mut self, accent: Accent) -> Self {
         self.accent = accent;
+        self
+    }
+
+    /// Pick a size preset matching [`Button`](crate::Button)'s sizes so a
+    /// mixed `Button` + `SegmentedButton` row stays aligned at any size.
+    /// Default: [`ButtonSize::Medium`].
+    #[inline]
+    pub fn size(mut self, size: ButtonSize) -> Self {
+        self.size = size;
         self
     }
 
@@ -108,18 +121,20 @@ impl<'a> Widget for SegmentedButton<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let theme = Theme::current(ui.ctx());
         let p = &theme.palette;
-        let t = &theme.typography;
 
-        let pad_x = theme.control_padding_x;
-        let pad_y = theme.control_padding_y;
+        let padding = self.size.padding(&theme);
+        let font_size = self.size.font_size(&theme);
         let led_size = 8.0;
         let led_gap = 7.0;
 
         let galley =
-            crate::theme::placeholder_galley(ui, self.label.text(), t.button, true, f32::INFINITY);
+            crate::theme::placeholder_galley(ui, self.label.text(), font_size, true, f32::INFINITY);
 
         let content_w = led_size + led_gap + galley.size().x;
-        let mut desired = Vec2::new(pad_x * 2.0 + content_w, pad_y * 2.0 + galley.size().y);
+        let mut desired = Vec2::new(
+            padding.x * 2.0 + content_w,
+            (padding.y * 2.0 + galley.size().y).max(font_size + 2.0 * padding.y),
+        );
         if let Some(min_w) = self.min_width {
             desired.x = desired.x.max(min_w);
         }

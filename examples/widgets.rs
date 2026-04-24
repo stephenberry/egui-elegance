@@ -543,7 +543,7 @@ impl App {
 
             labeled(
                 ui,
-                "Mixed action row — Button and SegmentedButton share control height",
+                "Mixed action row — Button and SegmentedButton share control height at any size",
                 |ui| {
                     ui.horizontal(|ui| {
                         let _ =
@@ -553,6 +553,22 @@ impl App {
                             SegmentedButton::new(&mut self.seg_on, "Continuous")
                                 .accent(Accent::Green)
                                 .min_width(140.0),
+                        );
+                    });
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        let _ = ui.add(
+                            Button::new("Collect")
+                                .accent(Accent::Green)
+                                .size(ButtonSize::Large)
+                                .min_width(120.0),
+                        );
+                        ui.add_space(8.0);
+                        ui.add(
+                            SegmentedButton::new(&mut self.seg_on, "Continuous")
+                                .accent(Accent::Green)
+                                .size(ButtonSize::Large)
+                                .min_width(180.0),
                         );
                     });
                 },
