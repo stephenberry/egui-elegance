@@ -111,9 +111,7 @@ impl<'a> Widget for SegmentedButton<'a> {
         let t = &theme.typography;
 
         let pad_x = theme.control_padding_x;
-        // Intentionally taller than `theme.control_padding_y` — segmented
-        // toggles read as chunkier than standard controls.
-        let pad_y = 10.0;
+        let pad_y = theme.control_padding_y;
         let led_size = 8.0;
         let led_gap = 7.0;
 

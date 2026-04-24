@@ -248,6 +248,20 @@ fn toggles_ui(ui: &mut egui::Ui) {
                 .min_width(140.0),
         );
     });
+    ui.add_space(10.0);
+
+    // Mixed-control row: Button + SegmentedButton share theme.control_padding_y
+    // so they align cleanly at default Button size.
+    ui.label(theme.muted_text("Mixed action row"));
+    ui.horizontal(|ui| {
+        ui.add(Button::new("Collect").accent(Accent::Green).min_width(96.0));
+        ui.add_space(8.0);
+        ui.add(
+            SegmentedButton::new(&mut seg_on, "Continuous")
+                .accent(Accent::Green)
+                .min_width(140.0),
+        );
+    });
 }
 
 fn tabs_ui(ui: &mut egui::Ui) {
