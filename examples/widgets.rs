@@ -11,8 +11,8 @@ use elegance::{
     Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
     Drawer, DrawerSide, FileDropZone, Indicator, IndicatorState, Knob, KnobSize, LogBar, Menu,
     MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
-    ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
-    StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
+    ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner, StatCard, StatusPill,
+    Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
     TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
@@ -125,6 +125,13 @@ struct App {
 
     browser_tabs: BrowserTabs,
     browser_tabs_untitled: u32,
+
+    stat_deploys: StatTick,
+    stat_error: StatTick,
+    stat_p95: StatTick,
+    stat_revenue: StatTick,
+    stat_last_tick: std::time::Instant,
+    stat_rng: u64,
 
     log: LogBar,
 }
@@ -280,6 +287,36 @@ impl Default for App {
                     "cargo output \u{2014} a longer title",
                 )),
             browser_tabs_untitled: 0,
+            stat_deploys: StatTick::new(
+                &[
+                    12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0, 20.0, 19.0, 22.0, 21.0, 22.0, 22.0,
+                    24.0, 26.0, 24.0, 27.0, 28.0, 30.0, 28.0, 26.0, 24.0,
+                ],
+                0.12,
+            ),
+            stat_error: StatTick::new(
+                &[
+                    0.8, 0.9, 0.82, 0.75, 0.7, 0.62, 0.6, 0.58, 0.55, 0.5, 0.48, 0.46, 0.44, 0.45,
+                    0.4, 0.42, 0.4, 0.38, 0.42, 0.4, 0.41, 0.42,
+                ],
+                -0.08,
+            ),
+            stat_p95: StatTick::new(
+                &[
+                    120.0, 118.0, 122.0, 125.0, 128.0, 130.0, 135.0, 140.0, 142.0, 148.0, 150.0,
+                    155.0, 160.0, 162.0, 168.0, 170.0, 175.0, 178.0, 182.0, 180.0, 184.0, 186.0,
+                ],
+                0.24,
+            ),
+            stat_revenue: StatTick::new(
+                &[
+                    8.2, 8.5, 8.8, 9.2, 9.5, 9.8, 10.1, 10.4, 10.7, 11.0, 11.2, 11.4, 11.6, 11.8,
+                    12.0, 12.1, 12.2, 12.3, 12.35, 12.38, 12.4, 12.4,
+                ],
+                0.034,
+            ),
+            stat_last_tick: std::time::Instant::now(),
+            stat_rng: 0x9E37_79B9_7F4A_7C15,
             log,
         }
     }
@@ -451,7 +488,8 @@ impl eframe::App for App {
             ui.add(TabBar::new(
                 &mut self.category,
                 [
-                    "Buttons", "Inputs", "Numeric", "Display", "Layout", "Overlays", "Tools",
+                    "Buttons", "Inputs", "Numeric", "Display", "Status", "Layout", "Overlays",
+                    "Tools",
                 ],
             ));
             ui.add_space(8.0);
@@ -477,16 +515,19 @@ impl eframe::App for App {
                         3 => {
                             self.section_tabs(ui);
                             self.section_browser_tabs(ui);
+                            self.section_stat_cards(ui);
+                        }
+                        4 => {
                             self.section_status(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
                         }
-                        4 => {
+                        5 => {
                             self.section_containers(ui);
                             self.section_accordion(ui);
                             self.section_menu_bar(ui);
                         }
-                        5 => {
+                        6 => {
                             self.section_modal(ui);
                             self.section_drawer(ui);
                             self.section_menu(ui);
@@ -828,6 +869,67 @@ impl App {
                     ui.add(Badge::new("Info", BadgeTone::Info));
                     ui.add(Badge::new("Neutral", BadgeTone::Neutral));
                 });
+            });
+        });
+    }
+
+    fn section_stat_cards(&mut self, ui: &mut egui::Ui) {
+        if self.stat_last_tick.elapsed().as_secs_f32() >= 2.0 {
+            self.stat_deploys.advance(&mut self.stat_rng);
+            self.stat_error.advance(&mut self.stat_rng);
+            self.stat_p95.advance(&mut self.stat_rng);
+            self.stat_revenue.advance(&mut self.stat_rng);
+            self.stat_last_tick = std::time::Instant::now();
+        }
+        ui.ctx()
+            .request_repaint_after(std::time::Duration::from_millis(100));
+
+        Card::new().heading("Stat cards").show(ui, |ui| {
+            let cell_w = 230.0_f32;
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(12.0, 12.0);
+                ui.add(
+                    StatCard::new("Active deploys")
+                        .accent(Accent::Blue)
+                        .value(format!("{:.0}", self.stat_deploys.value))
+                        .delta(self.stat_deploys.delta())
+                        .trend("vs last 7 days")
+                        .sparkline(&self.stat_deploys.series)
+                        .width(cell_w),
+                );
+                ui.add(
+                    StatCard::new("Error rate")
+                        .accent(Accent::Purple)
+                        .value(format!("{:.2}", self.stat_error.value))
+                        .unit("%")
+                        .delta(self.stat_error.delta())
+                        .invert_delta(true)
+                        .trend("vs last 24h")
+                        .sparkline(&self.stat_error.series)
+                        .info_tooltip("Sampled every 5 minutes.")
+                        .width(cell_w),
+                );
+                ui.add(
+                    StatCard::new("P95 latency")
+                        .accent(Accent::Amber)
+                        .value(format!("{:.0}", self.stat_p95.value))
+                        .unit("ms")
+                        .delta(self.stat_p95.delta())
+                        .invert_delta(true)
+                        .trend("regressed vs last hour")
+                        .sparkline(&self.stat_p95.series)
+                        .width(cell_w),
+                );
+                ui.add(
+                    StatCard::new("Revenue today")
+                        .accent(Accent::Green)
+                        .value(format!("{:.1}", self.stat_revenue.value))
+                        .unit("k")
+                        .delta(self.stat_revenue.delta())
+                        .trend("vs yesterday")
+                        .sparkline(&self.stat_revenue.series)
+                        .width(cell_w),
+                );
             });
         });
     }
@@ -2363,4 +2465,73 @@ fn labeled(ui: &mut egui::Ui, label: &str, body: impl FnOnce(&mut egui::Ui)) {
     ui.add_space(4.0);
     body(ui);
     ui.add_space(8.0);
+}
+
+/// A rolling window of metric samples backing a stat card. Each tick a new
+/// sample is generated from a simple random walk (the same scheme the HTML
+/// mockup uses) and appended to the series; the oldest sample falls off so
+/// the window stays at 24 points.
+#[derive(Debug)]
+struct StatTick {
+    series: Vec<f32>,
+    value: f32,
+    prev_value: f32,
+}
+
+impl StatTick {
+    /// `series` seeds the rolling window; the displayed value is taken
+    /// from its last sample so the headline number always matches the
+    /// sparkline endpoint. `initial_delta` back-derives `prev_value` so
+    /// the first render shows that delta on the chip; subsequent ticks
+    /// recompute it from the previous-vs-current ratio.
+    fn new(series: &[f32], initial_delta: f32) -> Self {
+        let value = *series.last().expect("StatTick series must be non-empty");
+        let prev_value = value / (1.0 + initial_delta);
+        Self {
+            series: series.to_vec(),
+            value,
+            prev_value,
+        }
+    }
+
+    fn delta(&self) -> f32 {
+        if self.prev_value.abs() < f32::EPSILON {
+            0.0
+        } else {
+            (self.value - self.prev_value) / self.prev_value
+        }
+    }
+
+    fn advance(&mut self, rng: &mut u64) {
+        let last = *self.series.last().unwrap_or(&self.value);
+        let mut min = f32::INFINITY;
+        let mut max = f32::NEG_INFINITY;
+        for &v in &self.series {
+            if v < min {
+                min = v;
+            }
+            if v > max {
+                max = v;
+            }
+        }
+        let spread = ((max - min) * 0.15).max(1.0);
+        let next = (last + (next_unit(rng) - 0.5) * spread).max(0.0);
+        self.series.push(next);
+        if self.series.len() > 24 {
+            self.series.remove(0);
+        }
+        self.prev_value = self.value;
+        self.value = next;
+    }
+}
+
+/// xorshift64 step returning a value in `[0.0, 1.0)`. Cheap, deterministic
+/// per seed, and doesn't pull in a `rand` dependency just for a demo.
+fn next_unit(state: &mut u64) -> f32 {
+    let mut x = *state;
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    *state = x;
+    (x >> 11) as f32 / (1u64 << 53) as f32
 }

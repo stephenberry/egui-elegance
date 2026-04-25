@@ -18,7 +18,7 @@ use elegance::{
     CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, Indicator,
     IndicatorState, Knob, KnobSize, LogBar, MenuBar, MenuItem, PairItem, Pairing, Popover,
     PopoverSide, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner,
-    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
+    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
     TooltipSide,
 };
 
@@ -447,6 +447,64 @@ fn knobs_ui(ui: &mut egui::Ui) {
             .show_value(true)
             .value_fmt(|v| format!("{:+.2} V", v)),
     );
+}
+
+fn stat_cards_ui(ui: &mut egui::Ui) {
+    const DEPLOYS: &[f32] = &[
+        12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0, 20.0, 19.0, 22.0, 21.0, 24.0, 22.0, 24.0, 26.0,
+        24.0, 27.0, 28.0, 30.0, 28.0, 26.0, 24.0,
+    ];
+    const ERROR: &[f32] = &[
+        0.8, 0.9, 0.82, 0.75, 0.7, 0.62, 0.6, 0.58, 0.55, 0.5, 0.48, 0.46, 0.44, 0.45, 0.4, 0.42,
+        0.4, 0.38, 0.42, 0.4, 0.41, 0.42,
+    ];
+    const P95: &[f32] = &[
+        120.0, 118.0, 122.0, 125.0, 128.0, 130.0, 135.0, 140.0, 142.0, 148.0, 150.0, 155.0, 160.0,
+        162.0, 168.0, 170.0, 175.0, 178.0, 182.0, 180.0, 184.0, 186.0,
+    ];
+
+    let cell_w = 230.0_f32;
+    ui.set_min_width(cell_w * 4.0 + 36.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 12.0;
+        ui.add(
+            StatCard::new("Active deploys")
+                .accent(Accent::Blue)
+                .value("24")
+                .delta(0.12)
+                .trend("vs last 7 days")
+                .sparkline(DEPLOYS)
+                .width(cell_w),
+        );
+        ui.add(
+            StatCard::new("Error rate")
+                .accent(Accent::Purple)
+                .value("0.42")
+                .unit("%")
+                .delta(-0.08)
+                .invert_delta(true)
+                .trend("vs last 24h")
+                .sparkline(ERROR)
+                .width(cell_w),
+        );
+        ui.add(
+            StatCard::new("P95 latency")
+                .accent(Accent::Amber)
+                .value("184")
+                .unit("ms")
+                .delta(0.24)
+                .invert_delta(true)
+                .trend("regressed vs last hour")
+                .sparkline(P95)
+                .width(cell_w),
+        );
+        ui.add(
+            StatCard::new("Revenue today")
+                .accent(Accent::Green)
+                .loading(true)
+                .width(cell_w),
+        );
+    });
 }
 
 fn range_sliders_ui(ui: &mut egui::Ui) {
@@ -1071,6 +1129,7 @@ theme_tests!(toggles, toggles_ui);
 theme_tests!(tabs, tabs_ui);
 theme_tests!(browser_tabs, browser_tabs_ui);
 theme_tests!(status, status_ui);
+theme_tests!(stat_cards, stat_cards_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(knobs, knobs_ui);

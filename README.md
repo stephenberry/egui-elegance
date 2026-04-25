@@ -412,6 +412,39 @@ ui.add(
 );
 ```
 
+### StatCard
+
+A compact dashboard tile for a single numeric KPI. The headline value sits above a comparison subtitle (`"vs last 7 days"`) and an optional 44 pt filled-area sparkline of recent values, tinted by the card's accent. A small delta chip shows direction of change with semantic colouring: by default, up is good (green); call `.invert_delta(true)` for metrics where down is good (latency, error rate). Pass `.loading(true)` while data is in flight to render a shimmer placeholder.
+
+```rust
+use elegance::{Accent, StatCard};
+
+let series = [12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0, 22.0_f32];
+
+ui.add(
+    StatCard::new("Active deploys")
+        .accent(Accent::Blue)
+        .value("24")
+        .delta(0.12)
+        .trend("vs last 7 days")
+        .sparkline(&series),
+);
+
+// Down is good for latency: invert the chip's semantic colouring.
+ui.add(
+    StatCard::new("P95 latency")
+        .accent(Accent::Amber)
+        .value("184")
+        .unit("ms")
+        .delta(0.24)
+        .invert_delta(true)
+        .trend("regressed vs last hour"),
+);
+
+// Loading skeleton while fetching.
+ui.add(StatCard::new("Revenue today").accent(Accent::Green).loading(true));
+```
+
 ### Card · CollapsingSection
 
 ![Containers](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/containers.png)
