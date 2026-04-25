@@ -16,7 +16,7 @@ exclude = [
     ".gitignore",
     "CONTRIBUTING.md",
     "dev/",
-    "docs/",
+    "docs/images/",
     "mockups/",
     "tests/snapshots/",
     "tests/visual.rs",
