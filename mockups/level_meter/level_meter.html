@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LevelMeter (Slate · Interactive)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 820px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card .hdr {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .card .hdr h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.01em;
+    }
+    .card .hdr .meta {
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Variant 1: stereo vertical with side readout panel. */
+    .stereo-wrap {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+    .stereo-wrap svg {
+      display: block;
+      background: #060c1c;
+      border: 1px solid #1a2540;
+      border-radius: 8px;
+      width: 100%;
+      height: auto;
+    }
+    .readouts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+    }
+    .readout-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 10px 12px;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 6px;
+    }
+    .readout-row .ch {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .readout-row.l .ch { color: #38bdf8; }
+    .readout-row.r .ch { color: #a78bfa; }
+    .readout-row .rms {
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      color: #e2e8f0;
+      line-height: 1;
+    }
+    .readout-row .rms .u {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      margin-left: 3px;
+    }
+    .readout-row .peak {
+      font-size: 11px;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+    .readout-row .peak .k {
+      color: #64748b;
+      letter-spacing: 0.04em;
+      margin-right: 4px;
+    }
+    .readout-row .peak.clipping { color: #f87171; }
+
+    .btn-reset {
+      align-self: center;
+      padding: 5px 12px;
+      background: rgba(248, 113, 113, 0.09);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: #fca5a5;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      user-select: none;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+    }
+    .btn-reset:hover { background: rgba(248, 113, 113, 0.18); color: #fecaca; }
+    .btn-reset:active { transform: translateY(1px); }
+    .btn-reset[disabled] {
+      opacity: 0.35;
+      cursor: default;
+      border-color: #263445;
+      background: transparent;
+      color: #475569;
+    }
+
+    /* Variant 2: multichannel bank — horizontal bars. */
+    .bank-wrap svg {
+      display: block;
+      background: #060c1c;
+      border: 1px solid #1a2540;
+      border-radius: 8px;
+      width: 100%;
+      height: auto;
+    }
+    .bank-legend {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      color: #64748b;
+      font-size: 11.5px;
+      letter-spacing: 0.02em;
+    }
+    .bank-legend .swatches {
+      display: inline-flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .bank-legend .sw {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #94a3b8;
+    }
+    .bank-legend .sw .dot {
+      display: inline-block;
+      width: 9px; height: 9px;
+      border-radius: 2px;
+    }
+    .bank-legend kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 10.5px;
+      color: #94a3b8;
+      margin: 0 1px;
+    }
+
+    /* Variant 3: bipolar DAQ, horizontal. */
+    .daq-wrap svg {
+      display: block;
+      background: #060c1c;
+      border: 1px solid #1a2540;
+      border-radius: 8px;
+      width: 100%;
+      height: auto;
+    }
+    .daq-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .daq-read {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+    }
+    .daq-read .cur {
+      font-size: 22px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      color: #e2e8f0;
+      line-height: 1;
+    }
+    .daq-read .cur.neg { color: #a78bfa; }
+    .daq-read .cur.pos { color: #38bdf8; }
+    .daq-read .cur .u {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+      margin-left: 4px;
+    }
+    .daq-read .ext {
+      font-size: 11.5px;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+    .daq-read .ext .k {
+      color: #64748b;
+      letter-spacing: 0.04em;
+      margin-right: 4px;
+    }
+    .daq-read .ext.rail { color: #fbbf24; font-weight: 600; }
+
+    /* Shared SVG classes. */
+    text { font-family: inherit; }
+    .scale-lbl {
+      fill: #64748b;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+    .scale-lbl.zero { fill: #94a3b8; font-weight: 600; }
+    .ch-lbl {
+      fill: #94a3b8;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .tick { stroke: #334155; stroke-width: 1; shape-rendering: crispEdges; }
+    .tick.zero { stroke: #475569; }
+
+    .meter-track { stroke: #0b1120; stroke-width: 1; }
+    .meter-hold  { stroke: #f1f5f9; stroke-width: 2; stroke-linecap: butt; }
+    .clip-led-off { fill: #1a2540; stroke: #334155; stroke-width: 1; }
+    .clip-led-on  { fill: #f87171; stroke: #fca5a5; stroke-width: 1.2;
+      filter: drop-shadow(0 0 6px rgba(248,113,113,0.55)); cursor: pointer; }
+    .clip-led-on:hover { fill: #fca5a5; }
+
+    .bar-shadow {
+      /* Inner glow on filled portion — subtle. */
+      filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.25));
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================================================================
+       Shared gradient definitions.
+       Each gradient is defined in userSpaceOnUse with absolute y-coords
+       so that a clipped sub-rect preserves the same colour at the same
+       y-position as the full-height track.
+       ================================================================== -->
+  <svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+    <defs>
+      <!-- Vertical meter gradient: green (bottom) → amber → red (top).
+           Used by Variant 1 (stereo). Track spans y=12 (top=+3 dB) to y=256 (bottom=-60 dB). -->
+      <linearGradient id="v-grad-full" gradientUnits="userSpaceOnUse" x1="0" y1="256" x2="0" y2="12">
+        <stop offset="0"      stop-color="#4ade80"/>
+        <stop offset="0.666"  stop-color="#4ade80"/>
+        <stop offset="0.73"   stop-color="#a3e635"/>
+        <stop offset="0.812"  stop-color="#fbbf24"/>
+        <stop offset="0.905"  stop-color="#f97316"/>
+        <stop offset="1"      stop-color="#f87171"/>
+      </linearGradient>
+      <linearGradient id="v-grad-dim" gradientUnits="userSpaceOnUse" x1="0" y1="256" x2="0" y2="12">
+        <stop offset="0"      stop-color="#4ade80" stop-opacity="0.16"/>
+        <stop offset="0.666"  stop-color="#4ade80" stop-opacity="0.16"/>
+        <stop offset="0.73"   stop-color="#a3e635" stop-opacity="0.17"/>
+        <stop offset="0.812"  stop-color="#fbbf24" stop-opacity="0.18"/>
+        <stop offset="0.905"  stop-color="#f97316" stop-opacity="0.20"/>
+        <stop offset="1"      stop-color="#f87171" stop-opacity="0.22"/>
+      </linearGradient>
+
+      <!-- Horizontal meter gradient for the 8-ch bank (Variant 2).
+           Bars span x=40 (left=-60 dB) to x=620 (right=+3 dB). -->
+      <linearGradient id="h-grad-full" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="620" y2="0">
+        <stop offset="0"      stop-color="#4ade80"/>
+        <stop offset="0.666"  stop-color="#4ade80"/>
+        <stop offset="0.73"   stop-color="#a3e635"/>
+        <stop offset="0.812"  stop-color="#fbbf24"/>
+        <stop offset="0.905"  stop-color="#f97316"/>
+        <stop offset="1"      stop-color="#f87171"/>
+      </linearGradient>
+      <linearGradient id="h-grad-dim" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="620" y2="0">
+        <stop offset="0"      stop-color="#4ade80" stop-opacity="0.15"/>
+        <stop offset="0.666"  stop-color="#4ade80" stop-opacity="0.15"/>
+        <stop offset="0.73"   stop-color="#a3e635" stop-opacity="0.17"/>
+        <stop offset="0.812"  stop-color="#fbbf24" stop-opacity="0.18"/>
+        <stop offset="0.905"  stop-color="#f97316" stop-opacity="0.20"/>
+        <stop offset="1"      stop-color="#f87171" stop-opacity="0.22"/>
+      </linearGradient>
+
+      <!-- Bipolar horizontal gradient for DAQ (Variant 3).
+           Bar spans x=40 (-10 V) to x=740 (+10 V); violet on the negative
+           side, sky on the positive side, amber near the rails. -->
+      <linearGradient id="bp-grad-full" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="740" y2="0">
+        <stop offset="0"      stop-color="#fbbf24"/>
+        <stop offset="0.08"   stop-color="#f97316"/>
+        <stop offset="0.18"   stop-color="#a78bfa"/>
+        <stop offset="0.50"   stop-color="#6366f1"/>
+        <stop offset="0.50"   stop-color="#38bdf8"/>
+        <stop offset="0.82"   stop-color="#38bdf8"/>
+        <stop offset="0.92"   stop-color="#f97316"/>
+        <stop offset="1"      stop-color="#fbbf24"/>
+      </linearGradient>
+      <linearGradient id="bp-grad-dim" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="740" y2="0">
+        <stop offset="0"      stop-color="#fbbf24" stop-opacity="0.22"/>
+        <stop offset="0.08"   stop-color="#f97316" stop-opacity="0.18"/>
+        <stop offset="0.18"   stop-color="#a78bfa" stop-opacity="0.17"/>
+        <stop offset="0.50"   stop-color="#6366f1" stop-opacity="0.17"/>
+        <stop offset="0.50"   stop-color="#38bdf8" stop-opacity="0.17"/>
+        <stop offset="0.82"   stop-color="#38bdf8" stop-opacity="0.17"/>
+        <stop offset="0.92"   stop-color="#f97316" stop-opacity="0.18"/>
+        <stop offset="1"      stop-color="#fbbf24" stop-opacity="0.22"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="stack">
+
+    <!-- =================================================================
+         Variant 1 · Stereo audio (dBFS) with peak hold + clip LED
+         ================================================================= -->
+    <div>
+      <div class="caption">Stereo · dBFS with peak hold and clip latch</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Program output · L / R</h3>
+          <span class="meta">attack 10 ms · release 300 ms · hold 1.5 s · click LED to reset</span>
+        </div>
+
+        <div class="stereo-wrap">
+
+          <!-- Plot: 320×280. Left bar x=72, right bar x=192, bar width 56, bar y=12..256. -->
+          <svg viewBox="0 0 320 280" preserveAspectRatio="xMidYMid meet">
+            <!-- Clip LEDs at top of each bar. -->
+            <circle id="stereo-clip-L" class="clip-led-off" cx="100" cy="8"  r="5.5"/>
+            <circle id="stereo-clip-R" class="clip-led-off" cx="220" cy="8"  r="5.5"/>
+            <text class="ch-lbl" x="100" y="24" text-anchor="middle">L</text>
+            <text class="ch-lbl" x="220" y="24" text-anchor="middle">R</text>
+
+            <!-- Scale column in the middle (labels + tick lines that cross both bars). -->
+            <g>
+              <!-- dB grid lines drawn underneath each bar to hint zone boundaries. -->
+              <g id="stereo-grid"></g>
+              <!-- Scale labels centered between the bars. -->
+              <g id="stereo-scale"></g>
+            </g>
+
+            <!-- Left bar. -->
+            <rect x="72" y="32" width="56" height="224" rx="2" ry="2"
+                  fill="url(#v-grad-dim)" stroke="#1a2540" stroke-width="1"/>
+            <rect id="stereo-fill-L"
+                  x="72" y="256" width="56" height="0"
+                  fill="url(#v-grad-full)"/>
+            <line id="stereo-hold-L" class="meter-hold" x1="72" y1="256" x2="128" y2="256"/>
+
+            <!-- Right bar. -->
+            <rect x="192" y="32" width="56" height="224" rx="2" ry="2"
+                  fill="url(#v-grad-dim)" stroke="#1a2540" stroke-width="1"/>
+            <rect id="stereo-fill-R"
+                  x="192" y="256" width="56" height="0"
+                  fill="url(#v-grad-full)"/>
+            <line id="stereo-hold-R" class="meter-hold" x1="192" y1="256" x2="248" y2="256"/>
+
+            <!-- Baseline label. -->
+            <text class="scale-lbl" x="160" y="272" text-anchor="middle"
+                  style="letter-spacing:0.12em;text-transform:uppercase;font-size:9px;">dBFS</text>
+          </svg>
+
+          <!-- Side readouts. -->
+          <div class="readouts">
+            <div class="readout-row l">
+              <span class="ch">L</span>
+              <div><span id="stereo-rms-L" class="rms">−∞</span><span class="rms u">dB</span></div>
+              <div id="stereo-peak-L" class="peak"><span class="k">pk</span>−∞</div>
+            </div>
+            <div class="readout-row r">
+              <span class="ch">R</span>
+              <div><span id="stereo-rms-R" class="rms">−∞</span><span class="rms u">dB</span></div>
+              <div id="stereo-peak-R" class="peak"><span class="k">pk</span>−∞</div>
+            </div>
+            <button id="stereo-reset" class="btn-reset" disabled>Reset clip</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         Variant 2 · Multichannel bank · 8 horizontal bars
+         ================================================================= -->
+    <div>
+      <div class="caption">Multichannel bank · horizontal · 8 inputs</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Stage box · inputs 1 – 8</h3>
+          <span class="meta">48 kHz · linked peak hold · click clip dot to reset that channel</span>
+        </div>
+
+        <div class="bank-wrap">
+          <!-- Plot: 780×260. Bars: label col 0..36, bar x=40..620, readout 630..780. -->
+          <svg id="bank-svg" viewBox="0 0 780 260" preserveAspectRatio="xMidYMid meet">
+            <!-- Shared dB grid (light verticals at scale marks). -->
+            <g id="bank-grid"></g>
+
+            <!-- 8 rows injected by JS. -->
+            <g id="bank-rows"></g>
+
+            <!-- Baseline scale labels along the bottom. -->
+            <g id="bank-scale"></g>
+          </svg>
+
+          <div class="bank-legend">
+            <div class="swatches">
+              <span class="sw"><span class="dot" style="background:#4ade80;"></span>nominal</span>
+              <span class="sw"><span class="dot" style="background:#fbbf24;"></span>caution</span>
+              <span class="sw"><span class="dot" style="background:#f87171;"></span>clip</span>
+            </div>
+            <div>
+              <kbd>hover</kbd> a row for readout · <kbd>⎇ click</kbd> clears all clip latches
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         Variant 3 · Bipolar DAQ · ±10 V horizontal
+         ================================================================= -->
+    <div>
+      <div class="caption">Bipolar · DAQ voltage · ±10 V horizontal</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>AI-3 · differential input</h3>
+          <span class="meta">range ±10 V · rail pin highlights when &gt; ±9.5 V</span>
+        </div>
+
+        <div class="daq-wrap">
+          <!-- Plot: 780×110. Bar row at y=32..76. Scale labels at y=94. -->
+          <svg viewBox="0 0 780 110" preserveAspectRatio="xMidYMid meet">
+            <!-- Scale ticks + labels. -->
+            <g id="daq-scale"></g>
+
+            <!-- Background (dim gradient spans full range). -->
+            <rect x="40" y="32" width="700" height="44" rx="3" ry="3"
+                  fill="url(#bp-grad-dim)" stroke="#1a2540" stroke-width="1"/>
+
+            <!-- Center zero line. -->
+            <line class="tick zero" x1="390" y1="28" x2="390" y2="80"/>
+
+            <!-- Active fill: grows from center outward.
+                 Width & x updated by JS. -->
+            <rect id="daq-fill" x="390" y="32" width="0" height="44"
+                  fill="url(#bp-grad-full)"/>
+
+            <!-- Peak hold ticks (two — one per sign). -->
+            <line id="daq-hold-pos" class="meter-hold" x1="390" y1="28" x2="390" y2="80" opacity="0"/>
+            <line id="daq-hold-neg" class="meter-hold" x1="390" y1="28" x2="390" y2="80" opacity="0"/>
+
+            <!-- Rail markers. -->
+            <rect id="daq-rail-neg" x="40"  y="30" width="2" height="48" fill="#fbbf24" opacity="0"/>
+            <rect id="daq-rail-pos" x="738" y="30" width="2" height="48" fill="#fbbf24" opacity="0"/>
+          </svg>
+
+          <div class="daq-row">
+            <div class="daq-read">
+              <div><span id="daq-cur" class="cur pos">0.00</span><span class="cur u">V</span></div>
+              <div class="ext"><span class="k">peak +</span><span id="daq-peak-pos">+0.00</span></div>
+              <div class="ext"><span class="k">peak −</span><span id="daq-peak-neg">0.00</span></div>
+              <div id="daq-rail-lbl" class="ext rail" style="opacity:0;">rail pin</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  /* ======================================================================
+     SVG helpers
+     ====================================================================== */
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svgEl = (tag, attrs = {}, parent = null, text = null) => {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  const fmtDb = (db) => {
+    if (!isFinite(db) || db < -60) return '−∞';
+    const s = db.toFixed(1);
+    return db >= 0 ? `+${s}` : s.replace('-', '−');
+  };
+  const fmtV = (v) => {
+    const s = Math.abs(v).toFixed(2);
+    return v < -0.005 ? `−${s}` : (v > 0.005 ? `+${s}` : ' 0.00');
+  };
+
+  /* ======================================================================
+     Envelope follower (peak meter ballistics).
+     Attack/release constants are in ms; dt is the frame time in ms.
+     ====================================================================== */
+  class Envelope {
+    constructor({ attackMs = 10, releaseMs = 300 } = {}) {
+      this.attack = attackMs;
+      this.release = releaseMs;
+      this.level = 0;
+    }
+    push(absSample, dt) {
+      const tau = absSample > this.level ? this.attack : this.release;
+      const alpha = 1 - Math.exp(-dt / tau);
+      this.level += (absSample - this.level) * alpha;
+      return this.level;
+    }
+  }
+
+  /* Peak hold: latches the most recent local maximum, holds for `holdMs`,
+     then falls at `fallDbPerSec`. Tracked in linear amplitude. */
+  class PeakHold {
+    constructor({ holdMs = 1500, fallDbPerSec = 25 } = {}) {
+      this.holdMs = holdMs;
+      this.fallDbPerSec = fallDbPerSec;
+      this.value = 0;
+      this.heldUntil = 0;
+    }
+    push(absSample, nowMs, dt) {
+      if (absSample >= this.value) {
+        this.value = absSample;
+        this.heldUntil = nowMs + this.holdMs;
+      } else if (nowMs > this.heldUntil) {
+        // Decay by dB/sec — work in dB, convert back.
+        const db = 20 * Math.log10(Math.max(this.value, 1e-9));
+        const nextDb = db - (this.fallDbPerSec * dt / 1000);
+        this.value = Math.pow(10, nextDb / 20);
+      }
+      return this.value;
+    }
+    reset() { this.value = 0; this.heldUntil = 0; }
+  }
+
+  const ampToDb = (a) => 20 * Math.log10(Math.max(a, 1e-9));
+
+  /* ======================================================================
+     Signal simulators — pretend-audio streams.
+
+     Each simulator produces an absolute sample in [0, ~1.1]. Occasional
+     overshoots past 1.0 drive the clip LED, which we detect and latch.
+     ====================================================================== */
+  class StereoSim {
+    constructor() {
+      this.t = 0;
+      this.envL = 0.55;
+      this.envR = 0.45;
+      this.targetL = 0.55;
+      this.targetR = 0.45;
+      this.nextJump = 800;
+      this.burstUntil = 0;
+    }
+    tick(dt) {
+      this.t += dt;
+      this.nextJump -= dt;
+      if (this.nextJump <= 0) {
+        // Redraw a new dynamic target for each side.
+        this.targetL = 0.18 + Math.random() * 0.70;
+        this.targetR = 0.18 + Math.random() * 0.70;
+        this.nextJump = 600 + Math.random() * 1200;
+        // Occasional peak burst (clips).
+        if (Math.random() < 0.22) {
+          this.burstUntil = this.t + 70 + Math.random() * 120;
+        }
+      }
+      // Smooth envelope toward target.
+      this.envL += (this.targetL - this.envL) * Math.min(1, dt / 180);
+      this.envR += (this.targetR - this.envR) * Math.min(1, dt / 200);
+
+      // Output peaks (sinusoid + jitter).
+      const freqL = 0.006;
+      const freqR = 0.0071;
+      let l = Math.abs(Math.sin(this.t * freqL)) * this.envL
+            + (Math.random() - 0.5) * 0.04;
+      let r = Math.abs(Math.sin(this.t * freqR + 0.4)) * this.envR
+            + (Math.random() - 0.5) * 0.04;
+
+      if (this.t < this.burstUntil) {
+        l += 0.55;
+        r += 0.45;
+      }
+      return [Math.max(0, l), Math.max(0, r)];
+    }
+  }
+
+  class BankSim {
+    constructor(n) {
+      this.n = n;
+      this.t = 0;
+      this.phase = [];
+      this.targets = [];
+      this.envs = [];
+      this.nextJump = [];
+      this.burstUntil = [];
+      for (let i = 0; i < n; i++) {
+        this.phase.push(Math.random() * Math.PI * 2);
+        // Different "personalities" — some quiet, some hot.
+        const bias = 0.15 + (i === 3 ? 0.55 : i === 7 ? 0.48 : Math.random() * 0.55);
+        this.envs.push(bias);
+        this.targets.push(bias);
+        this.nextJump.push(400 + Math.random() * 1600);
+        this.burstUntil.push(0);
+      }
+    }
+    tick(dt) {
+      this.t += dt;
+      const out = [];
+      for (let i = 0; i < this.n; i++) {
+        this.nextJump[i] -= dt;
+        if (this.nextJump[i] <= 0) {
+          this.targets[i] = 0.12 + Math.random() * 0.75;
+          this.nextJump[i] = 500 + Math.random() * 1600;
+          // Ch 3 is our "hot channel" that occasionally clips.
+          if (i === 3 && Math.random() < 0.35) {
+            this.burstUntil[i] = this.t + 60 + Math.random() * 120;
+          } else if (Math.random() < 0.06) {
+            this.burstUntil[i] = this.t + 40 + Math.random() * 80;
+          }
+        }
+        this.envs[i] += (this.targets[i] - this.envs[i]) * Math.min(1, dt / 220);
+
+        const f = 0.004 + i * 0.0009;
+        let v = Math.abs(Math.sin(this.t * f + this.phase[i])) * this.envs[i]
+              + (Math.random() - 0.5) * 0.035;
+        if (this.t < this.burstUntil[i]) v += 0.45;
+        out.push(Math.max(0, v));
+      }
+      return out;
+    }
+  }
+
+  class DaqSim {
+    constructor() {
+      this.t = 0;
+      this.target = 2.4;
+      this.current = 2.4;
+      this.nextJump = 1200;
+      this.railBurst = 0;
+    }
+    tick(dt) {
+      this.t += dt;
+      this.nextJump -= dt;
+      if (this.nextJump <= 0) {
+        // Jump around ±10 V range; occasionally pin a rail.
+        const sign = Math.random() < 0.5 ? -1 : 1;
+        this.target = sign * (Math.random() * 8.5);
+        this.nextJump = 900 + Math.random() * 1600;
+        if (Math.random() < 0.20) {
+          this.railBurst = this.t + 300 + Math.random() * 400;
+        }
+      }
+      // Smooth.
+      this.current += (this.target - this.current) * Math.min(1, dt / 260);
+      // Gentle oscillation + jitter.
+      let v = this.current
+            + Math.sin(this.t * 0.0035) * 0.35
+            + (Math.random() - 0.5) * 0.08;
+      if (this.t < this.railBurst) {
+        v = (this.target < 0 ? -1 : 1) * (9.8 + Math.random() * 0.35);
+      }
+      return Math.max(-10, Math.min(10, v));
+    }
+  }
+
+  /* ======================================================================
+     Variant 1 · Stereo vertical
+     ====================================================================== */
+  (() => {
+    // dB range: +3 at top (y=12+20=32 for bar; scale top 12), -60 at bottom (y=256).
+    const TOP_DB = 3;
+    const BOT_DB = -60;
+    const Y_TOP = 32;
+    const Y_BOT = 256;
+
+    const dbToY = (db) => {
+      const clamped = Math.max(BOT_DB, Math.min(TOP_DB, db));
+      const t = (clamped - BOT_DB) / (TOP_DB - BOT_DB);
+      return Y_BOT - t * (Y_BOT - Y_TOP);
+    };
+
+    // Build scale labels + grid ticks.
+    const gridG = document.getElementById('stereo-grid');
+    const scaleG = document.getElementById('stereo-scale');
+    const MARKS = [3, 0, -3, -6, -12, -18, -24, -36, -60];
+    for (const db of MARKS) {
+      const y = dbToY(db);
+      // Little ticks across both bars (left and right extending inward).
+      svgEl('line', {
+        class: db === 0 ? 'tick zero' : 'tick',
+        x1: 72,  y1: y, x2: 78,  y2: y,
+      }, gridG);
+      svgEl('line', {
+        class: db === 0 ? 'tick zero' : 'tick',
+        x1: 122, y1: y, x2: 128, y2: y,
+      }, gridG);
+      svgEl('line', {
+        class: db === 0 ? 'tick zero' : 'tick',
+        x1: 192, y1: y, x2: 198, y2: y,
+      }, gridG);
+      svgEl('line', {
+        class: db === 0 ? 'tick zero' : 'tick',
+        x1: 242, y1: y, x2: 248, y2: y,
+      }, gridG);
+      // Centered scale label between bars.
+      const label = db > 0 ? `+${db}` : `${db}`.replace('-', '−');
+      svgEl('text', {
+        class: db === 0 ? 'scale-lbl zero' : 'scale-lbl',
+        x: 160, y: y + 3.5,
+        'text-anchor': 'middle',
+      }, scaleG, label);
+    }
+
+    const sim    = new StereoSim();
+    const envL   = new Envelope({ attackMs: 10, releaseMs: 300 });
+    const envR   = new Envelope({ attackMs: 10, releaseMs: 300 });
+    const pkL    = new PeakHold({ holdMs: 1500, fallDbPerSec: 22 });
+    const pkR    = new PeakHold({ holdMs: 1500, fallDbPerSec: 22 });
+
+    const ledL = document.getElementById('stereo-clip-L');
+    const ledR = document.getElementById('stereo-clip-R');
+    const resetBtn = document.getElementById('stereo-reset');
+    const fillL = document.getElementById('stereo-fill-L');
+    const fillR = document.getElementById('stereo-fill-R');
+    const holdL = document.getElementById('stereo-hold-L');
+    const holdR = document.getElementById('stereo-hold-R');
+    const rmsL = document.getElementById('stereo-rms-L');
+    const rmsR = document.getElementById('stereo-rms-R');
+    const peakLEl = document.getElementById('stereo-peak-L');
+    const peakREl = document.getElementById('stereo-peak-R');
+
+    let clipL = false, clipR = false;
+
+    const syncReset = () => {
+      const any = clipL || clipR;
+      resetBtn.disabled = !any;
+    };
+    const clearClip = () => {
+      clipL = clipR = false;
+      ledL.setAttribute('class', 'clip-led-off');
+      ledR.setAttribute('class', 'clip-led-off');
+      peakLEl.classList.remove('clipping');
+      peakREl.classList.remove('clipping');
+      syncReset();
+    };
+    ledL.addEventListener('click', () => { clipL = false; ledL.setAttribute('class', 'clip-led-off'); peakLEl.classList.remove('clipping'); syncReset(); });
+    ledR.addEventListener('click', () => { clipR = false; ledR.setAttribute('class', 'clip-led-off'); peakREl.classList.remove('clipping'); syncReset(); });
+    resetBtn.addEventListener('click', clearClip);
+
+    const setBar = (rect, hold, db, holdDb) => {
+      const y = dbToY(db);
+      rect.setAttribute('y', y);
+      rect.setAttribute('height', Y_BOT - y);
+      const yh = dbToY(holdDb);
+      hold.setAttribute('y1', yh);
+      hold.setAttribute('y2', yh);
+    };
+
+    let last = performance.now();
+    const loop = (now) => {
+      const dt = Math.min(48, now - last);
+      last = now;
+
+      const [l, r] = sim.tick(dt);
+      const lv = envL.push(l, dt);
+      const rv = envR.push(r, dt);
+      const ph = pkL.push(l, now, dt);
+      const rh = pkR.push(r, now, dt);
+
+      const lvDb = ampToDb(lv);
+      const rvDb = ampToDb(rv);
+      const phDb = ampToDb(ph);
+      const rhDb = ampToDb(rh);
+
+      setBar(fillL, holdL, lvDb, phDb);
+      setBar(fillR, holdR, rvDb, rhDb);
+
+      rmsL.textContent = fmtDb(lvDb);
+      rmsR.textContent = fmtDb(rvDb);
+      peakLEl.innerHTML = `<span class="k">pk</span>${fmtDb(phDb)}`;
+      peakREl.innerHTML = `<span class="k">pk</span>${fmtDb(rhDb)}`;
+
+      // Clip detection.
+      if (l > 1.0 && !clipL) { clipL = true; ledL.setAttribute('class', 'clip-led-on'); peakLEl.classList.add('clipping'); syncReset(); }
+      if (r > 1.0 && !clipR) { clipR = true; ledR.setAttribute('class', 'clip-led-on'); peakREl.classList.add('clipping'); syncReset(); }
+
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  })();
+
+  /* ======================================================================
+     Variant 2 · 8-channel horizontal bank
+     ====================================================================== */
+  (() => {
+    const N = 8;
+    const TOP_DB = 3;
+    const BOT_DB = -60;
+    const X_LEFT = 40;
+    const X_RIGHT = 620;
+
+    const dbToX = (db) => {
+      const clamped = Math.max(BOT_DB, Math.min(TOP_DB, db));
+      const t = (clamped - BOT_DB) / (TOP_DB - BOT_DB);
+      return X_LEFT + t * (X_RIGHT - X_LEFT);
+    };
+
+    const barTop = (i) => 18 + i * 24;
+    const BAR_H = 16;
+
+    const gridG  = document.getElementById('bank-grid');
+    const rowsG  = document.getElementById('bank-rows');
+    const scaleG = document.getElementById('bank-scale');
+
+    // Vertical gridlines across all bars.
+    const SCALE_MARKS = [3, 0, -6, -12, -18, -24, -36, -60];
+    for (const db of SCALE_MARKS) {
+      const x = dbToX(db);
+      svgEl('line', {
+        class: db === 0 ? 'tick zero' : 'tick',
+        x1: x, y1: 14, x2: x, y2: 14 + N * 24 + 4,
+        opacity: 0.45,
+      }, gridG);
+      // Bottom scale label.
+      const label = db > 0 ? `+${db}` : `${db}`.replace('-', '−');
+      svgEl('text', {
+        class: db === 0 ? 'scale-lbl zero' : 'scale-lbl',
+        x: x, y: 14 + N * 24 + 22,
+        'text-anchor': 'middle',
+      }, scaleG, label);
+    }
+    // Scale unit caption.
+    svgEl('text', {
+      class: 'scale-lbl',
+      x: 626, y: 14 + N * 24 + 22,
+      'text-anchor': 'start',
+      style: 'letter-spacing:0.12em;text-transform:uppercase;font-size:9px;',
+    }, scaleG, 'dBFS');
+
+    // Per-row elements.
+    const rows = [];
+    for (let i = 0; i < N; i++) {
+      const y = barTop(i);
+      // Channel label.
+      svgEl('text', {
+        class: 'ch-lbl', x: 32, y: y + BAR_H * 0.72,
+        'text-anchor': 'end',
+      }, rowsG, `IN ${i + 1}`);
+      // Background track.
+      svgEl('rect', {
+        x: X_LEFT, y, width: X_RIGHT - X_LEFT, height: BAR_H, rx: 2, ry: 2,
+        fill: 'url(#h-grad-dim)',
+        stroke: '#1a2540', 'stroke-width': 1,
+      }, rowsG);
+      // Active fill.
+      const fill = svgEl('rect', {
+        x: X_LEFT, y, width: 0, height: BAR_H,
+        fill: 'url(#h-grad-full)',
+      }, rowsG);
+      // Peak hold tick.
+      const hold = svgEl('line', {
+        class: 'meter-hold',
+        x1: X_LEFT, y1: y - 1, x2: X_LEFT, y2: y + BAR_H + 1,
+      }, rowsG);
+      // Clip LED at the far right.
+      const led = svgEl('circle', {
+        class: 'clip-led-off',
+        cx: 636, cy: y + BAR_H / 2, r: 4.2,
+        style: 'cursor:pointer;',
+      }, rowsG);
+      // Readout (rms · pk).
+      const read = svgEl('text', {
+        x: 648, y: y + BAR_H * 0.72,
+        fill: '#94a3b8',
+        'font-size': 11,
+        'font-variant-numeric': 'tabular-nums',
+      }, rowsG, '− · −');
+
+      rows.push({
+        fill, hold, led, read,
+        env: new Envelope({ attackMs: 10, releaseMs: 280 }),
+        pk:  new PeakHold({ holdMs: 1500, fallDbPerSec: 22 }),
+        clip: false,
+      });
+
+      led.addEventListener('click', () => {
+        rows[i].clip = false;
+        rows[i].led.setAttribute('class', 'clip-led-off');
+      });
+    }
+
+    // Alt-click anywhere to clear all.
+    document.getElementById('bank-svg').addEventListener('click', (e) => {
+      if (!e.altKey) return;
+      for (const r of rows) {
+        r.clip = false;
+        r.led.setAttribute('class', 'clip-led-off');
+      }
+    });
+
+    const sim = new BankSim(N);
+    let last = performance.now();
+    const loop = (now) => {
+      const dt = Math.min(48, now - last);
+      last = now;
+
+      const samples = sim.tick(dt);
+      for (let i = 0; i < N; i++) {
+        const s = samples[i];
+        const lv = rows[i].env.push(s, dt);
+        const pk = rows[i].pk.push(s, now, dt);
+        const lvDb = ampToDb(lv);
+        const pkDb = ampToDb(pk);
+
+        const xL = dbToX(lvDb);
+        const xP = dbToX(pkDb);
+        rows[i].fill.setAttribute('width', Math.max(0, xL - X_LEFT));
+        rows[i].hold.setAttribute('x1', xP);
+        rows[i].hold.setAttribute('x2', xP);
+
+        rows[i].read.textContent = `${fmtDb(lvDb)} · ${fmtDb(pkDb)}`;
+
+        if (s > 1.0 && !rows[i].clip) {
+          rows[i].clip = true;
+          rows[i].led.setAttribute('class', 'clip-led-on');
+        }
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  })();
+
+  /* ======================================================================
+     Variant 3 · Bipolar DAQ · ±10 V
+     ====================================================================== */
+  (() => {
+    const V_MIN = -10, V_MAX = 10;
+    const X_LEFT = 40, X_RIGHT = 740, X_ZERO = (X_LEFT + X_RIGHT) / 2;
+    const BAR_Y = 32, BAR_H = 44;
+
+    const vToX = (v) => {
+      const clamped = Math.max(V_MIN, Math.min(V_MAX, v));
+      const t = (clamped - V_MIN) / (V_MAX - V_MIN);
+      return X_LEFT + t * (X_RIGHT - X_LEFT);
+    };
+
+    const scaleG = document.getElementById('daq-scale');
+    const MARKS = [-10, -7.5, -5, -2.5, 0, 2.5, 5, 7.5, 10];
+    for (const v of MARKS) {
+      const x = vToX(v);
+      svgEl('line', {
+        class: v === 0 ? 'tick zero' : 'tick',
+        x1: x, y1: 28, x2: x, y2: 80,
+        opacity: v === 0 ? 1 : 0.5,
+      }, scaleG);
+      const label = v === 0 ? '0' : (v > 0 ? `+${v}` : `${v}`.replace('-', '−'));
+      svgEl('text', {
+        class: v === 0 ? 'scale-lbl zero' : 'scale-lbl',
+        x, y: 94,
+        'text-anchor': 'middle',
+      }, scaleG, label);
+    }
+    svgEl('text', {
+      class: 'scale-lbl',
+      x: X_RIGHT + 6, y: 94,
+      'text-anchor': 'start',
+      style: 'letter-spacing:0.12em;text-transform:uppercase;font-size:9px;',
+    }, scaleG, 'V');
+
+    const sim = new DaqSim();
+    // Use a gentler envelope on both sides so the bar swings aren't instant.
+    const envPos = new Envelope({ attackMs: 18, releaseMs: 220 });
+    const envNeg = new Envelope({ attackMs: 18, releaseMs: 220 });
+    const pkPos = new PeakHold({ holdMs: 1800, fallDbPerSec: 9999 });  // fall handled manually below
+    const pkNeg = new PeakHold({ holdMs: 1800, fallDbPerSec: 9999 });
+
+    // Keep peak-hold in linear volts; wrap PeakHold to do that.
+    let posHold = 0, posHoldUntil = 0;
+    let negHold = 0, negHoldUntil = 0;
+    const PEAK_HOLD_MS = 1800;
+    const PEAK_FALL_V_PER_S = 2.5;
+    const pushPosPeak = (v, now, dt) => {
+      if (v >= posHold) { posHold = v; posHoldUntil = now + PEAK_HOLD_MS; }
+      else if (now > posHoldUntil) posHold = Math.max(0, posHold - PEAK_FALL_V_PER_S * dt / 1000);
+    };
+    const pushNegPeak = (v, now, dt) => {
+      if (v >= negHold) { negHold = v; negHoldUntil = now + PEAK_HOLD_MS; }
+      else if (now > negHoldUntil) negHold = Math.max(0, negHold - PEAK_FALL_V_PER_S * dt / 1000);
+    };
+
+    const fill = document.getElementById('daq-fill');
+    const holdPos = document.getElementById('daq-hold-pos');
+    const holdNeg = document.getElementById('daq-hold-neg');
+    const railPos = document.getElementById('daq-rail-pos');
+    const railNeg = document.getElementById('daq-rail-neg');
+    const curEl = document.getElementById('daq-cur');
+    const pkPosEl = document.getElementById('daq-peak-pos');
+    const pkNegEl = document.getElementById('daq-peak-neg');
+    const railLbl = document.getElementById('daq-rail-lbl');
+
+    let last = performance.now();
+    const loop = (now) => {
+      const dt = Math.min(48, now - last);
+      last = now;
+
+      const v = sim.tick(dt);
+
+      // Single-sided envelope of the signed value.
+      const absV = Math.abs(v);
+      const env = (v >= 0 ? envPos : envNeg).push(absV, dt);
+      const sv = v >= 0 ? env : -env;
+
+      // Peak hold per sign.
+      if (v >= 0) pushPosPeak(absV, now, dt);
+      else        pushNegPeak(absV, now, dt);
+      // Let the non-active side also decay naturally.
+      if (v >= 0) pushNegPeak(0, now, dt);
+      else        pushPosPeak(0, now, dt);
+
+      // Bar fill from zero to current.
+      const xCur = vToX(sv);
+      if (xCur >= X_ZERO) {
+        fill.setAttribute('x', X_ZERO);
+        fill.setAttribute('width', xCur - X_ZERO);
+      } else {
+        fill.setAttribute('x', xCur);
+        fill.setAttribute('width', X_ZERO - xCur);
+      }
+
+      // Peak hold ticks — shown only if > 0.
+      if (posHold > 0.05) {
+        const x = vToX(posHold);
+        holdPos.setAttribute('x1', x); holdPos.setAttribute('x2', x);
+        holdPos.setAttribute('opacity', 0.95);
+      } else {
+        holdPos.setAttribute('opacity', 0);
+      }
+      if (negHold > 0.05) {
+        const x = vToX(-negHold);
+        holdNeg.setAttribute('x1', x); holdNeg.setAttribute('x2', x);
+        holdNeg.setAttribute('opacity', 0.95);
+      } else {
+        holdNeg.setAttribute('opacity', 0);
+      }
+
+      // Rail pinning > 9.5 V on either side.
+      const pinPos = v > 9.5;
+      const pinNeg = v < -9.5;
+      railPos.setAttribute('opacity', pinPos ? 0.95 : 0);
+      railNeg.setAttribute('opacity', pinNeg ? 0.95 : 0);
+      if (pinPos || pinNeg) {
+        railLbl.style.opacity = 1;
+        railLbl.textContent = pinPos ? '+rail pin' : '−rail pin';
+      } else {
+        railLbl.style.opacity = 0;
+      }
+
+      // Text readouts.
+      curEl.textContent = fmtV(sv);
+      curEl.classList.toggle('neg', sv < -0.01);
+      curEl.classList.toggle('pos', sv >= -0.01);
+      pkPosEl.textContent = fmtV(posHold);
+      pkNegEl.textContent = fmtV(-negHold);
+
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

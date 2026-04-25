@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Process Monitor (Slate)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 880px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card .hdr {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card .hdr h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.01em;
+    }
+    .card .hdr .meta {
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* --- Variant 1: vertical telemetry stack --- */
+    .table {
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .table .row {
+      display: grid;
+      grid-template-columns: 168px 96px 248px 76px 120px 84px;
+      gap: 14px;
+      align-items: center;
+      padding: 11px 14px;
+      border-bottom: 1px solid #1a2540;
+    }
+    .table .row:last-child { border-bottom: none; }
+    .table .row.head {
+      padding: 8px 14px;
+      background: #060c1c;
+      color: #64748b;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .table .row.alarm { background: rgba(248, 113, 113, 0.05); }
+
+    .cell.name .nm  { color: #e2e8f0; font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+    .cell.name .loc { display: block; color: #64748b; font-size: 11px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+    .cell.value {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .cell.value .num {
+      font-size: 17px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: -0.01em;
+    }
+    .cell.value .unit {
+      color: #64748b;
+      font-size: 11.5px;
+      margin-left: 3px;
+    }
+    .row.warn  .cell.value .num { color: #fbbf24; }
+    .row.alarm .cell.value .num { color: #f87171; }
+
+    /* Status chips. */
+    .chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .chip .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .chip.ok    { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+    .chip.ok    .dot { background: #4ade80; }
+    .chip.warn  { background: rgba(251, 191, 36, 0.16); color: #fbbf24; }
+    .chip.warn  .dot { background: #fbbf24; }
+    .chip.alarm { background: rgba(248, 113, 113, 0.20); color: #f87171; box-shadow: 0 0 0 1px rgba(248,113,113,0.35) inset; }
+    .chip.alarm .dot { background: #f87171; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%     { opacity: 0.35; }
+    }
+
+    /* Tolerance bar SVG. */
+    svg.tol { display: block; width: 100%; height: 26px; }
+    .tol-zone-alarm { fill: rgba(248, 113, 113, 0.18); }
+    .tol-zone-warn  { fill: rgba(251, 191, 36, 0.16); }
+    .tol-zone-spec  { fill: rgba(74, 222, 128, 0.20); }
+    .tol-frame      { fill: none; stroke: #263445; stroke-width: 1; }
+    .tol-tick-limit { stroke: #475569; stroke-width: 1; }
+    .tol-tick-spec  { stroke: #4ade80; stroke-width: 1; opacity: 0.55; }
+    .tol-value      { stroke: #e2e8f0; stroke-width: 2; stroke-linecap: round; }
+    .tol-value.warn  { stroke: #fbbf24; }
+    .tol-value.alarm { stroke: #f87171; filter: drop-shadow(0 0 4px rgba(248,113,113,0.7)); }
+    .tol-value-cap   { fill: #e2e8f0; }
+    .tol-value-cap.warn  { fill: #fbbf24; }
+    .tol-value-cap.alarm { fill: #f87171; }
+    .tol-out-arrow   { fill: #f87171; }
+
+    /* Sparklines. */
+    svg.spark { display: block; width: 100%; height: 26px; }
+    .spark-line { fill: none; stroke: #38bdf8; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+    .spark-line.warn  { stroke: #fbbf24; }
+    .spark-line.alarm { stroke: #f87171; }
+    .spark-fill { fill: #38bdf8; opacity: 0.10; }
+    .spark-fill.warn  { fill: #fbbf24; opacity: 0.10; }
+    .spark-fill.alarm { fill: #f87171; opacity: 0.12; }
+    .spark-now { fill: #e2e8f0; }
+    .spark-now.warn { fill: #fbbf24; }
+    .spark-now.alarm { fill: #f87171; }
+
+    /* Δ + age column. */
+    .cell.delta { font-variant-numeric: tabular-nums; }
+    .cell.delta .d { display: block; font-size: 11.5px; font-weight: 600; }
+    .cell.delta .d.up   { color: #4ade80; }
+    .cell.delta .d.dn   { color: #f87171; }
+    .cell.delta .d.flat { color: #64748b; }
+    .cell.delta .d.warn { color: #fbbf24; }
+    .cell.delta .age { display: block; color: #64748b; font-size: 10.5px; margin-top: 2px; }
+
+    /* Footer summary row. */
+    .summary {
+      margin-top: 12px;
+      display: flex; gap: 14px; align-items: center;
+      font-size: 12px; color: #94a3b8;
+      flex-wrap: wrap;
+    }
+    .summary .sep { width: 1px; height: 12px; background: #334155; }
+    .summary .num { color: #e2e8f0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* --- Variant 2: dense control-room panel --- */
+    .panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel .col {
+      display: flex; flex-direction: column;
+    }
+    .panel .col + .col { border-left: 1px solid #1a2540; }
+    .panel .drow {
+      display: grid;
+      grid-template-columns: 96px 70px 1fr 56px;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 12px;
+      border-bottom: 1px solid #172033;
+    }
+    .panel .drow:last-child { border-bottom: none; }
+    .panel .drow.alarm { background: rgba(248, 113, 113, 0.07); }
+    .panel .drow.head {
+      padding: 6px 12px;
+      background: #060c1c;
+      color: #64748b;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .panel .nm { color: #e2e8f0; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
+    .panel .vl { color: #e2e8f0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+    .panel .vl .u { color: #64748b; font-size: 10.5px; margin-left: 2px; }
+    .panel .drow.warn  .vl { color: #fbbf24; }
+    .panel .drow.alarm .vl { color: #f87171; }
+    .panel svg.tol-mini { display: block; width: 100%; height: 14px; }
+    .panel .ch {
+      justify-self: end;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border-radius: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .panel .ch.ok    { background: rgba(74, 222, 128, 0.12); color: #4ade80; }
+    .panel .ch.warn  { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
+    .panel .ch.alarm { background: rgba(248, 113, 113, 0.18); color: #f87171; }
+
+    /* --- Variant 3: hero row --- */
+    .hero {
+      background: #0b1120;
+      border: 1px solid #f87171;
+      border-radius: 8px;
+      padding: 18px 20px;
+      box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.08);
+    }
+    .hero .h-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .hero .h-name {
+      font-size: 16px; font-weight: 600; color: #e2e8f0; letter-spacing: 0.01em;
+    }
+    .hero .h-name .loc { color: #64748b; font-size: 12px; font-weight: 500; margin-left: 8px; font-variant-numeric: tabular-nums; }
+    .hero .h-status { display: flex; gap: 8px; align-items: center; }
+
+    .hero .h-row {
+      display: grid;
+      grid-template-columns: 220px 1fr 200px;
+      gap: 24px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .hero .h-val .num {
+      font-size: 44px; font-weight: 600; color: #f87171;
+      font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .hero .h-val .num .u { color: #94a3b8; font-size: 18px; font-weight: 500; margin-left: 6px; }
+    .hero .h-val .sub {
+      color: #94a3b8; font-size: 12px; margin-top: 6px;
+    }
+    .hero .h-val .sub .red { color: #f87171; font-weight: 600; }
+
+    .hero svg.tol-hero { display: block; width: 100%; height: 80px; }
+    .tol-band-ci { fill: #38bdf8; opacity: 0.18; }
+    .tol-band-ci-edge { stroke: #38bdf8; stroke-width: 1; stroke-dasharray: 2 2; opacity: 0.6; }
+    .tol-lim-lbl { fill: #94a3b8; font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+    .tol-lim-lbl.alarm { fill: #f87171; font-weight: 600; }
+    .tol-lim-lbl.warn  { fill: #fbbf24; }
+    .tol-lim-lbl.spec  { fill: #4ade80; }
+    .tol-lim-tick { stroke-width: 1; }
+    .tol-lim-tick.alarm { stroke: #f87171; }
+    .tol-lim-tick.warn  { stroke: #fbbf24; }
+    .tol-lim-tick.spec  { stroke: #4ade80; }
+
+    .hero .h-stats { display: flex; flex-direction: column; gap: 10px; }
+    .hero .h-stats .row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 1px solid #1a2540;
+    }
+    .hero .h-stats .row:last-child { border-bottom: none; }
+    .hero .h-stats .k { color: #64748b; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .hero .h-stats .v { color: #e2e8f0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .hero .h-stats .v.red  { color: #f87171; }
+    .hero .h-stats .v.amb  { color: #fbbf24; }
+    .hero .h-stats .v.grn  { color: #4ade80; }
+
+    .hero .h-actions {
+      margin-top: 14px;
+      display: flex; gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid #1a2540;
+    }
+    .hero .btn {
+      padding: 6px 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .hero .btn.danger {
+      background: rgba(248, 113, 113, 0.12);
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #f87171;
+    }
+    .hero .btn.primary {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      color: #060c1c;
+    }
+
+    /* Interactive states. */
+    .table .row { transition: background 100ms ease; }
+    .table .row:not(.head):not(.alarm):hover { background: rgba(148, 163, 184, 0.05); }
+    .table .row.selected {
+      background: rgba(56, 189, 248, 0.07) !important;
+      box-shadow: inset 3px 0 0 #38bdf8;
+    }
+    .panel .drow { transition: background 100ms ease; }
+    .panel .drow:not(.head):not(.alarm):hover { background: rgba(148, 163, 184, 0.05); }
+    .panel .drow.selected {
+      background: rgba(56, 189, 248, 0.10) !important;
+      box-shadow: inset 2px 0 0 #38bdf8;
+    }
+
+    .hero { transition: border-color 280ms ease, box-shadow 280ms ease; }
+    .hero .btn { transition: background 120ms ease, opacity 200ms ease, color 120ms ease; cursor: pointer; }
+    .hero .btn:hover:not(:disabled) { background: #2a3a5c; }
+    .hero .btn.danger:hover:not(:disabled)  { background: rgba(248, 113, 113, 0.20); }
+    .hero .btn.primary:hover:not(:disabled) { background: #7dd3fc; border-color: #7dd3fc; }
+    .hero .btn:disabled { cursor: default; }
+
+    .tol-value, .tol-value-cap {
+      transition: stroke 220ms ease, fill 220ms ease;
+    }
+    .tol-band-ci { transition: x 80ms linear, fill 220ms ease; }
+    .tol-band-ci-edge { transition: x1 80ms linear, x2 80ms linear; }
+    .tol-out-arrow { transition: opacity 220ms ease; }
+    .h-val .num { transition: color 220ms ease; }
+    .hero .h-status .chip { transition: background 220ms ease, color 220ms ease, opacity 220ms ease; }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- Variant 1: vertical telemetry stack. -->
+    <div>
+      <div class="caption">Vertical telemetry stack · 8 channels · live</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Reactor bench · run R-2204</h3>
+          <span class="meta">refresh 1.0 s · 14:32:08 UTC</span>
+        </div>
+
+        <div class="table">
+          <div class="row head">
+            <div class="cell">Channel</div>
+            <div class="cell" style="text-align:right;">Value</div>
+            <div class="cell">Tolerance</div>
+            <div class="cell">Status</div>
+            <div class="cell">60 s</div>
+            <div class="cell">Δ / age</div>
+          </div>
+
+          <!-- Row 1: Vessel A temp · OK. Bar zones (0,34.29,89.14,144,198.86,240). value=121.41. -->
+          <div class="row ok">
+            <div class="cell name">
+              <span class="nm">Vessel A temp</span>
+              <span class="loc">RX-204 / TC-1</span>
+            </div>
+            <div class="cell value"><span class="num">42.7</span><span class="unit">°C</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="34.29"  height="10"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="8" width="54.85"  height="10"/>
+                <rect class="tol-zone-spec"  x="89.14"  y="8" width="54.86"  height="10"/>
+                <rect class="tol-zone-warn"  x="144"    y="8" width="54.86"  height="10"/>
+                <rect class="tol-zone-alarm" x="198.86" y="8" width="41.14"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="34.29"  y1="6" x2="34.29"  y2="20"/>
+                <line class="tol-tick-spec"  x1="89.14"  y1="6" x2="89.14"  y2="20"/>
+                <line class="tol-tick-spec"  x1="144"    y1="6" x2="144"    y2="20"/>
+                <line class="tol-tick-limit" x1="198.86" y1="6" x2="198.86" y2="20"/>
+                <line class="tol-value" x1="121.41" y1="3" x2="121.41" y2="23"/>
+                <circle class="tol-value-cap" cx="121.41" cy="3"  r="2"/>
+                <circle class="tol-value-cap" cx="121.41" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip ok"><span class="dot"></span>OK</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill" d="M 0,18 L 8,17 L 16,16 L 24,15 L 32,14 L 40,13 L 48,15 L 56,12 L 64,11 L 72,13 L 80,12 L 88,11 L 96,12 L 100,12 L 100,26 L 0,26 Z"/>
+                <path class="spark-line" d="M 0,18 L 8,17 L 16,16 L 24,15 L 32,14 L 40,13 L 48,15 L 56,12 L 64,11 L 72,13 L 80,12 L 88,11 L 96,12 L 100,12"/>
+                <circle class="spark-now" cx="100" cy="12" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d up">+0.2 /min</span>
+              <span class="age">2 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 2: Vessel B temp · WARN (upper). value=179.42. -->
+          <div class="row warn">
+            <div class="cell name">
+              <span class="nm">Vessel B temp</span>
+              <span class="loc">RX-204 / TC-2</span>
+            </div>
+            <div class="cell value"><span class="num">51.2</span><span class="unit">°C</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="34.29"  height="10"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="8" width="54.85"  height="10"/>
+                <rect class="tol-zone-spec"  x="89.14"  y="8" width="54.86"  height="10"/>
+                <rect class="tol-zone-warn"  x="144"    y="8" width="54.86"  height="10"/>
+                <rect class="tol-zone-alarm" x="198.86" y="8" width="41.14"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="34.29"  y1="6" x2="34.29"  y2="20"/>
+                <line class="tol-tick-spec"  x1="89.14"  y1="6" x2="89.14"  y2="20"/>
+                <line class="tol-tick-spec"  x1="144"    y1="6" x2="144"    y2="20"/>
+                <line class="tol-tick-limit" x1="198.86" y1="6" x2="198.86" y2="20"/>
+                <line class="tol-value warn" x1="179.42" y1="3" x2="179.42" y2="23"/>
+                <circle class="tol-value-cap warn" cx="179.42" cy="3"  r="2"/>
+                <circle class="tol-value-cap warn" cx="179.42" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip warn"><span class="dot"></span>WARN</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill warn" d="M 0,20 L 8,18 L 16,17 L 24,16 L 32,14 L 40,13 L 48,11 L 56,9 L 64,8 L 72,7 L 80,6 L 88,6 L 96,5 L 100,5 L 100,26 L 0,26 Z"/>
+                <path class="spark-line warn" d="M 0,20 L 8,18 L 16,17 L 24,16 L 32,14 L 40,13 L 48,11 L 56,9 L 64,8 L 72,7 L 80,6 L 88,6 L 96,5 L 100,5"/>
+                <circle class="spark-now warn" cx="100" cy="5" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d warn">+1.8 /min</span>
+              <span class="age">1 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 3: Pump 1 pressure · WARN (near alarm). Bar (0,60,105,180,210,240). value=204.6. -->
+          <div class="row warn">
+            <div class="cell name">
+              <span class="nm">Pump 1 pressure</span>
+              <span class="loc">P-101 outlet</span>
+            </div>
+            <div class="cell value"><span class="num">148.2</span><span class="unit">kPa</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"   y="8" width="60"  height="10"/>
+                <rect class="tol-zone-warn"  x="60"  y="8" width="45"  height="10"/>
+                <rect class="tol-zone-spec"  x="105" y="8" width="75"  height="10"/>
+                <rect class="tol-zone-warn"  x="180" y="8" width="30"  height="10"/>
+                <rect class="tol-zone-alarm" x="210" y="8" width="30"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="60"  y1="6" x2="60"  y2="20"/>
+                <line class="tol-tick-spec"  x1="105" y1="6" x2="105" y2="20"/>
+                <line class="tol-tick-spec"  x1="180" y1="6" x2="180" y2="20"/>
+                <line class="tol-tick-limit" x1="210" y1="6" x2="210" y2="20"/>
+                <line class="tol-value warn" x1="204.6" y1="3" x2="204.6" y2="23"/>
+                <circle class="tol-value-cap warn" cx="204.6" cy="3"  r="2"/>
+                <circle class="tol-value-cap warn" cx="204.6" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip warn"><span class="dot"></span>WARN</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill warn" d="M 0,16 L 8,15 L 16,14 L 24,15 L 32,14 L 40,12 L 48,11 L 56,9 L 64,8 L 72,7 L 80,6 L 88,5 L 96,4 L 100,4 L 100,26 L 0,26 Z"/>
+                <path class="spark-line warn" d="M 0,16 L 8,15 L 16,14 L 24,15 L 32,14 L 40,12 L 48,11 L 56,9 L 64,8 L 72,7 L 80,6 L 88,5 L 96,4 L 100,4"/>
+                <circle class="spark-now warn" cx="100" cy="4" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d warn">+4.6 /min</span>
+              <span class="age">0 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 4: Pump 2 pressure · WARN (lower). Same scale. value=91.5. -->
+          <div class="row warn">
+            <div class="cell name">
+              <span class="nm">Pump 2 pressure</span>
+              <span class="loc">P-101 inlet</span>
+            </div>
+            <div class="cell value"><span class="num">110.5</span><span class="unit">kPa</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"   y="8" width="60"  height="10"/>
+                <rect class="tol-zone-warn"  x="60"  y="8" width="45"  height="10"/>
+                <rect class="tol-zone-spec"  x="105" y="8" width="75"  height="10"/>
+                <rect class="tol-zone-warn"  x="180" y="8" width="30"  height="10"/>
+                <rect class="tol-zone-alarm" x="210" y="8" width="30"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="60"  y1="6" x2="60"  y2="20"/>
+                <line class="tol-tick-spec"  x1="105" y1="6" x2="105" y2="20"/>
+                <line class="tol-tick-spec"  x1="180" y1="6" x2="180" y2="20"/>
+                <line class="tol-tick-limit" x1="210" y1="6" x2="210" y2="20"/>
+                <line class="tol-value warn" x1="91.5" y1="3" x2="91.5" y2="23"/>
+                <circle class="tol-value-cap warn" cx="91.5" cy="3"  r="2"/>
+                <circle class="tol-value-cap warn" cx="91.5" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip warn"><span class="dot"></span>WARN</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill warn" d="M 0,8 L 8,9 L 16,10 L 24,12 L 32,13 L 40,14 L 48,15 L 56,17 L 64,18 L 72,19 L 80,20 L 88,21 L 96,21 L 100,21 L 100,26 L 0,26 Z"/>
+                <path class="spark-line warn" d="M 0,8 L 8,9 L 16,10 L 24,12 L 32,13 L 40,14 L 48,15 L 56,17 L 64,18 L 72,19 L 80,20 L 88,21 L 96,21 L 100,21"/>
+                <circle class="spark-now warn" cx="100" cy="21" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d dn">−5.2 /min</span>
+              <span class="age">0 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 5: Flow rate · OK. Bar (0,54.55,98.18,174.55,218.18,240). value=148.36. -->
+          <div class="row ok">
+            <div class="cell name">
+              <span class="nm">Flow rate</span>
+              <span class="loc">FT-204</span>
+            </div>
+            <div class="cell value"><span class="num">4.72</span><span class="unit">L/s</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="54.55"  height="10"/>
+                <rect class="tol-zone-warn"  x="54.55"  y="8" width="43.63"  height="10"/>
+                <rect class="tol-zone-spec"  x="98.18"  y="8" width="76.37"  height="10"/>
+                <rect class="tol-zone-warn"  x="174.55" y="8" width="43.63"  height="10"/>
+                <rect class="tol-zone-alarm" x="218.18" y="8" width="21.82"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="54.55"  y1="6" x2="54.55"  y2="20"/>
+                <line class="tol-tick-spec"  x1="98.18"  y1="6" x2="98.18"  y2="20"/>
+                <line class="tol-tick-spec"  x1="174.55" y1="6" x2="174.55" y2="20"/>
+                <line class="tol-tick-limit" x1="218.18" y1="6" x2="218.18" y2="20"/>
+                <line class="tol-value" x1="148.36" y1="3" x2="148.36" y2="23"/>
+                <circle class="tol-value-cap" cx="148.36" cy="3"  r="2"/>
+                <circle class="tol-value-cap" cx="148.36" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip ok"><span class="dot"></span>OK</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill" d="M 0,12 L 8,11 L 16,13 L 24,12 L 32,14 L 40,11 L 48,12 L 56,10 L 64,13 L 72,11 L 80,12 L 88,13 L 96,11 L 100,11 L 100,26 L 0,26 Z"/>
+                <path class="spark-line" d="M 0,12 L 8,11 L 16,13 L 24,12 L 32,14 L 40,11 L 48,12 L 56,10 L 64,13 L 72,11 L 80,12 L 88,13 L 96,11 L 100,11"/>
+                <circle class="spark-now" cx="100" cy="11" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d flat">±0.0 /min</span>
+              <span class="age">2 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 6: CPU temp · ALARM. Bar (0,36.92,73.85,184.62,203.08,240). value=211.6 → past USL (out arrow). -->
+          <div class="row alarm">
+            <div class="cell name">
+              <span class="nm">CPU temp · DAQ box</span>
+              <span class="loc">node-3 / package 0</span>
+            </div>
+            <div class="cell value"><span class="num">87.3</span><span class="unit">°C</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="36.92"   height="10"/>
+                <rect class="tol-zone-warn"  x="36.92"  y="8" width="36.93"   height="10"/>
+                <rect class="tol-zone-spec"  x="73.85"  y="8" width="110.77"  height="10"/>
+                <rect class="tol-zone-warn"  x="184.62" y="8" width="18.46"   height="10"/>
+                <rect class="tol-zone-alarm" x="203.08" y="8" width="36.92"   height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="36.92"  y1="6" x2="36.92"  y2="20"/>
+                <line class="tol-tick-spec"  x1="73.85"  y1="6" x2="73.85"  y2="20"/>
+                <line class="tol-tick-spec"  x1="184.62" y1="6" x2="184.62" y2="20"/>
+                <line class="tol-tick-limit" x1="203.08" y1="6" x2="203.08" y2="20"/>
+                <line class="tol-value alarm" x1="211.6" y1="3" x2="211.6" y2="23"/>
+                <circle class="tol-value-cap alarm" cx="211.6" cy="3"  r="2"/>
+                <circle class="tol-value-cap alarm" cx="211.6" cy="23" r="2"/>
+                <!-- Out-of-spec indicator. -->
+                <polygon class="tol-out-arrow" points="232,13 224,8 224,18"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip alarm"><span class="dot"></span>ALARM</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill alarm" d="M 0,18 L 8,17 L 16,15 L 24,14 L 32,12 L 40,10 L 48,9 L 56,8 L 64,6 L 72,5 L 80,4 L 88,3 L 96,2 L 100,2 L 100,26 L 0,26 Z"/>
+                <path class="spark-line alarm" d="M 0,18 L 8,17 L 16,15 L 24,14 L 32,12 L 40,10 L 48,9 L 56,8 L 64,6 L 72,5 L 80,4 L 88,3 L 96,2 L 100,2"/>
+                <circle class="spark-now alarm" cx="100" cy="2" r="2.4"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d dn">+12.4 /min</span>
+              <span class="age">0 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 7: Buffer pH · OK. Bar (0,38.4,96,172.8,211.2,240). value=136.32. -->
+          <div class="row ok">
+            <div class="cell name">
+              <span class="nm">Buffer pH</span>
+              <span class="loc">CHM-204 / loop A</span>
+            </div>
+            <div class="cell value"><span class="num">7.42</span><span class="unit"></span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="38.4"  height="10"/>
+                <rect class="tol-zone-warn"  x="38.4"   y="8" width="57.6"  height="10"/>
+                <rect class="tol-zone-spec"  x="96"     y="8" width="76.8"  height="10"/>
+                <rect class="tol-zone-warn"  x="172.8"  y="8" width="38.4"  height="10"/>
+                <rect class="tol-zone-alarm" x="211.2"  y="8" width="28.8"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="38.4"  y1="6" x2="38.4"  y2="20"/>
+                <line class="tol-tick-spec"  x1="96"    y1="6" x2="96"    y2="20"/>
+                <line class="tol-tick-spec"  x1="172.8" y1="6" x2="172.8" y2="20"/>
+                <line class="tol-tick-limit" x1="211.2" y1="6" x2="211.2" y2="20"/>
+                <line class="tol-value" x1="136.32" y1="3" x2="136.32" y2="23"/>
+                <circle class="tol-value-cap" cx="136.32" cy="3"  r="2"/>
+                <circle class="tol-value-cap" cx="136.32" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip ok"><span class="dot"></span>OK</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill" d="M 0,13 L 8,12 L 16,14 L 24,12 L 32,11 L 40,13 L 48,12 L 56,14 L 64,13 L 72,12 L 80,13 L 88,12 L 96,13 L 100,13 L 100,26 L 0,26 Z"/>
+                <path class="spark-line" d="M 0,13 L 8,12 L 16,14 L 24,12 L 32,11 L 40,13 L 48,12 L 56,14 L 64,13 L 72,12 L 80,13 L 88,12 L 96,13 L 100,13"/>
+                <circle class="spark-now" cx="100" cy="13" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d flat">−0.01 /min</span>
+              <span class="age">3 s ago</span>
+            </div>
+          </div>
+
+          <!-- Row 8: Bias voltage · OK. Bar (0,34.29,68.57,137.14,171.43,240). value=99.43. -->
+          <div class="row ok">
+            <div class="cell name">
+              <span class="nm">Bias voltage</span>
+              <span class="loc">PSU-2 ch B</span>
+            </div>
+            <div class="cell value"><span class="num">−12.10</span><span class="unit">V</span></div>
+            <div class="cell tol">
+              <svg class="tol" viewBox="0 0 240 26">
+                <rect class="tol-zone-alarm" x="0"      y="8" width="34.29"  height="10"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="8" width="34.28"  height="10"/>
+                <rect class="tol-zone-spec"  x="68.57"  y="8" width="68.57"  height="10"/>
+                <rect class="tol-zone-warn"  x="137.14" y="8" width="34.29"  height="10"/>
+                <rect class="tol-zone-alarm" x="171.43" y="8" width="68.57"  height="10"/>
+                <rect class="tol-frame" x="0" y="8" width="240" height="10"/>
+                <line class="tol-tick-limit" x1="34.29"  y1="6" x2="34.29"  y2="20"/>
+                <line class="tol-tick-spec"  x1="68.57"  y1="6" x2="68.57"  y2="20"/>
+                <line class="tol-tick-spec"  x1="137.14" y1="6" x2="137.14" y2="20"/>
+                <line class="tol-tick-limit" x1="171.43" y1="6" x2="171.43" y2="20"/>
+                <line class="tol-value" x1="99.43" y1="3" x2="99.43" y2="23"/>
+                <circle class="tol-value-cap" cx="99.43" cy="3"  r="2"/>
+                <circle class="tol-value-cap" cx="99.43" cy="23" r="2"/>
+              </svg>
+            </div>
+            <div class="cell status"><span class="chip ok"><span class="dot"></span>OK</span></div>
+            <div class="cell spark">
+              <svg class="spark" viewBox="0 0 100 26">
+                <path class="spark-fill" d="M 0,14 L 8,15 L 16,13 L 24,14 L 32,15 L 40,13 L 48,14 L 56,12 L 64,14 L 72,13 L 80,14 L 88,13 L 96,14 L 100,14 L 100,26 L 0,26 Z"/>
+                <path class="spark-line" d="M 0,14 L 8,15 L 16,13 L 24,14 L 32,15 L 40,13 L 48,14 L 56,12 L 64,14 L 72,13 L 80,14 L 88,13 L 96,14 L 100,14"/>
+                <circle class="spark-now" cx="100" cy="14" r="2"/>
+              </svg>
+            </div>
+            <div class="cell delta">
+              <span class="d flat">±0.00 /min</span>
+              <span class="age">2 s ago</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="summary">
+          <span><span class="num">5</span> ok</span>
+          <span><span class="sep"></span></span>
+          <span style="color:#fbbf24;"><span class="num" style="color:#fbbf24;">3</span> warn</span>
+          <span><span class="sep"></span></span>
+          <span style="color:#f87171;"><span class="num" style="color:#f87171;">1</span> alarm</span>
+          <span><span class="sep"></span></span>
+          <span>worst: <span class="num">CPU temp</span> · +2.3 °C above USL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variant 2: dense control-room panel. -->
+    <div>
+      <div class="caption">Dense control-room panel · 16 channels in two columns</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Pilot plant overview · console A</h3>
+          <span class="meta">refresh 0.5 s · 14:32:08 UTC · 0 acknowledgements pending</span>
+        </div>
+
+        <div class="panel">
+          <div class="col">
+            <div class="drow head">
+              <div>Tag</div>
+              <div style="text-align:right;">Value</div>
+              <div>Tolerance</div>
+              <div style="text-align:right;">St</div>
+            </div>
+            <!-- Each row uses one 5-zone tol-mini bar. value position is hand-set per row. -->
+            <!-- Bar full width 200, scaled to fit column. Use viewBox 0 0 240 14 to share scale with v1. -->
+
+            <!-- TI-101 vessel temp (OK), value mid -->
+            <div class="drow ok">
+              <div class="nm">TI-101</div>
+              <div class="vl">42.7<span class="u">°C</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="3" width="54.85"  height="8"/>
+                <rect class="tol-zone-spec"  x="89.14"  y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-warn"  x="144"    y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-alarm" x="198.86" y="3" width="41.14"  height="8"/>
+                <line class="tol-value" x1="121.41" y1="0" x2="121.41" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow warn">
+              <div class="nm">TI-102</div>
+              <div class="vl">51.2<span class="u">°C</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="3" width="54.85"  height="8"/>
+                <rect class="tol-zone-spec"  x="89.14"  y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-warn"  x="144"    y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-alarm" x="198.86" y="3" width="41.14"  height="8"/>
+                <line class="tol-value warn" x1="179.42" y1="0" x2="179.42" y2="14"/>
+              </svg>
+              <span class="ch warn">WRN</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">TI-103</div>
+              <div class="vl">38.9<span class="u">°C</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="3" width="54.85"  height="8"/>
+                <rect class="tol-zone-spec"  x="89.14"  y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-warn"  x="144"    y="3" width="54.86"  height="8"/>
+                <rect class="tol-zone-alarm" x="198.86" y="3" width="41.14"  height="8"/>
+                <line class="tol-value" x1="95.31" y1="0" x2="95.31" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">PI-101</div>
+              <div class="vl">125.0<span class="u">kPa</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"   y="3" width="60"  height="8"/>
+                <rect class="tol-zone-warn"  x="60"  y="3" width="45"  height="8"/>
+                <rect class="tol-zone-spec"  x="105" y="3" width="75"  height="8"/>
+                <rect class="tol-zone-warn"  x="180" y="3" width="30"  height="8"/>
+                <rect class="tol-zone-alarm" x="210" y="3" width="30"  height="8"/>
+                <line class="tol-value" x1="135" y1="0" x2="135" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow warn">
+              <div class="nm">PI-102</div>
+              <div class="vl">148.2<span class="u">kPa</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"   y="3" width="60"  height="8"/>
+                <rect class="tol-zone-warn"  x="60"  y="3" width="45"  height="8"/>
+                <rect class="tol-zone-spec"  x="105" y="3" width="75"  height="8"/>
+                <rect class="tol-zone-warn"  x="180" y="3" width="30"  height="8"/>
+                <rect class="tol-zone-alarm" x="210" y="3" width="30"  height="8"/>
+                <line class="tol-value warn" x1="204.6" y1="0" x2="204.6" y2="14"/>
+              </svg>
+              <span class="ch warn">WRN</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">FT-204</div>
+              <div class="vl">4.72<span class="u">L/s</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="54.55"  height="8"/>
+                <rect class="tol-zone-warn"  x="54.55"  y="3" width="43.63"  height="8"/>
+                <rect class="tol-zone-spec"  x="98.18"  y="3" width="76.37"  height="8"/>
+                <rect class="tol-zone-warn"  x="174.55" y="3" width="43.63"  height="8"/>
+                <rect class="tol-zone-alarm" x="218.18" y="3" width="21.82"  height="8"/>
+                <line class="tol-value" x1="148.36" y1="0" x2="148.36" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">FT-205</div>
+              <div class="vl">3.18<span class="u">L/s</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="54.55"  height="8"/>
+                <rect class="tol-zone-warn"  x="54.55"  y="3" width="43.63"  height="8"/>
+                <rect class="tol-zone-spec"  x="98.18"  y="3" width="76.37"  height="8"/>
+                <rect class="tol-zone-warn"  x="174.55" y="3" width="43.63"  height="8"/>
+                <rect class="tol-zone-alarm" x="218.18" y="3" width="21.82"  height="8"/>
+                <line class="tol-value" x1="64.36" y1="0" x2="64.36" y2="14"/>
+              </svg>
+              <span class="ch warn">WRN</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">pH-A</div>
+              <div class="vl">7.42</div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="38.4"  height="8"/>
+                <rect class="tol-zone-warn"  x="38.4"   y="3" width="57.6"  height="8"/>
+                <rect class="tol-zone-spec"  x="96"     y="3" width="76.8"  height="8"/>
+                <rect class="tol-zone-warn"  x="172.8"  y="3" width="38.4"  height="8"/>
+                <rect class="tol-zone-alarm" x="211.2"  y="3" width="28.8"  height="8"/>
+                <line class="tol-value" x1="136.32" y1="0" x2="136.32" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+          </div>
+
+          <div class="col">
+            <div class="drow head">
+              <div>Tag</div>
+              <div style="text-align:right;">Value</div>
+              <div>Tolerance</div>
+              <div style="text-align:right;">St</div>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">pH-B</div>
+              <div class="vl">7.18</div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="38.4"  height="8"/>
+                <rect class="tol-zone-warn"  x="38.4"   y="3" width="57.6"  height="8"/>
+                <rect class="tol-zone-spec"  x="96"     y="3" width="76.8"  height="8"/>
+                <rect class="tol-zone-warn"  x="172.8"  y="3" width="38.4"  height="8"/>
+                <rect class="tol-zone-alarm" x="211.2"  y="3" width="28.8"  height="8"/>
+                <line class="tol-value" x1="113.28" y1="0" x2="113.28" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">VB-1</div>
+              <div class="vl">−12.10<span class="u">V</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="3" width="34.28"  height="8"/>
+                <rect class="tol-zone-spec"  x="68.57"  y="3" width="68.57"  height="8"/>
+                <rect class="tol-zone-warn"  x="137.14" y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-alarm" x="171.43" y="3" width="68.57"  height="8"/>
+                <line class="tol-value" x1="99.43" y1="0" x2="99.43" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">VB-2</div>
+              <div class="vl">−11.80<span class="u">V</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-warn"  x="34.29"  y="3" width="34.28"  height="8"/>
+                <rect class="tol-zone-spec"  x="68.57"  y="3" width="68.57"  height="8"/>
+                <rect class="tol-zone-warn"  x="137.14" y="3" width="34.29"  height="8"/>
+                <rect class="tol-zone-alarm" x="171.43" y="3" width="68.57"  height="8"/>
+                <line class="tol-value" x1="109.71" y1="0" x2="109.71" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow alarm">
+              <div class="nm">CPU-3</div>
+              <div class="vl">87.3<span class="u">°C</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="36.92"   height="8"/>
+                <rect class="tol-zone-warn"  x="36.92"  y="3" width="36.93"   height="8"/>
+                <rect class="tol-zone-spec"  x="73.85"  y="3" width="110.77"  height="8"/>
+                <rect class="tol-zone-warn"  x="184.62" y="3" width="18.46"   height="8"/>
+                <rect class="tol-zone-alarm" x="203.08" y="3" width="36.92"   height="8"/>
+                <line class="tol-value alarm" x1="211.6" y1="0" x2="211.6" y2="14"/>
+                <polygon class="tol-out-arrow" points="232,7 224,3 224,11"/>
+              </svg>
+              <span class="ch alarm">ALM</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">CPU-4</div>
+              <div class="vl">62.1<span class="u">°C</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"      y="3" width="36.92"   height="8"/>
+                <rect class="tol-zone-warn"  x="36.92"  y="3" width="36.93"   height="8"/>
+                <rect class="tol-zone-spec"  x="73.85"  y="3" width="110.77"  height="8"/>
+                <rect class="tol-zone-warn"  x="184.62" y="3" width="18.46"   height="8"/>
+                <rect class="tol-zone-alarm" x="203.08" y="3" width="36.92"   height="8"/>
+                <line class="tol-value" x1="118.34" y1="0" x2="118.34" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">DO-1</div>
+              <div class="vl">8.42<span class="u">mg/L</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"   y="3" width="40"  height="8"/>
+                <rect class="tol-zone-warn"  x="40"  y="3" width="40"  height="8"/>
+                <rect class="tol-zone-spec"  x="80"  y="3" width="100" height="8"/>
+                <rect class="tol-zone-warn"  x="180" y="3" width="40"  height="8"/>
+                <rect class="tol-zone-alarm" x="220" y="3" width="20"  height="8"/>
+                <line class="tol-value" x1="148" y1="0" x2="148" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">RH-1</div>
+              <div class="vl">52<span class="u">%</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"   y="3" width="30"  height="8"/>
+                <rect class="tol-zone-warn"  x="30"  y="3" width="50"  height="8"/>
+                <rect class="tol-zone-spec"  x="80"  y="3" width="100" height="8"/>
+                <rect class="tol-zone-warn"  x="180" y="3" width="40"  height="8"/>
+                <rect class="tol-zone-alarm" x="220" y="3" width="20"  height="8"/>
+                <line class="tol-value" x1="124.8" y1="0" x2="124.8" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+
+            <div class="drow ok">
+              <div class="nm">RH-2</div>
+              <div class="vl">48<span class="u">%</span></div>
+              <svg class="tol-mini" viewBox="0 0 240 14">
+                <rect class="tol-zone-alarm" x="0"   y="3" width="30"  height="8"/>
+                <rect class="tol-zone-warn"  x="30"  y="3" width="50"  height="8"/>
+                <rect class="tol-zone-spec"  x="80"  y="3" width="100" height="8"/>
+                <rect class="tol-zone-warn"  x="180" y="3" width="40"  height="8"/>
+                <rect class="tol-zone-alarm" x="220" y="3" width="20"  height="8"/>
+                <line class="tol-value" x1="115.2" y1="0" x2="115.2" y2="14"/>
+              </svg>
+              <span class="ch ok">OK</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variant 3: hero row · expanded view of one alarming channel. -->
+    <div>
+      <div class="caption">Hero row · expanded · spec limits + 95% confidence interval</div>
+      <div class="hero">
+        <div class="h-top">
+          <div>
+            <span class="h-name">CPU temp · DAQ box</span>
+            <span class="h-name loc">node-3 / package 0 · sensor coretemp.pkg</span>
+          </div>
+          <div class="h-status">
+            <span class="chip alarm"><span class="dot"></span>ALARM · 18 s</span>
+          </div>
+        </div>
+
+        <div class="h-row">
+          <!-- Hero value. -->
+          <div class="h-val">
+            <div class="num">87.3<span class="u">°C</span></div>
+            <div class="sub">peak <span class="red">88.1 °C</span> · 12 s ago · still rising</div>
+          </div>
+
+          <!-- Tolerance bar with full label set + CI band. -->
+          <!-- Reuse same scale as variant 1 row 6: span 30-95 °C, mapped to x = 0-240. -->
+          <!-- LSL=40 → 36.92, LCL=50 → 73.85, UCL=80 → 184.62, USL=85 → 203.08, value=87.3 → 211.6. -->
+          <!-- 95% CI: ±1.6 °C → ±5.91 px → from 205.69 to 217.51. -->
+          <svg class="tol-hero" viewBox="0 0 240 80">
+            <!-- Limit labels above bar. -->
+            <text class="tol-lim-lbl alarm" x="36.92"  y="14" text-anchor="middle">LSL</text>
+            <text class="tol-lim-lbl warn"  x="73.85"  y="14" text-anchor="middle">LCL</text>
+            <text class="tol-lim-lbl warn"  x="184.62" y="14" text-anchor="middle">UCL</text>
+            <text class="tol-lim-lbl alarm" x="203.08" y="14" text-anchor="middle">USL</text>
+            <text class="tol-lim-lbl alarm" x="36.92"  y="26" text-anchor="middle">40°</text>
+            <text class="tol-lim-lbl warn"  x="73.85"  y="26" text-anchor="middle">50°</text>
+            <text class="tol-lim-lbl warn"  x="184.62" y="26" text-anchor="middle">80°</text>
+            <text class="tol-lim-lbl alarm" x="203.08" y="26" text-anchor="middle">85°</text>
+
+            <!-- Bar zones. -->
+            <rect class="tol-zone-alarm" x="0"      y="32" width="36.92"   height="20"/>
+            <rect class="tol-zone-warn"  x="36.92"  y="32" width="36.93"   height="20"/>
+            <rect class="tol-zone-spec"  x="73.85"  y="32" width="110.77"  height="20"/>
+            <rect class="tol-zone-warn"  x="184.62" y="32" width="18.46"   height="20"/>
+            <rect class="tol-zone-alarm" x="203.08" y="32" width="36.92"   height="20"/>
+            <rect class="tol-frame" x="0" y="32" width="240" height="20"/>
+
+            <!-- Limit ticks (vertical). -->
+            <line class="tol-lim-tick alarm" x1="36.92"  y1="29" x2="36.92"  y2="55"/>
+            <line class="tol-lim-tick warn"  x1="73.85"  y1="29" x2="73.85"  y2="55"/>
+            <line class="tol-lim-tick warn"  x1="184.62" y1="29" x2="184.62" y2="55"/>
+            <line class="tol-lim-tick alarm" x1="203.08" y1="29" x2="203.08" y2="55"/>
+
+            <!-- 95% CI band. -->
+            <rect class="tol-band-ci" x="205.69" y="32" width="11.82" height="20"/>
+            <line class="tol-band-ci-edge" x1="205.69" y1="32" x2="205.69" y2="52"/>
+            <line class="tol-band-ci-edge" x1="217.51" y1="32" x2="217.51" y2="52"/>
+
+            <!-- Value tick. -->
+            <line class="tol-value alarm" x1="211.6" y1="28" x2="211.6" y2="56"/>
+            <circle class="tol-value-cap alarm" cx="211.6" cy="28" r="3"/>
+            <circle class="tol-value-cap alarm" cx="211.6" cy="56" r="3"/>
+
+            <!-- Value annotation below. -->
+            <text class="tol-lim-lbl" x="211.6" y="66" text-anchor="middle" fill="#f87171" font-weight="700">87.3°</text>
+            <text class="tol-lim-lbl" x="211.6" y="78" text-anchor="middle">±1.6 (95% CI)</text>
+
+            <!-- Out-of-spec arrow. -->
+            <polygon class="tol-out-arrow" points="234,42 222,34 222,50"/>
+          </svg>
+
+          <!-- Side stats. -->
+          <div class="h-stats">
+            <div class="row"><span class="k">In alarm</span><span class="v red">18 s</span></div>
+            <div class="row"><span class="k">Δ since alarm</span><span class="v red">+2.3 °C</span></div>
+            <div class="row"><span class="k">Trend (1 min)</span><span class="v red">+12.4 °C/min ↑</span></div>
+            <div class="row"><span class="k">Predicted USL+5°</span><span class="v amb">in 24 s</span></div>
+            <div class="row"><span class="k">Last in spec</span><span class="v">14:31:50</span></div>
+            <div class="row"><span class="k">Sensor health</span><span class="v grn">good</span></div>
+          </div>
+        </div>
+
+        <div class="h-actions">
+          <button class="btn danger">Acknowledge alarm</button>
+          <button class="btn primary">Throttle node-3</button>
+          <button class="btn">Open trace</button>
+          <button class="btn">Page on-call</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  (function () {
+    // === Variant 1: row click selects (single selection) ===
+    document.querySelectorAll('.table .row:not(.head)').forEach(row => {
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => {
+        document.querySelectorAll('.table .row.selected').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+      });
+    });
+
+    // === Variant 2: row click toggles selection (multi-select) ===
+    document.querySelectorAll('.panel .drow:not(.head)').forEach(row => {
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => {
+        row.classList.toggle('selected');
+      });
+    });
+
+    // === Variant 3: Acknowledge + Throttle ===
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+
+    const ackBtn      = hero.querySelector('.btn.danger');
+    const throttleBtn = hero.querySelector('.btn.primary');
+    const valueTick   = hero.querySelector('.tol-value');
+    const valueCaps   = hero.querySelectorAll('.tol-value-cap');
+    const valueDisp   = hero.querySelector('.h-val .num');
+    const valSub      = hero.querySelector('.h-val .sub');
+    const heroChip    = hero.querySelector('.h-status .chip');
+    const ciBand      = hero.querySelector('.tol-band-ci');
+    const ciEdges     = hero.querySelectorAll('.tol-band-ci-edge');
+    const outArrow    = hero.querySelector('.tol-out-arrow');
+    const stats       = hero.querySelectorAll('.h-stats .v');
+    const trendStat   = stats[2];
+    const predStat    = stats[3];
+
+    let acknowledged = false;
+    let throttled    = false;
+    let currentVal   = 87.3;
+
+    // Tolerance bar scale: 30 °C → x=0, 95 °C → x=240. (3.6923 px / °C; ±1.6 °C → ±5.91 px.)
+    function valToX(v) { return (v - 30) / 65 * 240; }
+
+    function statusFor(v) {
+      if (v >= 85) return 'alarm';
+      if (v >= 80) return 'warn';
+      return 'ok';
+    }
+
+    function applyValue(v) {
+      currentVal = v;
+      const x = valToX(v);
+      valueTick.setAttribute('x1', x.toFixed(2));
+      valueTick.setAttribute('x2', x.toFixed(2));
+      valueCaps.forEach(cap => cap.setAttribute('cx', x.toFixed(2)));
+
+      if (ciBand) {
+        const ciHalf = 5.91;
+        ciBand.setAttribute('x', (x - ciHalf).toFixed(2));
+        if (ciEdges[0]) {
+          ciEdges[0].setAttribute('x1', (x - ciHalf).toFixed(2));
+          ciEdges[0].setAttribute('x2', (x - ciHalf).toFixed(2));
+        }
+        if (ciEdges[1]) {
+          ciEdges[1].setAttribute('x1', (x + ciHalf).toFixed(2));
+          ciEdges[1].setAttribute('x2', (x + ciHalf).toFixed(2));
+        }
+      }
+
+      valueDisp.innerHTML = v.toFixed(1) + '<span class="u">°C</span>';
+
+      const st = statusFor(v);
+
+      // Tick + cap colour (CSS class drives stroke/fill).
+      valueTick.classList.remove('alarm', 'warn');
+      valueCaps.forEach(c => c.classList.remove('alarm', 'warn'));
+      if (st === 'alarm') {
+        valueTick.classList.add('alarm');
+        valueCaps.forEach(c => c.classList.add('alarm'));
+      } else if (st === 'warn') {
+        valueTick.classList.add('warn');
+        valueCaps.forEach(c => c.classList.add('warn'));
+      }
+
+      // Hero numeric colour.
+      if (st === 'alarm')      valueDisp.style.color = '#f87171';
+      else if (st === 'warn')  valueDisp.style.color = '#fbbf24';
+      else                     valueDisp.style.color = '#4ade80';
+
+      // Out-of-spec arrow only when above USL.
+      if (outArrow) outArrow.style.opacity = (v > 85) ? '1' : '0';
+
+      // Card border + glow.
+      if (st === 'alarm') {
+        hero.style.borderColor = '#f87171';
+        hero.style.boxShadow   = '0 0 0 4px rgba(248, 113, 113, 0.08)';
+      } else if (st === 'warn') {
+        hero.style.borderColor = '#fbbf24';
+        hero.style.boxShadow   = '0 0 0 4px rgba(251, 191, 36, 0.08)';
+      } else {
+        hero.style.borderColor = '#4ade80';
+        hero.style.boxShadow   = '0 0 0 4px rgba(74, 222, 128, 0.08)';
+      }
+
+      // Status chip.
+      heroChip.classList.remove('alarm', 'warn', 'ok');
+      heroChip.classList.add(st);
+      heroChip.style.opacity = acknowledged ? '0.78' : '1';
+      const baseLbl = (st === 'alarm') ? 'ALARM' : (st === 'warn') ? 'WARN' : 'CLEARED';
+      const suffix  = acknowledged ? ' · ack' : (st === 'alarm' ? ' · 18 s' : '');
+      heroChip.innerHTML = '<span class="dot"></span>' + baseLbl + suffix;
+    }
+
+    ackBtn.addEventListener('click', () => {
+      if (acknowledged) return;
+      acknowledged = true;
+      ackBtn.disabled = true;
+      ackBtn.style.opacity = '0.4';
+      ackBtn.textContent = 'Acknowledged';
+      applyValue(currentVal);
+    });
+
+    throttleBtn.addEventListener('click', () => {
+      if (throttled) return;
+      throttled = true;
+      throttleBtn.disabled = true;
+      throttleBtn.style.opacity = '0.65';
+      throttleBtn.textContent = 'Throttling…';
+
+      const start = currentVal;
+      const end = 72.0;
+      const duration = 2400;
+      const t0 = performance.now();
+
+      function step(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const v = start + (end - start) * eased;
+        applyValue(v);
+
+        if (trendStat) {
+          const inst = ((end - start) * 60 / (duration / 1000)) * (1 - t * 0.7);
+          trendStat.textContent = inst.toFixed(1) + ' °C/min ↓';
+          trendStat.classList.remove('red');
+          trendStat.classList.add('grn');
+        }
+        if (predStat) {
+          predStat.textContent = (statusFor(v) === 'alarm') ? 'in ' + Math.max(2, (24 * (1 - t))).toFixed(0) + ' s' : '—';
+          if (statusFor(v) !== 'alarm') predStat.classList.remove('amb');
+        }
+
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          if (valSub) valSub.innerHTML = '<span style="color:#4ade80; font-weight:600;">in spec</span> · throttled to 60% TDP';
+          if (trendStat) trendStat.textContent = '+0.1 °C/min →';
+          if (predStat)  predStat.textContent  = '—';
+          throttleBtn.textContent = 'Throttled · 60% TDP';
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  })();
+  </script>
+</body>
+</html>

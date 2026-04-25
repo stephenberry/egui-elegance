@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XYPad (Slate · Interactive)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 820px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card .hdr {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .card .hdr h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.01em;
+    }
+    .card .hdr .meta {
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Pad host layout: square pad + side readout panel. */
+    .pad-wrap {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+    .pad-wrap .side {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* SVG pad body. */
+    svg.xy {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #060c1c;
+      border: 1px solid #1a2540;
+      border-radius: 8px;
+      user-select: none;
+      touch-action: none;
+      outline: none;
+      cursor: crosshair;
+    }
+    svg.xy.dragging { cursor: grabbing; }
+
+    /* Grid. */
+    .grid-major  { stroke: #1d2942; stroke-width: 1; shape-rendering: crispEdges; }
+    .grid-minor  { stroke: #17233b; stroke-width: 1; shape-rendering: crispEdges; }
+    .axis-zero   { stroke: #334155; stroke-width: 1; shape-rendering: crispEdges; }
+    .frame-line  { stroke: #263445; stroke-width: 1; shape-rendering: crispEdges; }
+    .grid-lbl    { fill: #475569; font-size: 10px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+    .grid-lbl.zero { fill: #94a3b8; font-weight: 600; }
+    .axis-lbl    {
+      fill: #64748b; font-size: 9.5px; letter-spacing: 0.12em;
+      text-transform: uppercase; font-weight: 600;
+    }
+
+    /* Crosshair (dotted lines from puck to axes). */
+    .crosshair   { stroke: #38bdf8; stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.4; pointer-events: none; }
+
+    /* Trail. */
+    .trail-seg   { fill: none; stroke: #38bdf8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+
+    /* Puck. */
+    .puck-glow   { fill: #38bdf8; opacity: 0.22; pointer-events: none; }
+    .puck-ring   { fill: none; stroke: #bae6fd; stroke-width: 1.2; pointer-events: none; }
+    .puck        { fill: #38bdf8; stroke: #e0f2fe; stroke-width: 1.5; cursor: grab; }
+    svg.xy.dragging .puck { cursor: grabbing; }
+
+    /* Variant 2 accents — violet gain axis. */
+    svg.xy.eq .puck        { fill: #a78bfa; stroke: #e9d5ff; }
+    svg.xy.eq .puck-glow   { fill: #a78bfa; }
+    svg.xy.eq .puck-ring   { stroke: #ddd6fe; }
+    svg.xy.eq .crosshair   { stroke: #a78bfa; }
+    svg.xy.eq .trail-seg   { stroke: #a78bfa; }
+
+    /* Variant 3 circle accents (green). */
+    svg.xy.joy .puck        { fill: #4ade80; stroke: #dcfce7; }
+    svg.xy.joy .puck-glow   { fill: #4ade80; }
+    svg.xy.joy .puck-ring   { stroke: #bbf7d0; }
+    svg.xy.joy .crosshair   { stroke: #4ade80; }
+    svg.xy.joy .trail-seg   { stroke: #4ade80; }
+    .joy-bound  { fill: none; stroke: #334155; stroke-width: 1; }
+    .joy-deadzone { fill: rgba(148, 163, 184, 0.06); stroke: #263445; stroke-width: 1; stroke-dasharray: 3 3; }
+    .joy-spoke  { stroke: #1d2942; stroke-width: 1; shape-rendering: crispEdges; }
+    .joy-vector { stroke: #4ade80; stroke-width: 1.5; opacity: 0.8; }
+
+    /* Side panel. */
+    .read-row {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: baseline;
+      padding: 10px 12px;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 6px;
+    }
+    .read-row .k {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .read-row .v {
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      color: #e2e8f0;
+      line-height: 1;
+    }
+    .read-row .v .u {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      margin-left: 3px;
+    }
+    .read-row.x .k { color: #38bdf8; }
+    .read-row.y .k { color: #38bdf8; }
+
+    /* EQ variant palette: x sky, y violet. */
+    .read-row.eq-x .k { color: #38bdf8; }
+    .read-row.eq-y .k { color: #a78bfa; }
+    .read-row.eq-y .v { color: #e9d5ff; }
+
+    /* Joystick palette: magnitude green, angle neutral. */
+    .read-row.joy-m .k { color: #4ade80; }
+    .read-row.joy-m .v { color: #dcfce7; }
+    .read-row.joy-a .k { color: #94a3b8; }
+
+    /* Chip rail. */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .chip {
+      padding: 2px 8px;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      border-radius: 4px;
+      background: #0b1120;
+      color: #64748b;
+      border: 1px solid #263445;
+      cursor: pointer;
+      user-select: none;
+      transition: background 80ms, color 80ms, border-color 80ms;
+    }
+    .chip:hover { background: #182438; color: #e2e8f0; }
+    .chip.active {
+      background: rgba(167, 139, 250, 0.12);
+      color: #c4b5fd;
+      border-color: rgba(167, 139, 250, 0.35);
+      cursor: default;
+    }
+
+    /* Hint row. */
+    .hint {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 11px;
+      letter-spacing: 0.01em;
+      line-height: 1.5;
+    }
+    .hint kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 10.5px;
+      color: #94a3b8;
+      margin: 0 1px;
+    }
+
+    /* Focus ring on the svg host. */
+    svg.xy:focus-visible { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45); }
+  </style>
+</head>
+<body>
+  <div class="stack">
+
+    <!-- =================================================================
+         Variant 1 · Continuous · stage/beam positioning
+         ================================================================= -->
+    <div>
+      <div class="caption">Continuous · linear both axes · movement trail</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Stage offset · beam aim</h3>
+          <span class="meta">drag · ⇧ fine · ⎇ click centers · arrows when focused</span>
+        </div>
+
+        <div class="pad-wrap">
+          <div id="v1-host"></div>
+          <div class="side">
+            <div class="read-row x">
+              <span class="k">X</span>
+              <div><span id="v1-x" class="v">0.00</span><span class="v u">mm</span></div>
+            </div>
+            <div class="read-row y">
+              <span class="k">Y</span>
+              <div><span id="v1-y" class="v">0.00</span><span class="v u">mm</span></div>
+            </div>
+            <div class="hint">
+              range ±12 mm per axis<br>
+              <kbd>⇧</kbd> = 0.01 mm resolution
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         Variant 2 · Bipolar EQ point · log frequency × gain
+         ================================================================= -->
+    <div>
+      <div class="caption">Bipolar · log x · EQ band point with preset recall</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Parametric EQ · band 3</h3>
+          <span class="meta">20 Hz – 20 kHz · ±12 dB · click a chip to recall</span>
+        </div>
+
+        <div class="pad-wrap">
+          <div id="v2-host"></div>
+          <div class="side">
+            <div class="read-row eq-x">
+              <span class="k">f</span>
+              <div><span id="v2-f" class="v">1.00</span><span class="v u">kHz</span></div>
+            </div>
+            <div class="read-row eq-y">
+              <span class="k">g</span>
+              <div><span id="v2-g" class="v">+0.0</span><span class="v u">dB</span></div>
+            </div>
+            <div class="chips" id="v2-chips"></div>
+            <div class="hint">
+              <kbd>⎇ click</kbd> resets to 1 kHz / 0 dB
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         Variant 3 · Circular joystick · angle + magnitude
+         ================================================================= -->
+    <div>
+      <div class="caption">Constrained to circle · angle &amp; magnitude</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>PTZ camera · pan &amp; tilt</h3>
+          <span class="meta">puck locked inside ring · 8% deadzone · radial grid at 30°</span>
+        </div>
+
+        <div class="pad-wrap">
+          <div id="v3-host"></div>
+          <div class="side">
+            <div class="read-row joy-m">
+              <span class="k">r</span>
+              <div><span id="v3-r" class="v">0.00</span><span class="v u">%</span></div>
+            </div>
+            <div class="read-row joy-a">
+              <span class="k">θ</span>
+              <div><span id="v3-a" class="v">—</span><span class="v u">°</span></div>
+            </div>
+            <div class="hint">
+              inside deadzone reads as zero<br>
+              <kbd>⎇ click</kbd> or double-click recenters
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  /* =====================================================================
+     SVG + math helpers
+     ===================================================================== */
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svgEl = (tag, attrs = {}, parent = null, text = null) => {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  /* =====================================================================
+     XYPad class
+
+     Config:
+       host            - container element
+       viewW, viewH    - SVG viewBox (px)
+       plot            - { x0, y0, x1, y1 } plot rect in viewBox coords
+       xMin, xMax      - X value range
+       yMin, yMax      - Y value range
+       xScale          - 'linear' | 'log'
+       yScale          - 'linear' | 'log'
+       gridX           - array of x values to draw major gridlines at
+       gridY           - array of y values to draw major gridlines at
+       value           - { x, y } initial
+       default         - { x, y } reset target
+       circular        - if true, constrain puck to inscribed circle,
+                         deadzone (0..1) + radialSpokes optional
+       deadzone        - fraction of radius (0..1), signals within read 0
+       radialSpokes    - array of angles (deg) to draw as guides
+       accentClass     - 'default' | 'eq' | 'joy'
+       pucks           - extra class on puck
+       trail           - number of recent points to keep (0 = off)
+       onChange        - (value, self) => void
+     ===================================================================== */
+  class XYPad {
+    constructor(opts) {
+      Object.assign(this, {
+        xScale: 'linear', yScale: 'linear',
+        gridX: null, gridY: null,
+        circular: false, deadzone: 0, radialSpokes: null,
+        accentClass: '',
+        trail: 0,
+        default: { x: opts.value.x, y: opts.value.y },
+        onChange: () => {},
+      }, opts);
+
+      this.trailPts = [];
+      this._build();
+      this._wire();
+      this._snap();
+      this.refresh();
+      this.onChange(this.value, this);
+    }
+
+    /* ---------- coords ---------- */
+
+    xToPx(v) {
+      const p = this.xScale === 'log'
+        ? (Math.log(clamp(v, this.xMin, this.xMax)) - Math.log(this.xMin)) / (Math.log(this.xMax) - Math.log(this.xMin))
+        : (v - this.xMin) / (this.xMax - this.xMin);
+      return this.plot.x0 + p * (this.plot.x1 - this.plot.x0);
+    }
+    yToPx(v) {
+      const p = this.yScale === 'log'
+        ? (Math.log(clamp(v, this.yMin, this.yMax)) - Math.log(this.yMin)) / (Math.log(this.yMax) - Math.log(this.yMin))
+        : (v - this.yMin) / (this.yMax - this.yMin);
+      // y inverted (SVG y grows down).
+      return this.plot.y1 - p * (this.plot.y1 - this.plot.y0);
+    }
+    pxToX(px) {
+      const p = clamp((px - this.plot.x0) / (this.plot.x1 - this.plot.x0), 0, 1);
+      if (this.xScale === 'log') {
+        return Math.exp(Math.log(this.xMin) + p * (Math.log(this.xMax) - Math.log(this.xMin)));
+      }
+      return this.xMin + p * (this.xMax - this.xMin);
+    }
+    pxToY(py) {
+      const p = clamp(1 - (py - this.plot.y0) / (this.plot.y1 - this.plot.y0), 0, 1);
+      if (this.yScale === 'log') {
+        return Math.exp(Math.log(this.yMin) + p * (Math.log(this.yMax) - Math.log(this.yMin)));
+      }
+      return this.yMin + p * (this.yMax - this.yMin);
+    }
+
+    /* ---------- build ---------- */
+
+    _build() {
+      const { viewW, viewH, plot } = this;
+      const svg = svgEl('svg', {
+        viewBox: `0 0 ${viewW} ${viewH}`,
+        class: `xy ${this.accentClass}`,
+        tabindex: 0,
+        role: 'slider',
+      });
+      if (this.accentClass) svg.classList.add(this.accentClass);
+
+      // Plot frame.
+      svgEl('rect', {
+        class: 'frame-line',
+        x: plot.x0, y: plot.y0,
+        width: plot.x1 - plot.x0,
+        height: plot.y1 - plot.y0,
+        fill: 'transparent',
+      }, svg);
+
+      // Grid lines + labels.
+      if (this.gridX) {
+        for (const g of this.gridX) {
+          const x = this.xToPx(g.v);
+          svgEl('line', {
+            class: g.zero ? 'axis-zero' : 'grid-major',
+            x1: x, y1: plot.y0, x2: x, y2: plot.y1,
+          }, svg);
+          if (g.label != null) {
+            svgEl('text', {
+              class: g.zero ? 'grid-lbl zero' : 'grid-lbl',
+              x, y: plot.y1 + 14, 'text-anchor': 'middle',
+            }, svg, g.label);
+          }
+        }
+      }
+      if (this.gridY) {
+        for (const g of this.gridY) {
+          const y = this.yToPx(g.v);
+          svgEl('line', {
+            class: g.zero ? 'axis-zero' : 'grid-major',
+            x1: plot.x0, y1: y, x2: plot.x1, y2: y,
+          }, svg);
+          if (g.label != null) {
+            svgEl('text', {
+              class: g.zero ? 'grid-lbl zero' : 'grid-lbl',
+              x: plot.x0 - 6, y: y + 3.5, 'text-anchor': 'end',
+            }, svg, g.label);
+          }
+        }
+      }
+
+      // Circular bound / spokes / deadzone.
+      if (this.circular) {
+        const cx = (plot.x0 + plot.x1) / 2;
+        const cy = (plot.y0 + plot.y1) / 2;
+        const r  = Math.min(plot.x1 - plot.x0, plot.y1 - plot.y0) / 2 - 2;
+        this._circ = { cx, cy, r };
+
+        // Radial spokes.
+        if (this.radialSpokes) {
+          for (const deg of this.radialSpokes) {
+            const a = deg * Math.PI / 180;
+            svgEl('line', {
+              class: 'joy-spoke',
+              x1: cx, y1: cy,
+              x2: cx + Math.cos(a) * r,
+              y2: cy - Math.sin(a) * r,
+            }, svg);
+          }
+        }
+
+        // Concentric rings at 25/50/75/100% magnitude.
+        for (const frac of [0.25, 0.5, 0.75, 1.0]) {
+          svgEl('circle', {
+            class: frac === 1 ? 'joy-bound' : 'grid-minor',
+            cx, cy, r: r * frac,
+            fill: 'none',
+          }, svg);
+        }
+
+        // Deadzone disc.
+        if (this.deadzone > 0) {
+          svgEl('circle', {
+            class: 'joy-deadzone',
+            cx, cy, r: r * this.deadzone,
+          }, svg);
+        }
+
+        // Vector from centre to puck (drawn behind puck, updated on refresh).
+        this.joyVec = svgEl('line', {
+          class: 'joy-vector',
+          x1: cx, y1: cy, x2: cx, y2: cy,
+        }, svg);
+      }
+
+      // Axis captions on the pad border.
+      if (this.axisX) {
+        svgEl('text', {
+          class: 'axis-lbl',
+          x: (plot.x0 + plot.x1) / 2, y: viewH - 4, 'text-anchor': 'middle',
+        }, svg, this.axisX);
+      }
+      if (this.axisY) {
+        const yMid = (plot.y0 + plot.y1) / 2;
+        svgEl('text', {
+          class: 'axis-lbl',
+          x: 10, y: yMid, 'text-anchor': 'middle',
+          transform: `rotate(-90 10 ${yMid})`,
+        }, svg, this.axisY);
+      }
+
+      // Trail group (beneath puck).
+      if (this.trail > 0) {
+        this.trailG = svgEl('g', { class: 'trail' }, svg);
+      }
+
+      // Crosshair lines.
+      this.xHairH = svgEl('line', { class: 'crosshair' }, svg);
+      this.xHairV = svgEl('line', { class: 'crosshair' }, svg);
+
+      // Puck group.
+      this.puckGroup = svgEl('g', {}, svg);
+      this.glow = svgEl('circle', { class: 'puck-glow', r: 16 }, this.puckGroup);
+      this.ring = svgEl('circle', { class: 'puck-ring', r: 11 }, this.puckGroup);
+      this.puck = svgEl('circle', { class: 'puck',      r: 7  }, this.puckGroup);
+
+      this.host.appendChild(svg);
+      this.svg = svg;
+    }
+
+    /* ---------- snap / constrain ---------- */
+
+    _snap() {
+      if (this.circular) {
+        // Nothing extra — clamping is done during drag via _applyCircular.
+      } else {
+        this.value.x = clamp(this.value.x, this.xMin, this.xMax);
+        this.value.y = clamp(this.value.y, this.yMin, this.yMax);
+      }
+    }
+
+    _applyCircular(px, py) {
+      const { cx, cy, r } = this._circ;
+      const dx = px - cx, dy = py - cy;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > r) {
+        const k = r / len;
+        return [cx + dx * k, cy + dy * k];
+      }
+      return [px, py];
+    }
+
+    /* ---------- public ---------- */
+
+    setValue({ x, y }, { silent = false, trail = true } = {}) {
+      this.value = { x, y };
+      this._snap();
+      if (trail && this.trail > 0) this._pushTrail();
+      this.refresh();
+      if (!silent) this.onChange(this.value, this);
+    }
+
+    setFromPixel(px, py, { trail = true } = {}) {
+      if (this.circular) {
+        [px, py] = this._applyCircular(px, py);
+      }
+      this.value = { x: this.pxToX(px), y: this.pxToY(py) };
+      if (trail && this.trail > 0) this._pushTrail();
+      this.refresh();
+      this.onChange(this.value, this);
+    }
+
+    _pushTrail() {
+      const px = this.xToPx(this.value.x);
+      const py = this.yToPx(this.value.y);
+      const last = this.trailPts[this.trailPts.length - 1];
+      if (last && Math.abs(last.x - px) < 0.5 && Math.abs(last.y - py) < 0.5) return;
+      this.trailPts.push({ x: px, y: py });
+      while (this.trailPts.length > this.trail) this.trailPts.shift();
+    }
+
+    /* ---------- refresh ---------- */
+
+    refresh() {
+      const px = this.xToPx(this.value.x);
+      const py = this.yToPx(this.value.y);
+
+      this.puckGroup.setAttribute('transform', `translate(${px.toFixed(2)}, ${py.toFixed(2)})`);
+      this.xHairH.setAttribute('x1', this.plot.x0);
+      this.xHairH.setAttribute('x2', this.plot.x1);
+      this.xHairH.setAttribute('y1', py);
+      this.xHairH.setAttribute('y2', py);
+      this.xHairV.setAttribute('y1', this.plot.y0);
+      this.xHairV.setAttribute('y2', this.plot.y1);
+      this.xHairV.setAttribute('x1', px);
+      this.xHairV.setAttribute('x2', px);
+
+      if (this.circular && this.joyVec) {
+        this.joyVec.setAttribute('x2', px);
+        this.joyVec.setAttribute('y2', py);
+      }
+
+      if (this.trailG) {
+        // Rebuild the trail as discrete segments with fading opacity.
+        while (this.trailG.firstChild) this.trailG.removeChild(this.trailG.firstChild);
+        const n = this.trailPts.length;
+        for (let i = 1; i < n; i++) {
+          const a = this.trailPts[i - 1];
+          const b = this.trailPts[i];
+          // Older segments (smaller i) → lower opacity.
+          const op = (i / n) * 0.65;
+          svgEl('line', {
+            class: 'trail-seg',
+            x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+            'stroke-width': 1.4,
+            opacity: op.toFixed(3),
+          }, this.trailG);
+        }
+      }
+    }
+
+    reset() {
+      this.trailPts = [];
+      this.setValue(this.default, { trail: false });
+    }
+
+    /* ---------- input wiring ---------- */
+
+    _wire() {
+      let dragging = false;
+      // Virtual cursor for fine mode: tracks the "intended" position
+      // while the mouse moves faster than the puck.
+      let vx = 0, vy = 0;
+      let fine = false;
+
+      const viewRect = () => this.svg.getBoundingClientRect();
+      const toViewCoords = (e) => {
+        const r = viewRect();
+        const x = (e.clientX - r.left) * (this.viewW / r.width);
+        const y = (e.clientY - r.top) * (this.viewH / r.height);
+        return [x, y];
+      };
+
+      const onMove = (e) => {
+        if (!dragging) return;
+        const [mx, my] = toViewCoords(e);
+        fine = e.shiftKey;
+        if (fine) {
+          // Virtual cursor with 0.25× speed — slip the puck behind the mouse.
+          const lastR = viewRect();
+          const spx = (e.movementX || 0) * (this.viewW / lastR.width) * 0.25;
+          const spy = (e.movementY || 0) * (this.viewH / lastR.height) * 0.25;
+          vx += spx; vy += spy;
+        } else {
+          vx = mx; vy = my;
+        }
+        this.setFromPixel(vx, vy);
+      };
+      const onUp = () => {
+        dragging = false;
+        this.svg.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+      };
+
+      this.svg.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        this.svg.focus({ preventScroll: true });
+        if (e.altKey) { this.reset(); return; }
+
+        const [mx, my] = toViewCoords(e);
+        vx = mx; vy = my;
+        dragging = true;
+        fine = e.shiftKey;
+        this.svg.classList.add('dragging');
+        this.setFromPixel(mx, my);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp, { once: true });
+      });
+
+      this.svg.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        this.reset();
+      });
+
+      this.svg.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const fine = e.shiftKey;
+        const step = fine ? 1 / 400 : 1 / 80;
+        const dir = e.deltaY < 0 ? 1 : -1;
+        // Nudge y by default, x if shift *and* horizontal wheel or alt pressed.
+        const dy = (this.yMax - this.yMin) * step * dir;
+        this.setValue({ x: this.value.x, y: clamp(this.value.y + dy, this.yMin, this.yMax) });
+      }, { passive: false });
+
+      this.svg.addEventListener('keydown', (e) => {
+        const fine = e.shiftKey;
+        const sx = (this.xMax - this.xMin) * (fine ? 1 / 400 : 1 / 60);
+        const sy = (this.yMax - this.yMin) * (fine ? 1 / 400 : 1 / 60);
+        let { x, y } = this.value;
+        let changed = true;
+        switch (e.key) {
+          case 'ArrowRight': x += sx; break;
+          case 'ArrowLeft':  x -= sx; break;
+          case 'ArrowUp':    y += sy; break;
+          case 'ArrowDown':  y -= sy; break;
+          case 'Home':       x = this.default.x; y = this.default.y; break;
+          default: changed = false;
+        }
+        if (!changed) return;
+        e.preventDefault();
+        // For circular pad, clamp in pixel space.
+        if (this.circular) {
+          const [px, py] = this._applyCircular(this.xToPx(x), this.yToPx(y));
+          x = this.pxToX(px); y = this.pxToY(py);
+        } else {
+          x = clamp(x, this.xMin, this.xMax);
+          y = clamp(y, this.yMin, this.yMax);
+        }
+        this.setValue({ x, y });
+      });
+    }
+  }
+
+  /* =====================================================================
+     Variant 1 · Linear XY pad (beam offset)
+     ===================================================================== */
+  (() => {
+    const host = document.getElementById('v1-host');
+    const GRID = [-12, -8, -4, 0, 4, 8, 12];
+    const pad = new XYPad({
+      host,
+      viewW: 300, viewH: 300,
+      plot: { x0: 24, y0: 16, x1: 290, y1: 276 },
+      xMin: -12, xMax: 12, yMin: -12, yMax: 12,
+      axisX: 'x · mm',
+      axisY: 'y · mm',
+      gridX: GRID.map(v => ({ v, zero: v === 0, label: v > 0 ? `+${v}` : `${v}`.replace('-', '−') })),
+      gridY: GRID.map(v => ({ v, zero: v === 0, label: v > 0 ? `+${v}` : `${v}`.replace('-', '−') })),
+      value: { x: 2.4, y: -1.8 },
+      default: { x: 0, y: 0 },
+      trail: 60,
+      onChange: (v) => {
+        const fmt = (n) => {
+          const s = Math.abs(n).toFixed(2);
+          return n < -0.005 ? `−${s}` : (n > 0.005 ? `+${s}` : ' 0.00');
+        };
+        document.getElementById('v1-x').textContent = fmt(v.x);
+        document.getElementById('v1-y').textContent = fmt(v.y);
+      },
+    });
+  })();
+
+  /* =====================================================================
+     Variant 2 · EQ point · log frequency × gain
+     ===================================================================== */
+  (() => {
+    const host = document.getElementById('v2-host');
+    const FMARKS = [
+      { v: 20,   label: '20' },
+      { v: 50,   label: '50' },
+      { v: 100,  label: '100' },
+      { v: 500,  label: '500' },
+      { v: 1000, label: '1k', zero: false },
+      { v: 5000, label: '5k' },
+      { v: 20000, label: '20k' },
+    ];
+    const GMARKS = [
+      { v: 12,  label: '+12' },
+      { v: 6,   label: '+6' },
+      { v: 0,   label: '0', zero: true },
+      { v: -6,  label: '−6' },
+      { v: -12, label: '−12' },
+    ];
+    const pad = new XYPad({
+      host,
+      viewW: 300, viewH: 300,
+      plot: { x0: 32, y0: 16, x1: 290, y1: 276 },
+      xMin: 20, xMax: 20000, xScale: 'log',
+      yMin: -12, yMax: 12, yScale: 'linear',
+      axisX: 'frequency · Hz',
+      axisY: 'gain · dB',
+      accentClass: 'eq',
+      gridX: FMARKS,
+      gridY: GMARKS,
+      value: { x: 1000, y: 0 },
+      default: { x: 1000, y: 0 },
+      trail: 36,
+      onChange: (v) => {
+        const f = v.x;
+        const fStr = f >= 1000
+          ? (f / 1000).toFixed(f >= 10000 ? 2 : 2)
+          : f.toFixed(f >= 100 ? 0 : 1);
+        const fUnit = f >= 1000 ? 'kHz' : 'Hz';
+        const g = v.y;
+        const gStr = g >= 0 ? `+${g.toFixed(1)}` : g.toFixed(1).replace('-', '−');
+        document.getElementById('v2-f').textContent = fStr;
+        document.getElementById('v2-f').parentElement
+          .querySelector('.u').textContent = fUnit;
+        document.getElementById('v2-g').textContent = gStr;
+      },
+    });
+
+    // Recall preset chips.
+    const PRESETS = [
+      { id: 'flat',   label: 'Flat',       f: 1000, g:   0 },
+      { id: 'vocal',  label: 'Vocal +3',   f: 2800, g:   3 },
+      { id: 'bass',   label: 'Bass boost', f:  90,  g:   6 },
+      { id: 'air',    label: 'Air +4',     f: 12000, g:  4 },
+      { id: 'notch',  label: 'Mud cut',    f: 250,  g:  -6 },
+      { id: 'cab',    label: 'Cab −8',     f: 3500, g:  -8 },
+    ];
+    const chips = document.getElementById('v2-chips');
+    const chipEls = new Map();
+    const activeId = () => {
+      for (const p of PRESETS) {
+        if (Math.abs(Math.log(pad.value.x / p.f)) < 0.02 && Math.abs(pad.value.y - p.g) < 0.1) {
+          return p.id;
+        }
+      }
+      return null;
+    };
+    const syncChips = () => {
+      const id = activeId();
+      for (const [pid, el] of chipEls) el.classList.toggle('active', pid === id);
+    };
+    for (const p of PRESETS) {
+      const el = document.createElement('span');
+      el.className = 'chip';
+      el.textContent = p.label;
+      el.addEventListener('click', () => {
+        pad.setValue({ x: p.f, y: p.g });
+      });
+      chips.appendChild(el);
+      chipEls.set(p.id, el);
+    }
+    // Wrap onChange to also sync chips after any user move.
+    const originalOnChange = pad.onChange;
+    pad.onChange = (v, self) => {
+      originalOnChange(v, self);
+      syncChips();
+    };
+    pad.onChange(pad.value, pad);
+  })();
+
+  /* =====================================================================
+     Variant 3 · Circular joystick · pan/tilt
+     ===================================================================== */
+  (() => {
+    const host = document.getElementById('v3-host');
+    const pad = new XYPad({
+      host,
+      viewW: 300, viewH: 300,
+      plot: { x0: 10, y0: 10, x1: 290, y1: 290 },
+      xMin: -1, xMax: 1, yMin: -1, yMax: 1,
+      axisX: null, axisY: null,
+      accentClass: 'joy',
+      circular: true,
+      deadzone: 0.08,
+      radialSpokes: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
+      value: { x: 0, y: 0 },
+      default: { x: 0, y: 0 },
+      trail: 40,
+      onChange: (v) => {
+        const r = Math.sqrt(v.x * v.x + v.y * v.y);
+        const inDead = r < 0.08;
+        const rPct = inDead ? 0 : ((r - 0.08) / 0.92) * 100;
+        document.getElementById('v3-r').textContent = rPct.toFixed(1);
+        if (inDead) {
+          document.getElementById('v3-a').textContent = '—';
+        } else {
+          let deg = Math.atan2(v.y, v.x) * 180 / Math.PI;
+          if (deg < 0) deg += 360;
+          document.getElementById('v3-a').textContent = deg.toFixed(0);
+        }
+      },
+    });
+  })();
+  </script>
+</body>
+</html>

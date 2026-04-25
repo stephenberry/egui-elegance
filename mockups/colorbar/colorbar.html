@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Colorbar (Slate · Interactive)</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0f172a; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: #e2e8f0;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+      width: 820px;
+    }
+
+    .caption {
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card .hdr {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .card .hdr h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.01em;
+    }
+    .card .hdr .meta {
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .btn {
+      padding: 3px 9px; font: inherit; font-size: 11.5px;
+      border-radius: 6px; background: #0b1120; color: #94a3b8;
+      border: 1px solid #334155; cursor: pointer; user-select: none;
+    }
+    .btn:hover { background: #182438; color: #e2e8f0; }
+    .btn:active { transform: translateY(1px); }
+
+    /* Variant 1: heatmap + vertical colorbar layout. */
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .image-host {
+      background: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-host svg { display: block; width: 100%; height: auto; cursor: crosshair; }
+    .axis-tick { fill: #64748b; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+    /* Map switcher chips. */
+    .maps {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .maps .lbl { color: #64748b; font-size: 11.5px; letter-spacing: 0.02em; margin-right: 2px; }
+    .map-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px 3px 4px;
+      border-radius: 999px;
+      background: #0b1120;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      font-size: 11.5px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 80ms, color 80ms, border-color 80ms;
+    }
+    .map-chip:hover { background: #182438; color: #e2e8f0; }
+    .map-chip .sw {
+      width: 28px; height: 8px; border-radius: 2px; display: inline-block;
+    }
+    .map-chip.active {
+      background: rgba(56, 189, 248, 0.10);
+      color: #e2e8f0;
+      border-color: rgba(56, 189, 248, 0.40);
+      cursor: default;
+    }
+    .maps .reset {
+      margin-left: auto;
+      color: #64748b;
+      font-size: 11.5px;
+      cursor: pointer;
+    }
+    .maps .reset:hover { color: #e2e8f0; }
+
+    /* Diverging variant readout. */
+    .div-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #94a3b8;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .div-foot .num { color: #e2e8f0; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      background: rgba(248, 113, 113, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(248, 113, 113, 0.30);
+    }
+    .pill.zero {
+      background: rgba(74, 222, 128, 0.10);
+      color: #4ade80;
+      border-color: rgba(74, 222, 128, 0.30);
+    }
+
+    /* Categorical variant: chips list. */
+    .cats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .cat-chip {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 10px;
+      background: #0b1120;
+      border: 1px solid #263445;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 100ms;
+    }
+    .cat-chip:hover { background: #131e34; }
+    .cat-chip .swatch {
+      width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+      transition: transform 100ms;
+    }
+    .cat-chip:hover .swatch { transform: scale(1.08); }
+    .cat-chip .name { font-size: 12.5px; color: #e2e8f0; font-weight: 500; }
+    .cat-chip .sub  { font-size: 11px;  color: #64748b; font-variant-numeric: tabular-nums; }
+    .cat-chip .col  { display: flex; flex-direction: column; line-height: 1.25; }
+    .cat-chip.muted { opacity: 0.45; }
+    .cat-chip.muted .name { text-decoration: line-through; }
+
+    /* Stacked proportion bar above chips. */
+    .stack-bar {
+      width: 100%; height: 14px;
+      background: #0b1120; border: 1px solid #263445; border-radius: 4px;
+      overflow: hidden; display: flex; margin-bottom: 12px;
+    }
+    .stack-bar .seg { height: 100%; transition: width 200ms ease-out, background 100ms; }
+    .cat-summary {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 8px;
+      color: #94a3b8; font-size: 12px;
+    }
+    .cat-summary .num { color: #e2e8f0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Cells / handles / interactions. */
+    .cell { shape-rendering: crispEdges; }
+    .grid-overlay line { stroke: rgba(15, 23, 42, 0.18); stroke-width: 1; shape-rendering: crispEdges; }
+
+    .handle-v {
+      cursor: ns-resize;
+    }
+    .handle-h {
+      cursor: ew-resize;
+    }
+    .handle-v.dragging, .handle-h.dragging,
+    .handle-v.dragging *, .handle-h.dragging * {
+      cursor: grabbing;
+    }
+
+    .crosshair line { stroke: #e2e8f0; stroke-width: 0.6; pointer-events: none; }
+    .pip-bar {
+      pointer-events: none;
+    }
+    .pip-bar line { stroke: #e2e8f0; stroke-width: 1.2; }
+    .pip-bar polygon { fill: #e2e8f0; }
+  </style>
+</head>
+<body>
+
+  <!-- Shared gradient defs.  Stops are populated by JS so colormaps can be swapped. -->
+  <svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+    <defs>
+      <linearGradient id="bar-grad-v"  x1="0" y1="1" x2="0" y2="0"></linearGradient>
+      <linearGradient id="div-grad-h"  x1="0" y1="0" x2="1" y2="0"></linearGradient>
+      <linearGradient id="map-viridis" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#440154"/><stop offset="0.5" stop-color="#21918c"/><stop offset="1" stop-color="#fde725"/>
+      </linearGradient>
+      <linearGradient id="map-plasma" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0d0887"/><stop offset="0.5" stop-color="#cc4778"/><stop offset="1" stop-color="#f0f921"/>
+      </linearGradient>
+      <linearGradient id="map-cividis" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#00224e"/><stop offset="0.5" stop-color="#7c7b78"/><stop offset="1" stop-color="#fde737"/>
+      </linearGradient>
+      <linearGradient id="map-magma" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000004"/><stop offset="0.5" stop-color="#b73779"/><stop offset="1" stop-color="#fcfdbf"/>
+      </linearGradient>
+      <linearGradient id="map-grey" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0b1120"/><stop offset="1" stop-color="#e2e8f0"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="stack">
+
+    <!-- Variant 1: vertical colorbar paired with a heatmap image. -->
+    <div>
+      <div class="caption">Vertical · paired with a 2D field · drag handles to clip · click a colormap</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>Intensity field · well A3</h3>
+          <span class="meta" id="m1-meta">…</span>
+        </div>
+
+        <div class="pair">
+          <div class="image-host">
+            <svg id="m1-img" viewBox="0 0 480 280" preserveAspectRatio="xMidYMid meet">
+              <g class="cells"></g>
+              <g class="grid-overlay">
+                <line x1="0" y1="56"  x2="480" y2="56"/>
+                <line x1="0" y1="112" x2="480" y2="112"/>
+                <line x1="0" y1="168" x2="480" y2="168"/>
+                <line x1="0" y1="224" x2="480" y2="224"/>
+                <line x1="96"  y1="0" x2="96"  y2="280"/>
+                <line x1="192" y1="0" x2="192" y2="280"/>
+                <line x1="288" y1="0" x2="288" y2="280"/>
+                <line x1="384" y1="0" x2="384" y2="280"/>
+              </g>
+              <g class="crosshair" style="display:none;">
+                <line class="cx" x1="0" y1="0" x2="0" y2="0"/>
+                <line class="cy" x1="0" y1="0" x2="0" y2="0"/>
+                <circle class="dot" cx="0" cy="0" r="6" fill="none" stroke="#0f172a" stroke-width="1.4"/>
+                <circle class="dot2" cx="0" cy="0" r="6" fill="none" stroke="#e2e8f0" stroke-width="0.8"/>
+              </g>
+              <g class="readout" style="display:none;" pointer-events="none">
+                <rect x="0" y="0" width="106" height="34" rx="5" fill="#0b1120" stroke="#334155"/>
+                <text class="r-pos" x="8" y="14" fill="#94a3b8" font-size="9.5">x=0  y=0</text>
+                <text class="r-val" x="8" y="27" fill="#fde725" font-size="11.5" font-weight="700"
+                      style="font-variant-numeric: tabular-nums;">0 cnt</text>
+              </g>
+            </svg>
+          </div>
+
+          <svg id="m1-bar" width="78" height="296" viewBox="0 0 78 296">
+            <!-- Three layered rects: saturated-top (above vmax), gradient (vmin..vmax),
+                 saturated-bottom (below vmin).  All sized by JS. -->
+            <rect class="bar-sat-top" x="8" width="30" stroke="#475569" stroke-width="1"/>
+            <rect class="bar-grad"    x="8" width="30" fill="url(#bar-grad-v)" stroke="#475569" stroke-width="1"/>
+            <rect class="bar-sat-bot" x="8" width="30" stroke="#475569" stroke-width="1"/>
+
+            <!-- Five tick marks at fixed data positions (filled by JS). -->
+            <g class="bar-ticks"></g>
+
+            <!-- Hover-value pip line (shown when crosshair is on). -->
+            <g class="pip-bar" style="display:none;">
+              <line x1="6" y1="0" x2="40" y2="0" stroke="#0f172a" stroke-width="2.5"/>
+              <line x1="6" y1="0" x2="40" y2="0" stroke="#e2e8f0" stroke-width="1.2"/>
+              <polygon points="44,0 50,-4 50,4" fill="#e2e8f0"/>
+            </g>
+
+            <!-- Handles slide along the bar.  Their visual y is set by JS. -->
+            <g class="handle-v" data-handle="vmax">
+              <rect x="0" y="-10" width="40" height="20" fill="transparent"/>
+              <polygon points="2,0 8,-4 8,4" fill="#e2e8f0"/>
+              <line x1="8" y1="0" x2="38" y2="0" stroke="#e2e8f0" stroke-width="1"/>
+            </g>
+            <g class="handle-v" data-handle="vmin">
+              <rect x="0" y="-10" width="40" height="20" fill="transparent"/>
+              <polygon points="2,0 8,-4 8,4" fill="#e2e8f0"/>
+              <line x1="8" y1="0" x2="38" y2="0" stroke="#e2e8f0" stroke-width="1"/>
+            </g>
+
+            <text x="23" y="294" fill="#64748b" font-size="9.5"
+                  text-anchor="middle" letter-spacing="0.06em">counts</text>
+          </svg>
+        </div>
+
+        <div class="maps">
+          <span class="lbl">colormap</span>
+          <span class="map-chip active" data-cmap="viridis">
+            <svg width="28" height="8"><rect width="28" height="8" rx="2" fill="url(#map-viridis)"/></svg>
+            Viridis
+          </span>
+          <span class="map-chip" data-cmap="plasma">
+            <svg width="28" height="8"><rect width="28" height="8" rx="2" fill="url(#map-plasma)"/></svg>
+            Plasma
+          </span>
+          <span class="map-chip" data-cmap="magma">
+            <svg width="28" height="8"><rect width="28" height="8" rx="2" fill="url(#map-magma)"/></svg>
+            Magma
+          </span>
+          <span class="map-chip" data-cmap="cividis">
+            <svg width="28" height="8"><rect width="28" height="8" rx="2" fill="url(#map-cividis)"/></svg>
+            Cividis
+          </span>
+          <span class="map-chip" data-cmap="grey">
+            <svg width="28" height="8"><rect width="28" height="8" rx="2" fill="url(#map-grey)"/></svg>
+            Gray
+          </span>
+          <span class="reset" id="m1-autorange">↺ auto-range</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variant 2: horizontal diverging colorbar with zero-center. -->
+    <div>
+      <div class="caption">Horizontal diverging · zero-centered · drag handles, double-click bar to auto-fit</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>z-score · regression coefficients (n = <span id="m2-n">0</span> features)</h3>
+          <span class="meta" id="m2-meta">…</span>
+        </div>
+
+        <svg id="m2-bar" width="100%" height="92" viewBox="0 0 760 92" preserveAspectRatio="none">
+          <!-- Three layered rects: saturated-blue (below vmin), gradient (vmin..vmax),
+               saturated-red (above vmax).  All sized by JS. -->
+          <rect class="bar-sat-l" y="16" height="22" stroke="#475569" stroke-width="1"/>
+          <rect class="bar-grad"  y="16" height="22" fill="url(#div-grad-h)" stroke="#475569" stroke-width="1"/>
+          <rect class="bar-sat-r" y="16" height="22" stroke="#475569" stroke-width="1"/>
+
+          <!-- Center notch / zero marker. -->
+          <line x1="380" y1="12" x2="380" y2="42" stroke="#e2e8f0" stroke-width="1.4"/>
+          <circle cx="380" cy="11" r="2.4" fill="#e2e8f0"/>
+
+          <!-- Tick marks + labels (filled by JS). -->
+          <g class="ticks-h"></g>
+
+          <!-- Data-range bracket. -->
+          <g class="range-bracket">
+            <line class="rb-bar"   x1="0" y1="68" x2="0" y2="68" stroke="#94a3b8" stroke-width="1.2"/>
+            <line class="rb-edgeL" x1="0" y1="64" x2="0" y2="72" stroke="#94a3b8" stroke-width="1.2"/>
+            <line class="rb-edgeR" x1="0" y1="64" x2="0" y2="72" stroke="#94a3b8" stroke-width="1.2"/>
+            <text class="rb-textL" x="0" y="84" text-anchor="middle" fill="#94a3b8"
+                  font-size="10.5" font-variant-numeric="tabular-nums">…</text>
+            <text class="rb-textR" x="0" y="84" text-anchor="middle" fill="#94a3b8"
+                  font-size="10.5" font-variant-numeric="tabular-nums">…</text>
+            <text x="380" y="84" text-anchor="middle" fill="#64748b"
+                  font-size="10.5" font-variant-numeric="tabular-nums">data range</text>
+          </g>
+
+          <!-- Handles slide along the bar.  Their visual x is set by JS. -->
+          <g class="handle-h" data-handle="vmin">
+            <rect x="-10" y="0" width="20" height="50" fill="transparent"/>
+            <line x1="0" y1="10" x2="0" y2="44" stroke="#e2e8f0" stroke-width="1"/>
+            <polygon points="0,8 -4,2 4,2" fill="#e2e8f0"/>
+            <text class="h-label" x="0" y="-1" text-anchor="middle" fill="#e2e8f0"
+                  font-size="10.5" font-variant-numeric="tabular-nums" font-weight="600">…</text>
+          </g>
+          <g class="handle-h" data-handle="vmax">
+            <rect x="-10" y="0" width="20" height="50" fill="transparent"/>
+            <line x1="0" y1="10" x2="0" y2="44" stroke="#e2e8f0" stroke-width="1"/>
+            <polygon points="0,8 -4,2 4,2" fill="#e2e8f0"/>
+            <text class="h-label" x="0" y="-1" text-anchor="middle" fill="#e2e8f0"
+                  font-size="10.5" font-variant-numeric="tabular-nums" font-weight="600">…</text>
+          </g>
+        </svg>
+
+        <div class="div-foot">
+          <span>linear · drag end caps to clip · double-click bar to auto-fit</span>
+          <span class="pill" id="m2-pill">…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variant 3: categorical / discrete colormap. -->
+    <div>
+      <div class="caption">Categorical · click a swatch to toggle visibility</div>
+      <div class="card">
+        <div class="hdr">
+          <h3>UMAP cluster assignment · 12,418 cells</h3>
+          <span class="meta">7 classes · click swatch to toggle visibility</span>
+        </div>
+
+        <div class="cat-summary">
+          <span><span class="num" id="m3-vis">7</span> of 7 classes visible</span>
+          <span><span class="num" id="m3-cells">12,418</span> cells shown</span>
+        </div>
+        <div class="stack-bar" id="m3-bar"></div>
+        <div class="cats" id="m3-cats"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  /* =====================================================================
+     SVG + colour helpers
+     ===================================================================== */
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs = {}, parent = null, text = null) {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  function lcg(seed) {
+    let s = (seed >>> 0) || 1;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0x100000000; };
+  }
+  function gauss(rng) {
+    const u = Math.max(rng(), 1e-9);
+    const v = Math.max(rng(), 1e-9);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function hexRgb(h) {
+    return [
+      parseInt(h.slice(1, 3), 16),
+      parseInt(h.slice(3, 5), 16),
+      parseInt(h.slice(5, 7), 16),
+    ];
+  }
+  function rgbHex(r, g, b) {
+    return '#' + [r, g, b]
+      .map(x => Math.round(clamp(x, 0, 255)).toString(16).padStart(2, '0'))
+      .join('');
+  }
+  function colorAt(stops, t) {
+    t = clamp(t, 0, 1);
+    for (let i = 0; i < stops.length - 1; i++) {
+      const [p0, c0] = stops[i], [p1, c1] = stops[i + 1];
+      if (t >= p0 && t <= p1) {
+        const local = p1 === p0 ? 0 : (t - p0) / (p1 - p0);
+        const a = hexRgb(c0), b = hexRgb(c1);
+        return rgbHex(lerp(a[0], b[0], local), lerp(a[1], b[1], local), lerp(a[2], b[2], local));
+      }
+    }
+    return stops[stops.length - 1][1];
+  }
+
+  // SVG client → viewBox coords.
+  function clientToViewBox(svg, evt) {
+    const r = svg.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    return {
+      x: vb.x + (evt.clientX - r.left) / r.width * vb.width,
+      y: vb.y + (evt.clientY - r.top)  / r.height * vb.height,
+    };
+  }
+
+  function setGradientStops(grad, stops) {
+    clear(grad);
+    for (const [p, c] of stops) svgEl('stop', { offset: p, 'stop-color': c }, grad);
+  }
+
+  function compactNum(v) {
+    if (Math.abs(v) >= 10000) return (v / 1000).toFixed(0) + 'k';
+    return v.toFixed(0);
+  }
+
+  /* =====================================================================
+     Colormaps
+     ===================================================================== */
+
+  const COLORMAPS = {
+    viridis: [
+      [0.00, '#440154'], [0.25, '#3b528b'], [0.50, '#21918c'],
+      [0.75, '#5ec962'], [1.00, '#fde725'],
+    ],
+    plasma: [
+      [0.00, '#0d0887'], [0.25, '#7e03a8'], [0.50, '#cc4778'],
+      [0.75, '#f89540'], [1.00, '#f0f921'],
+    ],
+    magma: [
+      [0.00, '#000004'], [0.25, '#3b0f70'], [0.50, '#b73779'],
+      [0.75, '#f1605d'], [1.00, '#fcfdbf'],
+    ],
+    cividis: [
+      [0.00, '#00224e'], [0.25, '#414f6e'], [0.50, '#7c7b78'],
+      [0.75, '#b8aa6a'], [1.00, '#fde737'],
+    ],
+    grey: [
+      [0.00, '#0b1120'], [1.00, '#e2e8f0'],
+    ],
+  };
+
+  const DIVERGING = [
+    [0.00, '#1e40af'], [0.25, '#60a5fa'], [0.50, '#e2e8f0'],
+    [0.75, '#fca5a5'], [1.00, '#991b1b'],
+  ];
+
+  /* =====================================================================
+     Variant 1 · vertical colorbar + 2D field
+     ===================================================================== */
+
+  (() => {
+    const COLS = 30, ROWS = 20;
+    const CELL_W = 480 / COLS, CELL_H = 280 / ROWS;
+    const DATA_MIN = 0, DATA_MAX = 1000;
+    const BAR_TOP = 16, BAR_BOTTOM = 280, BAR_H = BAR_BOTTOM - BAR_TOP;
+    const MIN_GAP = 20;  // smallest allowed (vmax - vmin), in data units
+
+    const svgImg = document.getElementById('m1-img');
+    const svgBar = document.getElementById('m1-bar');
+    const cellsG = svgImg.querySelector('.cells');
+    const ticksG = svgBar.querySelector('.bar-ticks');
+    const grad   = document.getElementById('bar-grad-v');
+    const meta   = document.getElementById('m1-meta');
+    const pip    = svgBar.querySelector('.pip-bar');
+
+    const satTop = svgBar.querySelector('.bar-sat-top');
+    const satMid = svgBar.querySelector('.bar-grad');
+    const satBot = svgBar.querySelector('.bar-sat-bot');
+
+    const handleMax = svgBar.querySelector('.handle-v[data-handle="vmax"]');
+    const handleMin = svgBar.querySelector('.handle-v[data-handle="vmin"]');
+
+    const crosshair = svgImg.querySelector('.crosshair');
+    const cxLine = crosshair.querySelector('.cx');
+    const cyLine = crosshair.querySelector('.cy');
+    const cDot1  = crosshair.querySelector('.dot');
+    const cDot2  = crosshair.querySelector('.dot2');
+    const readout = svgImg.querySelector('.readout');
+    const rPos    = readout.querySelector('.r-pos');
+    const rVal    = readout.querySelector('.r-val');
+
+    let cmap = 'viridis';
+    let vmin = DATA_MIN, vmax = DATA_MAX;
+    let currentHover = null;
+
+    /* Field: two Gaussian peaks. */
+    const field = (() => {
+      const f = new Array(ROWS);
+      for (let j = 0; j < ROWS; j++) {
+        f[j] = new Array(COLS);
+        for (let i = 0; i < COLS; i++) {
+          const v1 = 920 * Math.exp(-((i - 14) ** 2 + (j - 9) ** 2) / 22);
+          const v2 = 380 * Math.exp(-((i - 22) ** 2 + (j - 4) ** 2) / 6);
+          f[j][i] = Math.max(0, Math.round(v1 + v2));
+        }
+      }
+      return f;
+    })();
+
+    /* Build cell rects once. */
+    const cells = [];
+    for (let j = 0; j < ROWS; j++) {
+      cells[j] = [];
+      for (let i = 0; i < COLS; i++) {
+        cells[j][i] = svgEl('rect', {
+          class: 'cell',
+          x: i * CELL_W, y: j * CELL_H,
+          width: CELL_W, height: CELL_H,
+          fill: '#0b1120',
+        }, cellsG);
+      }
+    }
+
+    /* ---------- coord helpers ---------- */
+
+    function valueToY(v) {
+      const t = (v - DATA_MIN) / (DATA_MAX - DATA_MIN); // 0 = bottom (low value)
+      return BAR_BOTTOM - clamp(t, 0, 1) * BAR_H;
+    }
+    function yToValue(y) {
+      const t = (BAR_BOTTOM - y) / BAR_H;
+      return DATA_MIN + clamp(t, 0, 1) * (DATA_MAX - DATA_MIN);
+    }
+
+    /* ---------- repaint ---------- */
+
+    function repaintCells() {
+      const stops = COLORMAPS[cmap];
+      const range = Math.max(1e-6, vmax - vmin);
+      for (let j = 0; j < ROWS; j++) {
+        for (let i = 0; i < COLS; i++) {
+          const t = (field[j][i] - vmin) / range;
+          cells[j][i].setAttribute('fill', colorAt(stops, t));
+        }
+      }
+    }
+
+    function repaintBar() {
+      const stops = COLORMAPS[cmap];
+      setGradientStops(grad, stops);
+      const yMax = valueToY(vmax);
+      const yMin = valueToY(vmin);
+      const topColor = colorAt(stops, 1);
+      const botColor = colorAt(stops, 0);
+      // Top saturated zone: from BAR_TOP down to yMax.
+      satTop.setAttribute('y', BAR_TOP);
+      satTop.setAttribute('height', Math.max(0, yMax - BAR_TOP));
+      satTop.setAttribute('fill', topColor);
+      // Middle gradient zone.
+      satMid.setAttribute('y', yMax);
+      satMid.setAttribute('height', Math.max(0, yMin - yMax));
+      // Bottom saturated zone.
+      satBot.setAttribute('y', yMin);
+      satBot.setAttribute('height', Math.max(0, BAR_BOTTOM - yMin));
+      satBot.setAttribute('fill', botColor);
+    }
+
+    function repaintHandles() {
+      handleMax.setAttribute('transform', `translate(0 ${valueToY(vmax).toFixed(2)})`);
+      handleMin.setAttribute('transform', `translate(0 ${valueToY(vmin).toFixed(2)})`);
+    }
+
+    function repaintTicks() {
+      clear(ticksG);
+      // Five fixed ticks across the full data range.
+      const N = 4;
+      for (let k = 0; k <= N; k++) {
+        const v = DATA_MIN + (k / N) * (DATA_MAX - DATA_MIN);
+        const y = valueToY(v);
+        svgEl('line', {
+          x1: 38, y1: y, x2: 42, y2: y,
+          stroke: '#475569', 'stroke-width': 1,
+        }, ticksG);
+        svgEl('text', {
+          class: 'axis-tick',
+          x: 46, y: y + 4,
+        }, ticksG, compactNum(v));
+      }
+    }
+
+    function updateMeta() {
+      meta.textContent =
+        `${COLS}×${ROWS} grid · 16-bit · clip [${vmin.toFixed(0)}, ${vmax.toFixed(0)}]`;
+    }
+
+    function refresh() {
+      repaintBar();
+      repaintCells();
+      repaintTicks();
+      repaintHandles();
+      updateMeta();
+      if (currentHover) updatePip(currentHover.value);
+    }
+
+    /* ---------- handle dragging ---------- */
+
+    function startDrag(node, kind) {
+      node.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        node.classList.add('dragging');
+        const onMove = (ev) => {
+          const p = clientToViewBox(svgBar, ev);
+          const v = yToValue(p.y);
+          if (kind === 'vmax') vmax = clamp(v, vmin + MIN_GAP, DATA_MAX);
+          else                 vmin = clamp(v, DATA_MIN, vmax - MIN_GAP);
+          refresh();
+        };
+        const onUp = () => {
+          node.classList.remove('dragging');
+          document.removeEventListener('mousemove', onMove);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp, { once: true });
+      });
+    }
+    startDrag(handleMax, 'vmax');
+    startDrag(handleMin, 'vmin');
+
+    /* ---------- colormap chip selection ---------- */
+
+    document.querySelectorAll('.maps .map-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        cmap = chip.dataset.cmap;
+        document.querySelectorAll('.maps .map-chip').forEach(c =>
+          c.classList.toggle('active', c === chip));
+        refresh();
+        if (currentHover) rVal.setAttribute('fill', colorAt(COLORMAPS[cmap], 1));
+      });
+    });
+
+    document.getElementById('m1-autorange').addEventListener('click', () => {
+      let mn = Infinity, mx = -Infinity;
+      for (let j = 0; j < ROWS; j++) {
+        for (let i = 0; i < COLS; i++) {
+          const v = field[j][i];
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+      }
+      vmin = Math.max(DATA_MIN, mn);
+      vmax = Math.min(DATA_MAX, Math.max(mx, mn + MIN_GAP));
+      refresh();
+    });
+
+    /* ---------- crosshair / hover ---------- */
+
+    function updatePip(value) {
+      const yBar = clamp(valueToY(value), BAR_TOP, BAR_BOTTOM);
+      pip.setAttribute('transform', `translate(0 ${yBar.toFixed(2)})`);
+      pip.style.display = '';
+    }
+
+    svgImg.addEventListener('mousemove', (e) => {
+      const p = clientToViewBox(svgImg, e);
+      const i = clamp(Math.floor(p.x / CELL_W), 0, COLS - 1);
+      const j = clamp(Math.floor(p.y / CELL_H), 0, ROWS - 1);
+      const v = field[j][i];
+      currentHover = { i, j, value: v };
+
+      const cx = (i + 0.5) * CELL_W;
+      const cy = (j + 0.5) * CELL_H;
+      crosshair.style.display = '';
+      cxLine.setAttribute('x1', 0); cxLine.setAttribute('x2', 480);
+      cxLine.setAttribute('y1', cy); cxLine.setAttribute('y2', cy);
+      cyLine.setAttribute('x1', cx); cyLine.setAttribute('x2', cx);
+      cyLine.setAttribute('y1', 0); cyLine.setAttribute('y2', 280);
+      cDot1.setAttribute('cx', cx); cDot1.setAttribute('cy', cy);
+      cDot2.setAttribute('cx', cx); cDot2.setAttribute('cy', cy);
+
+      readout.style.display = '';
+      const rx = cx > 240 ? 8 : 366;
+      readout.setAttribute('transform', `translate(${rx} 8)`);
+      rPos.textContent = `x=${i.toString().padStart(2)}  y=${j.toString().padStart(2)}`;
+      rVal.textContent = `${v} cnt`;
+      rVal.setAttribute('fill', colorAt(COLORMAPS[cmap], 1));
+
+      updatePip(v);
+    });
+
+    svgImg.addEventListener('mouseleave', () => {
+      currentHover = null;
+      crosshair.style.display = 'none';
+      readout.style.display = 'none';
+      pip.style.display = 'none';
+    });
+
+    refresh();
+  })();
+
+  /* =====================================================================
+     Variant 2 · horizontal diverging colorbar
+     ===================================================================== */
+
+  (() => {
+    const BAR_LEFT = 24, BAR_RIGHT = 736, BAR_W = BAR_RIGHT - BAR_LEFT;
+    const BAR_CENTER = (BAR_LEFT + BAR_RIGHT) / 2; // 380
+    const HARD_MAX = 5;     // bar represents [-HARD_MAX, +HARD_MAX]
+    const MIN_RANGE = 0.2;  // smallest ±range allowed
+
+    const svgBar = document.getElementById('m2-bar');
+    const ticksG = svgBar.querySelector('.ticks-h');
+    const satL   = svgBar.querySelector('.bar-sat-l');
+    const satMid = svgBar.querySelector('.bar-grad');
+    const satR   = svgBar.querySelector('.bar-sat-r');
+
+    const bracketBar  = svgBar.querySelector('.rb-bar');
+    const bracketL    = svgBar.querySelector('.rb-edgeL');
+    const bracketR    = svgBar.querySelector('.rb-edgeR');
+    const bracketTL   = svgBar.querySelector('.rb-textL');
+    const bracketTR   = svgBar.querySelector('.rb-textR');
+    const handleVmin  = svgBar.querySelector('.handle-h[data-handle="vmin"]');
+    const handleVmax  = svgBar.querySelector('.handle-h[data-handle="vmax"]');
+    const labelVmin   = handleVmin.querySelector('.h-label');
+    const labelVmax   = handleVmax.querySelector('.h-label');
+    const meta        = document.getElementById('m2-meta');
+    const nLabel      = document.getElementById('m2-n');
+    const pill        = document.getElementById('m2-pill');
+    const grad        = document.getElementById('div-grad-h');
+
+    setGradientStops(grad, DIVERGING);
+
+    // z-scores: N(-0.4, 0.95) + a few injected outliers.
+    const data = (() => {
+      const rng = lcg(0xFEED1234);
+      const N = 184;
+      const a = new Array(N);
+      for (let i = 0; i < N; i++) a[i] = -0.4 + 0.95 * gauss(rng);
+      a.push(-3.4, 3.1, -2.7, 2.65);
+      return a;
+    })();
+    nLabel.textContent = data.length.toLocaleString();
+
+    let dataMin = Infinity, dataMax = -Infinity;
+    for (const v of data) { if (v < dataMin) dataMin = v; if (v > dataMax) dataMax = v; }
+
+    let vmax = 2.5;
+    let vmin = -vmax;
+
+    /* ---------- coord helpers (against the *physical* bar range) ---------- */
+
+    function valueToX(v) {
+      const t = (v - (-HARD_MAX)) / (2 * HARD_MAX);
+      return BAR_LEFT + clamp(t, 0, 1) * BAR_W;
+    }
+    function xToValue(x) {
+      const t = clamp((x - BAR_LEFT) / BAR_W, 0, 1);
+      return -HARD_MAX + t * (2 * HARD_MAX);
+    }
+
+    /* ---------- repaint ---------- */
+
+    function repaintBar() {
+      const xL = valueToX(vmin), xR = valueToX(vmax);
+      satL.setAttribute('x', BAR_LEFT);
+      satL.setAttribute('width', Math.max(0, xL - BAR_LEFT));
+      satL.setAttribute('fill', DIVERGING[0][1]);
+      satMid.setAttribute('x', xL);
+      satMid.setAttribute('width', Math.max(0, xR - xL));
+      satR.setAttribute('x', xR);
+      satR.setAttribute('width', Math.max(0, BAR_RIGHT - xR));
+      satR.setAttribute('fill', DIVERGING[DIVERGING.length - 1][1]);
+    }
+
+    function repaintTicks() {
+      clear(ticksG);
+      // Fixed ticks across the physical range [-5, +5] every 1.25.
+      const positions = [-5, -2.5, 0, 2.5, 5];
+      positions.forEach((v) => {
+        const x = valueToX(v);
+        svgEl('line', {
+          x1: x, y1: 38, x2: x, y2: 44,
+          stroke: '#475569', 'stroke-width': 1,
+        }, ticksG);
+        const lbl = (v > 0 ? '+' : '') + v.toFixed(v === 0 ? 0 : 1);
+        const t = svgEl('text', {
+          class: 'axis-tick', x, y: 56, 'text-anchor': 'middle',
+        }, ticksG, lbl);
+        if (v === 0) t.setAttribute('fill', '#e2e8f0');
+      });
+    }
+
+    function repaintHandles() {
+      const xL = valueToX(vmin), xR = valueToX(vmax);
+      handleVmin.setAttribute('transform', `translate(${xL.toFixed(2)} 0)`);
+      handleVmax.setAttribute('transform', `translate(${xR.toFixed(2)} 0)`);
+      labelVmin.textContent = vmin.toFixed(2);
+      labelVmax.textContent = '+' + vmax.toFixed(2);
+    }
+
+    function repaintBracket() {
+      const trueL = clamp(valueToX(dataMin), BAR_LEFT - 6, BAR_RIGHT + 6);
+      const trueR = clamp(valueToX(dataMax), BAR_LEFT - 6, BAR_RIGHT + 6);
+      bracketBar.setAttribute('x1', trueL); bracketBar.setAttribute('x2', trueR);
+      bracketL.setAttribute('x1', trueL);   bracketL.setAttribute('x2', trueL);
+      bracketR.setAttribute('x1', trueR);   bracketR.setAttribute('x2', trueR);
+      bracketTL.setAttribute('x', trueL);   bracketTL.textContent = (dataMin >= 0 ? '+' : '') + dataMin.toFixed(2);
+      bracketTR.setAttribute('x', trueR);   bracketTR.textContent = (dataMax >= 0 ? '+' : '') + dataMax.toFixed(2);
+    }
+
+    function repaintPill() {
+      let outliers = 0;
+      for (const v of data) if (v < vmin || v > vmax) outliers++;
+      if (outliers === 0) {
+        pill.classList.add('zero');
+        pill.textContent = `0 outliers — all in range`;
+      } else {
+        pill.classList.remove('zero');
+        pill.textContent = `${outliers} outlier${outliers === 1 ? '' : 's'} clipped`;
+      }
+    }
+
+    function refresh() {
+      repaintBar();
+      repaintTicks();
+      repaintHandles();
+      repaintBracket();
+      repaintPill();
+      meta.textContent =
+        `clip ±${vmax.toFixed(2)}  ·  data ∈ [${dataMin.toFixed(2)}, ${dataMax.toFixed(2)}]`;
+    }
+
+    /* ---------- drag handles · symmetric ---------- */
+
+    function startDrag(node) {
+      node.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        node.classList.add('dragging');
+        const onMove = (ev) => {
+          const p = clientToViewBox(svgBar, ev);
+          // Either handle drag adjusts |vmax| based on distance from center.
+          const dist = Math.abs(p.x - BAR_CENTER);
+          const halfBar = BAR_W / 2;
+          const newVmax = clamp((dist / halfBar) * HARD_MAX, MIN_RANGE, HARD_MAX);
+          vmax = newVmax; vmin = -vmax;
+          refresh();
+        };
+        const onUp = () => {
+          node.classList.remove('dragging');
+          document.removeEventListener('mousemove', onMove);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp, { once: true });
+      });
+    }
+    startDrag(handleVmin);
+    startDrag(handleVmax);
+
+    /* ---------- double-click bar to auto-fit ---------- */
+
+    svgBar.addEventListener('dblclick', () => {
+      vmax = clamp(Math.max(Math.abs(dataMin), Math.abs(dataMax)), MIN_RANGE, HARD_MAX);
+      vmin = -vmax;
+      refresh();
+    });
+
+    refresh();
+  })();
+
+  /* =====================================================================
+     Variant 3 · categorical / discrete colormap
+     ===================================================================== */
+
+  (() => {
+    const classes = [
+      { id: 0, name: 'C0 · naive',      color: '#38bdf8', count: 3210 },
+      { id: 1, name: 'C1 · effector',   color: '#4ade80', count: 2884 },
+      { id: 2, name: 'C2 · memory',     color: '#fbbf24', count: 1962 },
+      { id: 3, name: 'C3 · regulatory', color: '#f472b6', count: 1540 },
+      { id: 4, name: 'C4 · exhausted',  color: '#a78bfa', count: 1108 },
+      { id: 5, name: 'C5 · cycling',    color: '#22d3ee', count: 812 },
+      { id: 6, name: 'C6 · doublet',    color: '#f87171', count: 902, hidden: true },
+    ];
+    const TOTAL = classes.reduce((s, c) => s + c.count, 0);
+
+    const catsHost = document.getElementById('m3-cats');
+    const visEl    = document.getElementById('m3-vis');
+    const cellsEl  = document.getElementById('m3-cells');
+    const stackEl  = document.getElementById('m3-bar');
+
+    function refresh() {
+      // Stacked proportion bar.
+      clear(stackEl);
+      const visible = classes.filter(c => !c.hidden);
+      const sum = visible.reduce((s, c) => s + c.count, 0);
+      for (const c of classes) {
+        const seg = document.createElement('div');
+        seg.className = 'seg';
+        seg.style.background = c.color;
+        seg.style.width = (sum > 0 && !c.hidden)
+          ? (100 * c.count / sum) + '%'
+          : '0%';
+        seg.title = `${c.name} · ${c.count.toLocaleString()}`;
+        stackEl.appendChild(seg);
+      }
+      visEl.textContent = visible.length;
+      cellsEl.textContent = sum.toLocaleString();
+    }
+
+    // Build chips.
+    function chipMarkup() {
+      clear(catsHost);
+      for (const c of classes) {
+        const chip = document.createElement('div');
+        chip.className = 'cat-chip' + (c.hidden ? ' muted' : '');
+        chip.dataset.id = c.id;
+
+        const sw = document.createElement('span');
+        sw.className = 'swatch';
+        sw.style.background = c.color;
+
+        const col = document.createElement('span');
+        col.className = 'col';
+        const name = document.createElement('span');
+        name.className = 'name'; name.textContent = c.name;
+        const sub = document.createElement('span');
+        sub.className = 'sub';
+        sub.textContent = c.hidden
+          ? `${c.count.toLocaleString()} · hidden`
+          : `${c.count.toLocaleString()} (${(100 * c.count / TOTAL).toFixed(1)}%)`;
+        col.appendChild(name); col.appendChild(sub);
+
+        chip.appendChild(sw);
+        chip.appendChild(col);
+        chip.addEventListener('click', () => {
+          c.hidden = !c.hidden;
+          chipMarkup();
+          refresh();
+        });
+        catsHost.appendChild(chip);
+      }
+
+      // Trailing "unassigned" chip (always present, never toggleable).
+      const dead = document.createElement('div');
+      dead.className = 'cat-chip';
+      dead.style.cursor = 'default';
+      const dsw = document.createElement('span');
+      dsw.className = 'swatch';
+      dsw.style.background = '#475569';
+      dsw.style.border = '1px dashed #94a3b8';
+      const dcol = document.createElement('span'); dcol.className = 'col';
+      const dn = document.createElement('span'); dn.className = 'name'; dn.textContent = 'unassigned';
+      const ds = document.createElement('span'); ds.className = 'sub';  ds.textContent = '0';
+      dcol.appendChild(dn); dcol.appendChild(ds);
+      dead.appendChild(dsw); dead.appendChild(dcol);
+      catsHost.appendChild(dead);
+    }
+
+    chipMarkup();
+    refresh();
+  })();
+  </script>
+</body>
+</html>
