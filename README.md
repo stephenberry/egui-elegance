@@ -174,6 +174,31 @@ use elegance::TabBar;
 ui.add(TabBar::new(&mut tab, ["Overview", "Settings", "Activity", "Logs"]));
 ```
 
+### BrowserTabs
+
+![BrowserTabs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/browser_tabs.png)
+
+Owned-state strip of browser-style closable tabs. The active tab fills with the card colour so it merges with the panel below; each tab can flag a sky dirty-dot for unsaved changes, and the trailing `+` emits a `NewRequested` event for the caller to handle.
+
+```rust
+use elegance::{BrowserTab, BrowserTabs, BrowserTabsEvent};
+
+struct App { tabs: BrowserTabs, untitled: u32 }
+
+impl App {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        self.tabs.show(ui);
+        for ev in self.tabs.take_events() {
+            if let BrowserTabsEvent::NewRequested = ev {
+                self.untitled += 1;
+                let n = self.untitled;
+                self.tabs.add_tab(BrowserTab::new(format!("u{n}"), format!("Untitled-{n}")));
+            }
+        }
+    }
+}
+```
+
 ### StatusPill · Indicator · Badge
 
 ![Status](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/status.png)
@@ -238,6 +263,48 @@ ui.add(
         .label("Volume")
         .accent(Accent::Green)
         .suffix(" dB"),
+);
+```
+
+### Knob
+
+![Knobs — instrument panel, stepped detents, bipolar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/knobs.png)
+
+Rotary knob bound to any `egui::emath::Numeric`. A 270-degree arc with an accent fill grows clockwise from the lower left; the active position drives a tick indicator inside the body. Three sizes (`Small` / `Medium` / `Large`), an `Accent` colour, and three behavioural variants share one widget: continuous (with optional `step` snap), `bipolar` (fill from the centre of the range outward toward the current value, suited to signed offsets), and stepped with `(value, label)` `detents` that render labeled ticks and snap drag/scroll/keyboard moves to the nearest detent. Drag combines horizontal and vertical motion: right and up both increase, left and down both decrease, so a diagonal flick reads as a single gesture (Shift slows for fine control). The scroll wheel and arrow keys nudge, Page Up / Page Down step coarser, Home / End jump to the bounds, and Alt+click or double-click resets to a configured `default`. Optional `log_scale` for wide ranges (audio frequency, gain). `show_value(true)` renders the formatted value below the knob.
+
+```rust
+use elegance::{Accent, Knob, KnobSize};
+
+// Compact instrument-panel knob with a log scale and inline value.
+ui.add(
+    Knob::new(&mut cutoff, 20.0..=20000.0)
+        .label("Cutoff")
+        .size(KnobSize::Small)
+        .log_scale()
+        .default(1000.0_f32)
+        .show_value(true)
+        .value_fmt(|v| if v >= 1000.0 { format!("{:.1} kHz", v / 1000.0) } else { format!("{v:.0} Hz") }),
+);
+
+// Bipolar knob for a signed offset.
+ui.add(
+    Knob::new(&mut dc_offset, -5.0..=5.0)
+        .label("DC offset")
+        .bipolar()
+        .accent(Accent::Purple)
+        .default(0.0_f32),
+);
+
+// Stepped knob with labeled detents.
+ui.add(
+    Knob::new(&mut timebase, 0u32..=8u32)
+        .size(KnobSize::Large)
+        .step(1.0)
+        .detents([
+            (0u32, "1µ"), (1u32, "2µ"), (2u32, "5µ"),
+            (3u32, "10µ"), (4u32, "20µ"), (5u32, "50µ"),
+            (6u32, "100µ"), (7u32, "200µ"), (8u32, "500µ"),
+        ]),
 );
 ```
 

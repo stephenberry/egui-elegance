@@ -7,13 +7,13 @@
 
 use eframe::egui;
 use elegance::{
-    Accent, Accordion, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone,
-    Card, Checkbox, CollapsingSection, ColorPicker, Drawer, DrawerSide, FileDropZone, Indicator,
-    IndicatorState, LogBar, Menu, MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing,
-    Popover, PopoverSide, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider,
-    Spinner, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent,
-    TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
-    Toasts, Tooltip, TooltipSide,
+    Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme,
+    Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
+    Drawer, DrawerSide, FileDropZone, Indicator, IndicatorState, Knob, KnobSize, LogBar, Menu,
+    MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
+    ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
+    StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
+    TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -72,6 +72,13 @@ struct App {
     range_volume_lo: u32,
     range_volume_hi: u32,
 
+    knob_gain: f32,
+    knob_cutoff: f32,
+    knob_q: f32,
+    knob_mix: u32,
+    knob_timebase: u32,
+    knob_dc_offset: f32,
+
     show_modal: bool,
     show_modal_verify: bool,
     modal_verify_text: String,
@@ -115,6 +122,9 @@ struct App {
 
     multi_term: MultiTerminal,
     term_pane_count: usize,
+
+    browser_tabs: BrowserTabs,
+    browser_tabs_untitled: u32,
 
     log: LogBar,
 }
@@ -186,6 +196,12 @@ impl Default for App {
             range_latency_hi: 340,
             range_volume_lo: 18,
             range_volume_hi: 62,
+            knob_gain: -12.0,
+            knob_cutoff: 1000.0,
+            knob_q: 2.4,
+            knob_mix: 35,
+            knob_timebase: 3,
+            knob_dc_offset: -1.4,
             show_modal: false,
             show_modal_verify: false,
             modal_verify_text: "elegance-".into(),
@@ -255,6 +271,15 @@ impl Default for App {
             pairing_align: false,
             multi_term: build_multi_term(),
             term_pane_count: 4,
+            browser_tabs: BrowserTabs::new("ref_browser_tabs")
+                .with_tab(BrowserTab::new("readme", "README.md"))
+                .with_tab(BrowserTab::new("theme", "theme.rs").dirty(true))
+                .with_tab(BrowserTab::new("button", "widgets/button.rs"))
+                .with_tab(BrowserTab::new(
+                    "cargo",
+                    "cargo output \u{2014} a longer title",
+                )),
+            browser_tabs_untitled: 0,
             log,
         }
     }
@@ -426,7 +451,7 @@ impl eframe::App for App {
             ui.add(TabBar::new(
                 &mut self.category,
                 [
-                    "Buttons", "Inputs", "Display", "Layout", "Overlays", "Tools",
+                    "Buttons", "Inputs", "Numeric", "Display", "Layout", "Overlays", "Tools",
                 ],
             ));
             ui.add_space(8.0);
@@ -442,22 +467,26 @@ impl eframe::App for App {
                         1 => {
                             self.section_text(ui);
                             self.section_selects(ui);
-                            self.section_sliders(ui);
                             self.section_color_picker(ui);
                             self.section_file_drop_zone(ui);
                         }
                         2 => {
+                            self.section_sliders(ui);
+                            self.section_knobs(ui);
+                        }
+                        3 => {
                             self.section_tabs(ui);
+                            self.section_browser_tabs(ui);
                             self.section_status(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
                         }
-                        3 => {
+                        4 => {
                             self.section_containers(ui);
                             self.section_accordion(ui);
                             self.section_menu_bar(ui);
                         }
-                        4 => {
+                        5 => {
                             self.section_modal(ui);
                             self.section_drawer(ui);
                             self.section_menu(ui);
@@ -746,6 +775,21 @@ impl App {
                 &mut self.tab_idx,
                 ["Overview", "Settings", "Activity", "Logs"],
             ));
+        });
+    }
+
+    fn section_browser_tabs(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Browser tabs").show(ui, |ui| {
+            self.browser_tabs.show(ui);
+            for ev in self.browser_tabs.take_events() {
+                if let BrowserTabsEvent::NewRequested = ev {
+                    self.browser_tabs_untitled += 1;
+                    let n = self.browser_tabs_untitled;
+                    let id = format!("untitled-{n}");
+                    let label = format!("Untitled-{n}");
+                    self.browser_tabs.add_tab(BrowserTab::new(id, label));
+                }
+            }
         });
     }
 
@@ -1062,6 +1106,88 @@ impl App {
                 .accent(Accent::Green)
                 .id_salt("ex_range_volume"),
             );
+        });
+    }
+
+    fn section_knobs(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Knob").show(ui, |ui| {
+            labeled(ui, "Instrument panel", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing.x = 14.0;
+                    ui.add(
+                        Knob::new(&mut self.knob_gain, -60.0..=12.0)
+                            .label("Gain")
+                            .size(KnobSize::Small)
+                            .default(0.0_f32)
+                            .show_value(true)
+                            .value_fmt(|v| format!("{v:.0} dB")),
+                    );
+                    ui.add(
+                        Knob::new(&mut self.knob_cutoff, 20.0..=20000.0)
+                            .label("Cutoff")
+                            .size(KnobSize::Small)
+                            .log_scale()
+                            .default(1000.0_f32)
+                            .show_value(true)
+                            .value_fmt(|v| {
+                                if v >= 1000.0 {
+                                    format!("{:.1} kHz", v / 1000.0)
+                                } else {
+                                    format!("{v:.0} Hz")
+                                }
+                            }),
+                    );
+                    ui.add(
+                        Knob::new(&mut self.knob_q, 0.1..=10.0)
+                            .label("Q")
+                            .size(KnobSize::Small)
+                            .log_scale()
+                            .default(0.707_f32)
+                            .show_value(true),
+                    );
+                    ui.add(
+                        Knob::new(&mut self.knob_mix, 0u32..=100u32)
+                            .label("Mix")
+                            .size(KnobSize::Small)
+                            .default(50_u32)
+                            .show_value(true)
+                            .value_fmt(|v| format!("{v:.0}%"))
+                            .accent(Accent::Green),
+                    );
+                });
+            });
+
+            labeled(ui, "Stepped detents", |ui| {
+                ui.add(
+                    Knob::new(&mut self.knob_timebase, 0u32..=8u32)
+                        .size(KnobSize::Large)
+                        .step(1.0)
+                        .detents([
+                            (0u32, "1µ"),
+                            (1u32, "2µ"),
+                            (2u32, "5µ"),
+                            (3u32, "10µ"),
+                            (4u32, "20µ"),
+                            (5u32, "50µ"),
+                            (6u32, "100µ"),
+                            (7u32, "200µ"),
+                            (8u32, "500µ"),
+                        ])
+                        .default(3_u32),
+                );
+            });
+
+            labeled(ui, "Bipolar (fill from zero)", |ui| {
+                ui.add(
+                    Knob::new(&mut self.knob_dc_offset, -5.0..=5.0)
+                        .label("DC offset")
+                        .bipolar()
+                        .accent(Accent::Purple)
+                        .default(0.0_f32)
+                        .show_value(true)
+                        .value_fmt(|v| format!("{v:+.2} V")),
+                );
+            });
         });
     }
 

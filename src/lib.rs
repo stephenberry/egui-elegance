@@ -47,6 +47,7 @@
 
 mod accordion;
 mod badge;
+mod browser_tabs;
 mod button;
 mod callout;
 mod card;
@@ -58,6 +59,7 @@ mod file_drop_zone;
 mod flash;
 mod indicator;
 mod input;
+mod knob;
 mod log_bar;
 mod menu;
 mod menu_bar;
@@ -84,6 +86,7 @@ mod tooltip;
 
 pub use accordion::{Accordion, AccordionItem, AccordionUi};
 pub use badge::{Badge, BadgeTone};
+pub use browser_tabs::{BrowserTab, BrowserTabs, BrowserTabsEvent};
 pub use button::{Button, ButtonSize};
 pub use callout::{Callout, CalloutTone};
 pub use card::Card;
@@ -95,6 +98,7 @@ pub use file_drop_zone::{FileDropResponse, FileDropZone};
 pub use flash::{flash_error, flash_success, FlashKind, ResponseFlashExt, FLASH_DURATION};
 pub use indicator::{Indicator, IndicatorState};
 pub use input::TextInput;
+pub use knob::{Knob, KnobScale, KnobSize};
 pub use log_bar::{LogBar, LogEntry, LogKind};
 pub use menu::{Menu, MenuItem, SubMenuItem};
 pub use menu_bar::{MenuBar, MenuBarUi};

@@ -643,11 +643,6 @@
     bodyRim: 19, bodyFace: 16,
     indY0: 22, indY1: 27,
   };
-  const SMALL_TICKS = [
-    { pos: 0,   r0: 29, r1: 32 },
-    { pos: 0.5, r0: 29, r1: 32 },
-    { pos: 1,   r0: 29, r1: 32 },
-  ];
 
   function fmtFreq(v) {
     if (v >= 1000) return { num: (v / 1000).toFixed(v >= 10000 ? 0 : 2), unit: 'kHz' };
@@ -683,7 +678,7 @@
     cell.appendChild(valSpan);
 
     new Knob({
-      host: knobHost, geom: SMALL, ticks: SMALL_TICKS,
+      host: knobHost, geom: SMALL,
       value: cfg.value, min: cfg.min, max: cfg.max, default: cfg.default,
       scale: cfg.scale, format: cfg.format,
       onChange: (v) => {
@@ -765,12 +760,6 @@
     bodyRim: 44, bodyFace: 38, bodyInner: 30,
     indY0: 54, indY1: 68, centerPipR: 2.5,
   };
-  const BP_TICKS = [
-    { pos: 0,    r0: 60, r1: 65 },
-    { pos: 0.25, r0: 60, r1: 65 },
-    { pos: 0.75, r0: 60, r1: 65 },
-    { pos: 1,    r0: 60, r1: 65 },
-  ];
 
   // Use the Unicode minus sign (U+2212) for negative values; lines up better than ASCII '-'.
   function bpFmt(v) {
@@ -782,9 +771,7 @@
   new Knob({
     host: document.getElementById('bipolar-host'),
     geom: BIPOLAR,
-    ticks: BP_TICKS,
     bipolar: true,
-    centerNotch: true,
     fillClass: 'fill-vio',
     indColor: '#a78bfa',
     indStrokeW: 2.5,

@@ -14,11 +14,12 @@ use eframe::egui;
 use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
-    Accent, Accordion, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, ColorPicker, FileDropZone, Indicator, IndicatorState, LogBar, MenuBar,
-    MenuItem, PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RangeSlider,
-    SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
-    TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout,
+    CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, Indicator,
+    IndicatorState, Knob, KnobSize, LogBar, MenuBar, MenuItem, PairItem, Pairing, Popover,
+    PopoverSide, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
+    TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -290,6 +291,20 @@ fn tabs_ui(ui: &mut egui::Ui) {
     ));
 }
 
+fn browser_tabs_ui(ui: &mut egui::Ui) {
+    let mut tabs = BrowserTabs::new("vis_browser_tabs")
+        .with_tab(BrowserTab::new("readme", "README.md"))
+        .with_tab(BrowserTab::new("theme", "theme.rs").dirty(true))
+        .with_tab(BrowserTab::new("button", "widgets/button.rs"))
+        .with_tab(BrowserTab::new(
+            "cargo",
+            "cargo output \u{2014} a longer title that truncates",
+        ));
+    tabs.set_selected("theme");
+    ui.set_min_width(720.0);
+    tabs.show(ui);
+}
+
 fn status_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
 
@@ -340,6 +355,97 @@ fn sliders_ui(ui: &mut egui::Ui) {
         Slider::new(&mut gain, 0.0..=1.0)
             .label("Gain")
             .accent(Accent::Green),
+    );
+}
+
+fn knobs_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    ui.set_max_width(560.0);
+
+    // Row of small instrument-panel knobs.
+    ui.label(theme.muted_text("Instrument panel"));
+    ui.horizontal_wrapped(|ui| {
+        let mut gain = -12.0_f32;
+        let mut cutoff = 1000.0_f32;
+        let mut q = 2.4_f32;
+        let mut mix = 35_u32;
+        ui.spacing_mut().item_spacing.x = 14.0;
+        ui.add(
+            Knob::new(&mut gain, -60.0..=12.0)
+                .label("Gain")
+                .size(KnobSize::Small)
+                .default(0.0_f32)
+                .show_value(true)
+                .value_fmt(|v| format!("{v:.0} dB")),
+        );
+        ui.add(
+            Knob::new(&mut cutoff, 20.0..=20000.0)
+                .label("Cutoff")
+                .size(KnobSize::Small)
+                .log_scale()
+                .default(1000.0_f32)
+                .show_value(true)
+                .value_fmt(|v| {
+                    if v >= 1000.0 {
+                        format!("{:.1} kHz", v / 1000.0)
+                    } else {
+                        format!("{v:.0} Hz")
+                    }
+                }),
+        );
+        ui.add(
+            Knob::new(&mut q, 0.1..=10.0)
+                .label("Q")
+                .size(KnobSize::Small)
+                .log_scale()
+                .default(0.707_f32)
+                .show_value(true),
+        );
+        ui.add(
+            Knob::new(&mut mix, 0u32..=100u32)
+                .label("Mix")
+                .size(KnobSize::Small)
+                .default(50_u32)
+                .show_value(true)
+                .value_fmt(|v| format!("{v:.0}%"))
+                .accent(Accent::Green),
+        );
+    });
+    ui.add_space(14.0);
+
+    // Stepped knob with labeled detents.
+    ui.label(theme.muted_text("Stepped Timebase"));
+    let mut idx: u32 = 3;
+    ui.add(
+        Knob::new(&mut idx, 0u32..=8u32)
+            .size(KnobSize::Large)
+            .step(1.0)
+            .detents([
+                (0u32, "1µ"),
+                (1u32, "2µ"),
+                (2u32, "5µ"),
+                (3u32, "10µ"),
+                (4u32, "20µ"),
+                (5u32, "50µ"),
+                (6u32, "100µ"),
+                (7u32, "200µ"),
+                (8u32, "500µ"),
+            ])
+            .default(3_u32),
+    );
+    ui.add_space(14.0);
+
+    // Bipolar knob.
+    ui.label(theme.muted_text("Bipolar DC offset"));
+    let mut dc = -1.4_f32;
+    ui.add(
+        Knob::new(&mut dc, -5.0..=5.0)
+            .label("DC offset")
+            .bipolar()
+            .accent(Accent::Purple)
+            .default(0.0_f32)
+            .show_value(true)
+            .value_fmt(|v| format!("{:+.2} V", v)),
     );
 }
 
@@ -963,9 +1069,11 @@ theme_tests!(text_areas, text_areas_ui);
 theme_tests!(selects, selects_ui);
 theme_tests!(toggles, toggles_ui);
 theme_tests!(tabs, tabs_ui);
+theme_tests!(browser_tabs, browser_tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(range_sliders, range_sliders_ui);
+theme_tests!(knobs, knobs_ui);
 theme_tests!(feedback, feedback_ui);
 theme_tests!(progress_rings, progress_rings_ui);
 theme_tests!(steps, steps_ui);
