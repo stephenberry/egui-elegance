@@ -1,10 +1,11 @@
 //! Expandable bottom log bar — a collapsible console for network traffic or event messages.
 //!
-//! [`LogBar`] owns its own ring buffer of [`LogEntry`] rows and renders a
-//! [`egui::Panel::bottom`] with a [`CollapsingSection`](crate::CollapsingSection)
-//! trigger, a scrollable monospace log area (capped at 200 pt), and a Clear
-//! button. Call [`LogBar::show`] once per frame inside your `App::ui`,
-//! before your `CentralPanel`.
+//! [`LogBar`] owns its own ring buffer of [`LogEntry`] rows and renders
+//! a [`egui::Panel::bottom`] with a full-width header strip (click
+//! anywhere on the strip to expand or collapse), a scrollable monospace
+//! log area (capped at 200 pt), and a Clear button. Call
+//! [`LogBar::show`] once per frame inside your `App::ui`, before your
+//! `CentralPanel`.
 //!
 //! Entries are prepended (newest at top) and capped at [`LogBar::max_entries`]
 //! — older rows are silently dropped once the buffer is full.
@@ -45,10 +46,12 @@
 use std::collections::VecDeque;
 use std::hash::Hash;
 
-use egui::Id;
+use egui::{
+    pos2, Color32, CornerRadius, Id, Pos2, Response, Sense, Stroke, Vec2, WidgetInfo, WidgetType,
+};
 
 use crate::theme::Theme;
-use crate::{Button, ButtonSize, CollapsingSection};
+use crate::{Button, ButtonSize};
 
 /// How a single log row is styled and prefixed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -204,11 +207,10 @@ impl LogBar {
         let fill = Theme::current(ui.ctx()).palette.card;
         egui::Panel::bottom(self.id_salt)
             .resizable(false)
-            .frame(
-                egui::Frame::new()
-                    .fill(fill)
-                    .inner_margin(egui::Margin::symmetric(16, 6)),
-            )
+            // The header strip claims the full panel width, so the panel
+            // frame itself carries no inner margin. Body content has its
+            // own margin Frame below.
+            .frame(egui::Frame::new().fill(fill))
             .show_inside(ui, |ui| {
                 let theme = Theme::current(ui.ctx());
                 let count = self.entries.len();
@@ -217,35 +219,42 @@ impl LogBar {
                 } else {
                     format!("{}  \u{00b7}  {count}", self.heading)
                 };
+                let was_open = self.open;
 
-                let mut clear = false;
-                CollapsingSection::new(self.id_salt.with("collapse"), label)
-                    .open(&mut self.open)
-                    .show(ui, |ui| {
-                        ui.add_space(2.0);
-                        egui::ScrollArea::vertical()
-                            .max_height(SCROLL_MAX_HEIGHT)
-                            .auto_shrink([false, true])
-                            .show(ui, |ui| {
-                                ui.spacing_mut().item_spacing.y = 2.0;
-                                if self.entries.is_empty() {
-                                    ui.add(egui::Label::new(theme.faint_text("(no messages)")));
-                                } else {
-                                    for entry in self.entries.iter() {
-                                        log_row(ui, &theme, entry);
+                let trigger = panel_header(ui, &theme, &label, was_open);
+                trigger.widget_info(|| {
+                    WidgetInfo::selected(WidgetType::CollapsingHeader, true, was_open, &label)
+                });
+                if trigger.clicked() {
+                    self.open = !self.open;
+                }
+
+                if self.open {
+                    egui::Frame::new()
+                        .inner_margin(egui::Margin::symmetric(16, 6))
+                        .show(ui, |ui| {
+                            ui.add_space(2.0);
+                            egui::ScrollArea::vertical()
+                                .max_height(SCROLL_MAX_HEIGHT)
+                                .auto_shrink([false, true])
+                                .show(ui, |ui| {
+                                    ui.spacing_mut().item_spacing.y = 2.0;
+                                    if self.entries.is_empty() {
+                                        ui.add(egui::Label::new(theme.faint_text("(no messages)")));
+                                    } else {
+                                        for entry in self.entries.iter() {
+                                            log_row(ui, &theme, entry);
+                                        }
                                     }
-                                }
-                            });
-                        ui.add_space(6.0);
-                        if ui
-                            .add(Button::new("Clear").outline().size(ButtonSize::Small))
-                            .clicked()
-                        {
-                            clear = true;
-                        }
-                    });
-                if clear {
-                    self.entries.clear();
+                                });
+                            ui.add_space(6.0);
+                            if ui
+                                .add(Button::new("Clear").outline().size(ButtonSize::Small))
+                                .clicked()
+                            {
+                                self.entries.clear();
+                            }
+                        });
                 }
             });
     }
@@ -271,6 +280,66 @@ fn now_unix_secs() -> u64 {
     (js_sys::Date::now() / 1000.0) as u64
 }
 
+/// A collapse trigger that spans the panel's full width. Clicking
+/// anywhere on the strip toggles the bar; the row tints on hover so the
+/// hit area is obvious.
+fn panel_header(ui: &mut egui::Ui, theme: &Theme, label: &str, open: bool) -> Response {
+    let p = &theme.palette;
+    let t = &theme.typography;
+
+    const PAD_X: f32 = 16.0;
+    const PAD_Y: f32 = 10.0;
+    const CHEVRON: f32 = 12.0;
+    const GAP: f32 = 8.0;
+
+    let galley = crate::theme::placeholder_galley(ui, label, t.label, false, f32::INFINITY);
+    let row_h = galley.size().y + PAD_Y * 2.0;
+    let row_w = ui.available_width();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(row_w, row_h), Sense::click());
+
+    if ui.is_rect_visible(rect) {
+        let hovered = resp.hovered();
+        let label_color = if hovered { p.text } else { p.text_muted };
+        let chevron_color = if hovered { p.sky } else { p.text_muted };
+
+        if hovered {
+            ui.painter()
+                .rect_filled(rect, CornerRadius::ZERO, p.depth_tint(p.card, 0.12));
+        }
+
+        let chev_center = pos2(rect.min.x + PAD_X + CHEVRON * 0.5, rect.center().y);
+        draw_chevron(ui.painter(), chev_center, CHEVRON, chevron_color, open);
+
+        let text_pos = pos2(
+            rect.min.x + PAD_X + CHEVRON + GAP,
+            rect.center().y - galley.size().y * 0.5,
+        );
+        ui.painter().galley(text_pos, galley, label_color);
+    }
+
+    resp
+}
+
+fn draw_chevron(painter: &egui::Painter, center: Pos2, size: f32, color: Color32, open: bool) {
+    let half = size * 0.3;
+    let points: Vec<Pos2> = if open {
+        // Pointing down.
+        vec![
+            pos2(center.x - half, center.y - half * 0.55),
+            pos2(center.x + half, center.y - half * 0.55),
+            pos2(center.x, center.y + half * 0.75),
+        ]
+    } else {
+        // Pointing right.
+        vec![
+            pos2(center.x - half * 0.55, center.y - half),
+            pos2(center.x - half * 0.55, center.y + half),
+            pos2(center.x + half * 0.75, center.y),
+        ]
+    };
+    painter.add(egui::Shape::convex_polygon(points, color, Stroke::NONE));
+}
+
 fn log_row(ui: &mut egui::Ui, theme: &Theme, entry: &LogEntry) {
     let p = &theme.palette;
     let t = &theme.typography;
@@ -280,7 +349,9 @@ fn log_row(ui: &mut egui::Ui, theme: &Theme, entry: &LogEntry) {
         LogKind::In => (p.success, "\u{2190} "),
         LogKind::Err => (p.danger, ""),
     };
-    ui.horizontal(|ui| {
+    // `horizontal_top` so a wrapped message aligns to the timestamp's
+    // top edge instead of vertically centering across the row.
+    ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         ui.add(egui::Label::new(
             egui::RichText::new(&entry.time)
@@ -289,11 +360,14 @@ fn log_row(ui: &mut egui::Ui, theme: &Theme, entry: &LogEntry) {
                 .size(t.small),
         ));
         ui.add_space(10.0);
-        ui.add(egui::Label::new(
-            egui::RichText::new(format!("{arrow}{}", entry.msg))
-                .monospace()
-                .color(color)
-                .size(t.small),
-        ));
+        ui.add(
+            egui::Label::new(
+                egui::RichText::new(format!("{arrow}{}", entry.msg))
+                    .monospace()
+                    .color(color)
+                    .size(t.small),
+            )
+            .wrap_mode(egui::TextWrapMode::Wrap),
+        );
     });
 }

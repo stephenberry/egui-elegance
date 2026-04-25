@@ -92,6 +92,30 @@ impl Default for App {
         log.out("probe_status");
         log.recv("{\"temp\":42.1,\"ok\":true}");
         log.err("retry budget exceeded");
+        // Long entries to stress-test wrapping / horizontal overflow.
+        log.sys(
+            "Reconnecting to broker mqtts://gateway.iot.example.com:8883 \
+             over TLS 1.3 — credentials accepted, resubscribing to 14 topics, \
+             replaying 3 retained messages from the offline queue.",
+        );
+        log.out(
+            "POST https://api.example.com/v2/devices/sensor-7f3a2c1e/telemetry \
+             ?since=2026-04-23T18%3A04%3A12Z&fields=pressure,humidity,temp_c,vbat",
+        );
+        log.recv(
+            "{\"id\":\"sensor-7f3a2c1e\",\"ts\":1745434752,\"readings\":{\"pressure\":1013.6,\
+             \"humidity\":42.7,\"temp_c\":21.3,\"vbat\":3.842},\"firmware\":\"v2.18.4-rc3\",\
+             \"site\":\"warehouse-east-3\",\"flags\":[\"calibrated\",\"online\"]}",
+        );
+        log.err(
+            "panicked at src/pipeline/aggregator.rs:142:21: \
+             assertion `left == right` failed (left: 8192, right: 4096) \
+             while flushing buffered samples; backtrace truncated, see core.42137 for details",
+        );
+        log.sys(
+            "/Users/stephen/Library/Application Support/elegance-demo/cache/snapshots/\
+             2026-04-23T18-04-12Z-warehouse-east-3-sensor-7f3a2c1e.snapshot.json",
+        );
         Self {
             theme: BuiltInTheme::default(),
             text_normal: "steve@example.com".into(),
