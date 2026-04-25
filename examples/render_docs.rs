@@ -407,35 +407,92 @@ fn render_menu() {
 fn render_modal() {
     render("modal", |ui| {
         background(ui, |ui| {
-            ui.set_max_width(420.0);
+            ui.set_max_width(440.0);
             // Re-paint the modal card inline — Modal proper renders into a
             // top-level centered Area (with a full-viewport backdrop) which
             // doesn't translate well to a tile screenshot.
             let theme = Theme::current(ui.ctx());
             let p = &theme.palette;
+            let pad = theme.card_padding;
             egui::Frame::new()
                 .fill(p.card)
                 .stroke(egui::Stroke::new(1.0, p.border))
                 .corner_radius(egui::CornerRadius::same(theme.card_radius as u8))
-                .inner_margin(egui::Margin::same(theme.card_padding as i8))
                 .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Label::new(theme.heading_text("Run Summary")));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            let _ = ui.add(Button::new("×").outline().size(ButtonSize::Small));
+                    // Header band with icon halo + title stack + close.
+                    egui::Frame::new()
+                        .inner_margin(egui::Margin {
+                            left: pad as i8,
+                            right: pad as i8,
+                            top: pad as i8,
+                            bottom: 0,
+                        })
+                        .show(ui, |ui| {
+                            ui.horizontal_top(|ui| {
+                                let halo_size = 32.0;
+                                let (rect, _) = ui.allocate_exact_size(
+                                    egui::vec2(halo_size, halo_size),
+                                    egui::Sense::hover(),
+                                );
+                                let fg = theme.palette.accent_fill(Accent::Red);
+                                let bg = egui::Color32::from_rgba_unmultiplied(
+                                    fg.r(), fg.g(), fg.b(), 36,
+                                );
+                                ui.painter().circle_filled(rect.center(), halo_size * 0.5, bg);
+                                ui.painter().text(
+                                    rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "!",
+                                    egui::FontId::proportional(theme.typography.heading + 2.0),
+                                    fg,
+                                );
+                                ui.add_space(10.0);
+                                ui.vertical(|ui| {
+                                    ui.add(egui::Label::new(theme.heading_text("Delete project?")));
+                                    ui.add(egui::Label::new(
+                                        theme.muted_text("This action cannot be undone."),
+                                    ));
+                                });
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Min),
+                                    |ui| {
+                                        let _ = ui.add(
+                                            Button::new("×").outline().size(ButtonSize::Small),
+                                        );
+                                    },
+                                );
+                            });
                         });
-                    });
                     ui.add_space(6.0);
                     ui.separator();
                     ui.add_space(10.0);
-                    ui.add(egui::Label::new(theme.muted_text(
-                        "Centered over a dimmed backdrop. Press Esc or click × to dismiss.",
-                    )));
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        let _ = ui.add(Button::new("Confirm").accent(Accent::Green));
-                        let _ = ui.add(Button::new("Cancel").outline());
-                    });
+                    egui::Frame::new()
+                        .inner_margin(egui::Margin {
+                            left: pad as i8,
+                            right: pad as i8,
+                            top: 0,
+                            bottom: pad as i8 / 2,
+                        })
+                        .show(ui, |ui| {
+                            ui.add(egui::Label::new(theme.muted_text(
+                                "All dashboards, alerts, and 3 active deployments will be \
+                                 permanently removed. Members will lose access immediately.",
+                            )));
+                        });
+                    ui.separator();
+                    egui::Frame::new()
+                        .fill(theme.palette.depth_tint(p.card, 0.04))
+                        .inner_margin(egui::Margin::symmetric(pad as i8, pad as i8 * 3 / 4))
+                        .show(ui, |ui| {
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    let _ =
+                                        ui.add(Button::new("Delete project").accent(Accent::Red));
+                                    let _ = ui.add(Button::new("Cancel").outline());
+                                },
+                            );
+                        });
                 });
         });
     });

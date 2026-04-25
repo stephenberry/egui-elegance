@@ -6,11 +6,11 @@
 //! Press `Esc` to dismiss.
 
 use egui::{
-    accesskit, Align2, Area, Color32, Context, CornerRadius, Frame, Id, Key, Margin, Order,
-    Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    accesskit, Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Key, Layout,
+    Margin, Order, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
 };
 
-use crate::{theme::Theme, Button, ButtonSize};
+use crate::{theme::Theme, Accent, Button, ButtonSize};
 
 /// A centered modal dialog.
 ///
@@ -32,11 +32,16 @@ use crate::{theme::Theme, Button, ButtonSize};
 pub struct Modal<'a> {
     id_salt: Id,
     heading: Option<WidgetText>,
+    subtitle: Option<WidgetText>,
+    header_icon: Option<WidgetText>,
+    header_accent: Option<Accent>,
     open: &'a mut bool,
     max_width: f32,
     close_on_backdrop: bool,
     close_on_escape: bool,
     alert: bool,
+    footer: Option<Box<dyn FnOnce(&mut Ui) + 'a>>,
+    footer_left: Option<Box<dyn FnOnce(&mut Ui) + 'a>>,
 }
 
 impl<'a> std::fmt::Debug for Modal<'a> {
@@ -44,11 +49,16 @@ impl<'a> std::fmt::Debug for Modal<'a> {
         f.debug_struct("Modal")
             .field("id_salt", &self.id_salt)
             .field("heading", &self.heading.as_ref().map(|h| h.text()))
+            .field("subtitle", &self.subtitle.as_ref().map(|h| h.text()))
+            .field("header_icon", &self.header_icon.as_ref().map(|h| h.text()))
+            .field("header_accent", &self.header_accent)
             .field("open", &*self.open)
             .field("max_width", &self.max_width)
             .field("close_on_backdrop", &self.close_on_backdrop)
             .field("close_on_escape", &self.close_on_escape)
             .field("alert", &self.alert)
+            .field("footer", &self.footer.as_ref().map(|_| "<closure>"))
+            .field("footer_left", &self.footer_left.as_ref().map(|_| "<closure>"))
             .finish()
     }
 }
@@ -59,17 +69,44 @@ impl<'a> Modal<'a> {
         Self {
             id_salt: Id::new(id_salt),
             heading: None,
+            subtitle: None,
+            header_icon: None,
+            header_accent: None,
             open,
             max_width: 440.0,
             close_on_backdrop: true,
             close_on_escape: true,
             alert: false,
+            footer: None,
+            footer_left: None,
         }
     }
 
     /// Show a strong heading at the top of the modal, alongside the close button.
     pub fn heading(mut self, heading: impl Into<WidgetText>) -> Self {
         self.heading = Some(heading.into());
+        self
+    }
+
+    /// Show a muted subtitle line under the heading.
+    pub fn subtitle(mut self, subtitle: impl Into<WidgetText>) -> Self {
+        self.subtitle = Some(subtitle.into());
+        self
+    }
+
+    /// Paint a glyph in a tinted circular halo to the left of the heading.
+    /// Use any short text — `"⚠"`, `"✓"`, `"!"`, an emoji, or a symbol from
+    /// the bundled `Elegance Symbols` font. The halo's tint comes from
+    /// [`Modal::header_accent`] and defaults to [`Accent::Sky`].
+    pub fn header_icon(mut self, icon: impl Into<WidgetText>) -> Self {
+        self.header_icon = Some(icon.into());
+        self
+    }
+
+    /// Override the accent used for the header icon halo. No-op without
+    /// [`Modal::header_icon`].
+    pub fn header_accent(mut self, accent: Accent) -> Self {
+        self.header_accent = Some(accent);
         self
     }
 
@@ -100,6 +137,25 @@ impl<'a> Modal<'a> {
     /// modal's root node instead of the default `Role::Dialog`.
     pub fn alert(mut self, alert: bool) -> Self {
         self.alert = alert;
+        self
+    }
+
+    /// Add a footer row at the bottom of the modal. The closure runs in a
+    /// right-to-left layout, so widgets added in source order land
+    /// rightmost-first — matching the typical "Cancel | Confirm" reading.
+    /// The footer renders below a horizontal divider and over a slightly
+    /// recessed fill, separating it visually from the body.
+    pub fn footer<F: FnOnce(&mut Ui) + 'a>(mut self, add_footer: F) -> Self {
+        self.footer = Some(Box::new(add_footer));
+        self
+    }
+
+    /// Add a left-aligned slot to the footer (only rendered when
+    /// [`Modal::footer`] is also set). Useful for an "export before delete"
+    /// checkbox or a keyboard-shortcut hint that should sit opposite the
+    /// action buttons.
+    pub fn footer_left<F: FnOnce(&mut Ui) + 'a>(mut self, add_left: F) -> Self {
+        self.footer_left = Some(Box::new(add_left));
         self
     }
 
@@ -192,30 +248,92 @@ impl<'a> Modal<'a> {
                     .fill(p.card)
                     .stroke(Stroke::new(1.0, p.border))
                     .corner_radius(CornerRadius::same(theme.card_radius as u8))
-                    .inner_margin(Margin::same(theme.card_padding as i8))
                     .show(ui, |ui| {
+                        let pad = theme.card_padding;
                         let has_heading = self.heading.is_some();
-                        if has_heading {
-                            ui.horizontal(|ui| {
-                                if let Some(h) = &self.heading {
-                                    ui.add(egui::Label::new(theme.heading_text(h.text())));
-                                }
-                                ui.with_layout(
-                                    egui::Layout::right_to_left(egui::Align::Center),
-                                    |ui| {
-                                        let resp = close_button(ui);
-                                        if resp.clicked() {
-                                            should_close = true;
+                        let has_icon = self.header_icon.is_some();
+                        if has_heading || has_icon {
+                            // Header band — same horizontal padding as body,
+                            // tighter bottom so the optional separator + body
+                            // continue to read as one block.
+                            Frame::new()
+                                .inner_margin(Margin {
+                                    left: pad as i8,
+                                    right: pad as i8,
+                                    top: pad as i8,
+                                    bottom: 0,
+                                })
+                                .show(ui, |ui| {
+                                    ui.horizontal_top(|ui| {
+                                        if let Some(icon) = &self.header_icon {
+                                            paint_icon_halo(
+                                                ui,
+                                                icon.text(),
+                                                self.header_accent.unwrap_or(Accent::Sky),
+                                                &theme,
+                                            );
+                                            ui.add_space(10.0);
                                         }
-                                        close_btn_id = Some(resp.id);
-                                    },
-                                );
-                            });
+                                        ui.vertical(|ui| {
+                                            if let Some(h) = &self.heading {
+                                                ui.add(egui::Label::new(
+                                                    theme.heading_text(h.text()),
+                                                ));
+                                            }
+                                            if let Some(sub) = &self.subtitle {
+                                                ui.add(egui::Label::new(
+                                                    theme.muted_text(sub.text()),
+                                                ));
+                                            }
+                                        });
+                                        ui.with_layout(
+                                            Layout::right_to_left(Align::Min),
+                                            |ui| {
+                                                let resp = close_button(ui);
+                                                if resp.clicked() {
+                                                    should_close = true;
+                                                }
+                                                close_btn_id = Some(resp.id);
+                                            },
+                                        );
+                                    });
+                                });
                             ui.add_space(6.0);
                             ui.separator();
                             ui.add_space(10.0);
                         }
-                        add_contents(ui)
+                        // --- Body ---
+                        let body_result = Frame::new()
+                            .inner_margin(Margin {
+                                left: pad as i8,
+                                right: pad as i8,
+                                top: if has_heading || has_icon { 0 } else { pad as i8 },
+                                bottom: if self.footer.is_some() { pad as i8 / 2 } else { pad as i8 },
+                            })
+                            .show(ui, |ui| add_contents(ui))
+                            .inner;
+
+                        // --- Footer ---
+                        if let Some(footer) = self.footer {
+                            ui.separator();
+                            Frame::new()
+                                .fill(theme.palette.depth_tint(p.card, 0.04))
+                                .inner_margin(Margin::symmetric(pad as i8, pad as i8 * 3 / 4))
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        if let Some(left) = self.footer_left {
+                                            left(ui);
+                                        }
+                                        ui.with_layout(
+                                            Layout::right_to_left(Align::Center),
+                                            |ui| {
+                                                footer(ui);
+                                            },
+                                        );
+                                    });
+                                });
+                        }
+                        body_result
                     })
             });
 
@@ -270,4 +388,23 @@ fn close_button(ui: &mut Ui) -> Response {
     let enabled = inner.enabled();
     inner.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, "Close"));
     inner
+}
+
+/// Paint a circular tinted halo with a centered glyph. The fg uses the full
+/// accent colour; the bg is the same colour at low alpha so the halo reads
+/// as a coloured "wash" against the card surface.
+fn paint_icon_halo(ui: &mut Ui, glyph: &str, accent: Accent, theme: &Theme) {
+    let size = 32.0;
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
+    let fg = theme.palette.accent_fill(accent);
+    let bg = Color32::from_rgba_unmultiplied(fg.r(), fg.g(), fg.b(), 36);
+    let painter = ui.painter();
+    painter.circle_filled(rect.center(), size * 0.5, bg);
+    painter.text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        glyph,
+        FontId::proportional(theme.typography.heading + 2.0),
+        fg,
+    );
 }

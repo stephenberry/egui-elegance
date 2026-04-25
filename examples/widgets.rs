@@ -12,7 +12,7 @@ use elegance::{
     MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
     ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle,
     SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,
-    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -63,6 +63,16 @@ struct App {
     slider_float: f32,
 
     show_modal: bool,
+    show_modal_verify: bool,
+    modal_verify_text: String,
+    modal_verify_export: bool,
+    show_modal_form: bool,
+    modal_form_name: String,
+    modal_form_desc: String,
+    modal_form_project: String,
+    modal_form_open_after: bool,
+    show_modal_info: bool,
+    show_modal_plain: bool,
     show_drawer_detail: bool,
     show_drawer_form: bool,
     drawer_form_name: String,
@@ -158,6 +168,16 @@ impl Default for App {
             slider_int: 48,
             slider_float: 0.62,
             show_modal: false,
+            show_modal_verify: false,
+            modal_verify_text: "elegance-".into(),
+            modal_verify_export: false,
+            show_modal_form: false,
+            modal_form_name: "Request volume by region".into(),
+            modal_form_desc: String::new(),
+            modal_form_project: "elegance-charts".into(),
+            modal_form_open_after: true,
+            show_modal_info: false,
+            show_modal_plain: false,
             show_drawer_detail: false,
             show_drawer_form: false,
             drawer_form_name: "Avery Lin".into(),
@@ -416,7 +436,12 @@ impl eframe::App for App {
                             self.section_menu_bar(ui);
                         }
                         4 => {
-                            self.section_overlays(ui);
+                            self.section_modal(ui);
+                            self.section_drawer(ui);
+                            self.section_menu(ui);
+                            self.section_toast(ui);
+                            self.section_popover(ui);
+                            self.section_tooltip(ui);
                         }
                         _ => {
                             self.section_pairing(ui);
@@ -428,6 +453,10 @@ impl eframe::App for App {
         });
 
         self.modal_demo(ui.ctx());
+        self.modal_demo_verify(ui.ctx());
+        self.modal_demo_form(ui.ctx());
+        self.modal_demo_info(ui.ctx());
+        self.modal_demo_plain(ui.ctx());
         self.drawer_demos(ui.ctx());
         Toasts::new().render(ui.ctx());
     }
@@ -1331,64 +1360,168 @@ impl App {
         });
     }
 
-    fn section_overlays(&mut self, ui: &mut egui::Ui) {
-        Card::new().heading("Overlays").show(ui, |ui| {
+    fn section_modal(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Modal").show(ui, |ui| {
             let theme = Theme::current(ui.ctx());
             ui.add(egui::Label::new(theme.faint_text(
-                "Click to open. Modal, Menu, Popover, and Toast render over everything else.",
+                "Centered dialog over a dimmed backdrop. Esc or × to dismiss.",
             )));
             ui.add_space(6.0);
-
-            labeled(ui, "Modal, Menu, Toast", |ui| {
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(Button::new("Open modal").accent(Accent::Blue))
-                        .clicked()
-                    {
-                        self.show_modal = true;
-                    }
-
-                    let menu_trigger =
-                        ui.add(Button::new("Open menu").outline().size(ButtonSize::Medium));
-                    Menu::new("ref_menu").show_below(&menu_trigger, |ui| {
-                        let _ = ui.add(MenuItem::new("Edit").shortcut("⌘ E"));
-                        let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
-                        ui.separator();
-                        let _ = ui.add(MenuItem::new("Delete").danger());
-                    });
-
-                    if ui.add(Button::new("Toast").accent(Accent::Green)).clicked() {
-                        Toast::new("Saved")
-                            .description("All changes have been persisted.")
-                            .tone(BadgeTone::Ok)
-                            .show(ui.ctx());
-                    }
-                });
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add(Button::new("Confirm destructive").accent(Accent::Red))
+                    .clicked()
+                {
+                    self.show_modal = true;
+                }
+                if ui
+                    .add(Button::new("Verify to delete").outline())
+                    .clicked()
+                {
+                    self.show_modal_verify = true;
+                }
+                if ui
+                    .add(Button::new("Form dialog").accent(Accent::Blue))
+                    .clicked()
+                {
+                    self.show_modal_form = true;
+                }
+                if ui
+                    .add(Button::new("Informational").accent(Accent::Green))
+                    .clicked()
+                {
+                    self.show_modal_info = true;
+                }
+                if ui.add(Button::new("Plain").outline()).clicked() {
+                    self.show_modal_plain = true;
+                }
             });
+        });
+    }
 
-            labeled(ui, "Drawer", |ui| {
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(Button::new("Open detail drawer").accent(Accent::Blue))
-                        .clicked()
-                    {
-                        self.show_drawer_detail = true;
-                    }
-                    if ui
-                        .add(Button::new("Open form drawer (left)").outline())
-                        .clicked()
-                    {
-                        self.show_drawer_form = true;
-                    }
-                });
+    fn section_drawer(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Drawer").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Side-anchored slide-in panel. Built-in focus capture, Esc-to-close, and × button.",
+            )));
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                if ui
+                    .add(Button::new("Open detail drawer").accent(Accent::Blue))
+                    .clicked()
+                {
+                    self.show_drawer_detail = true;
+                }
+                if ui
+                    .add(Button::new("Open form drawer (left)").outline())
+                    .clicked()
+                {
+                    self.show_drawer_form = true;
+                }
             });
+        });
+    }
 
+    fn section_menu(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Menu").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Click-anchored list of actions with optional shortcuts and a destructive item.",
+            )));
+            ui.add_space(6.0);
+            let menu_trigger = ui.add(Button::new("Open menu").outline().size(ButtonSize::Medium));
+            Menu::new("ref_menu").show_below(&menu_trigger, |ui| {
+                let _ = ui.add(MenuItem::new("Edit").shortcut("⌘ E"));
+                let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
+                ui.separator();
+                let _ = ui.add(MenuItem::new("Delete").danger());
+            });
+        });
+    }
+
+    fn section_toast(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Toast").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Non-blocking notification. Auto-dismisses after a few seconds.",
+            )));
+            ui.add_space(6.0);
+            if ui.add(Button::new("Toast").accent(Accent::Green)).clicked() {
+                Toast::new("Saved")
+                    .description("All changes have been persisted.")
+                    .tone(BadgeTone::Ok)
+                    .show(ui.ctx());
+            }
+        });
+    }
+
+    fn section_popover(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Popover").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Click-anchored floating panel. Lighter than Modal: no backdrop, no focus trap.",
+            )));
+            ui.add_space(6.0);
             self.popover_examples(ui);
         });
     }
 
+    fn section_tooltip(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Tooltip").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Hover- or focus-triggered hint. Inherits egui's delay and grace-window chaining.",
+            )));
+            ui.add_space(6.0);
+
+            labeled(ui, "Label only", |ui| {
+                let trigger = ui.add(Button::new("Share").outline().size(ButtonSize::Small));
+                Tooltip::new("Copy share link").show(&trigger);
+            });
+
+            labeled(ui, "Heading + body + shortcut", |ui| {
+                let trigger = ui.add(Button::new("Save").outline());
+                Tooltip::new("Write the working tree to disk. Remote sync runs in the background.")
+                    .heading("Save changes")
+                    .shortcut("\u{2318} S")
+                    .show(&trigger);
+            });
+
+            labeled(ui, "Explaining a status pill (below)", |ui| {
+                let trigger = ui.add(
+                    Button::new("degraded")
+                        .accent(Accent::Amber)
+                        .size(ButtonSize::Small),
+                );
+                Tooltip::new(
+                    "api-west-01 is returning elevated 5xx. Other regions healthy. \
+                     Updated 38s ago.",
+                )
+                .heading("Partial outage")
+                .side(TooltipSide::Bottom)
+                .show(&trigger);
+            });
+
+            labeled(ui, "Field help", |ui| {
+                ui.horizontal(|ui| {
+                    let theme = Theme::current(ui.ctx());
+                    ui.add(egui::Label::new(theme.muted_text("Retry budget")));
+                    let trigger = ui.add(Button::new("?").outline().size(ButtonSize::Small));
+                    Tooltip::new(
+                        "Maximum retries per minute before the circuit breaker opens \
+                         and new requests fail fast.",
+                    )
+                    .heading("Retry budget")
+                    .side(TooltipSide::Bottom)
+                    .show(&trigger);
+                });
+            });
+        });
+    }
+
     fn popover_examples(&mut self, ui: &mut egui::Ui) {
-        labeled(ui, "Popover · placements", |ui| {
+        labeled(ui, "Placements", |ui| {
             ui.horizontal(|ui| {
                 for (label, side) in [
                     ("Top", PopoverSide::Top),
@@ -1410,7 +1543,7 @@ impl App {
             });
         });
 
-        labeled(ui, "Popover · title + body + destructive footer", |ui| {
+        labeled(ui, "Title + body + destructive footer", |ui| {
             let trigger = ui.add(Button::new("Delete branch").outline());
             Popover::new("pop_confirm")
                 .side(PopoverSide::Bottom)
@@ -1432,7 +1565,7 @@ impl App {
                 });
         });
 
-        labeled(ui, "Popover · info card, no footer, fixed width", |ui| {
+        labeled(ui, "Info card, no footer, fixed width", |ui| {
             let trigger = ui.add(Button::new("What's a baseline?").outline());
             Popover::new("pop_info")
                 .side(PopoverSide::Top)
@@ -1447,7 +1580,7 @@ impl App {
                 });
         });
 
-        labeled(ui, "Popover · multi-select filter", |ui| {
+        labeled(ui, "Multi-select filter", |ui| {
             ui.horizontal(|ui| {
                 let trigger = ui.add(Button::new("Filter ▾").outline());
                 Popover::new("pop_filter")
@@ -1483,44 +1616,241 @@ impl App {
             });
         });
 
-        labeled(
-            ui,
-            "Popover · no arrow, custom gap — dropdown surface",
-            |ui| {
-                let trigger = ui.add(Button::new("Quick actions ▾").outline());
-                Popover::new("pop_plain")
-                    .side(PopoverSide::Bottom)
-                    .arrow(false)
-                    .gap(4.0)
-                    .show(&trigger, |ui| {
-                        ui.add(MenuItem::new("Rename"));
-                        ui.add(MenuItem::new("Duplicate"));
-                        ui.add(MenuItem::new("Archive"));
-                        ui.separator();
-                        ui.add(MenuItem::new("Delete").danger());
-                    });
-            },
-        );
+        labeled(ui, "No arrow, custom gap (dropdown surface)", |ui| {
+            let trigger = ui.add(Button::new("Quick actions ▾").outline());
+            Popover::new("pop_plain")
+                .side(PopoverSide::Bottom)
+                .arrow(false)
+                .gap(4.0)
+                .show(&trigger, |ui| {
+                    ui.add(MenuItem::new("Rename"));
+                    ui.add(MenuItem::new("Duplicate"));
+                    ui.add(MenuItem::new("Archive"));
+                    ui.separator();
+                    ui.add(MenuItem::new("Delete").danger());
+                });
+        });
     }
 
     fn modal_demo(&mut self, ctx: &egui::Context) {
         if !self.show_modal {
             return;
         }
+        let mut confirm = false;
+        let mut cancel = false;
         Modal::new("ref_modal", &mut self.show_modal)
-            .heading("Modal dialog")
+            .heading("Delete project?")
+            .subtitle("This action cannot be undone.")
+            .header_icon("!")
+            .header_accent(Accent::Red)
             .max_width(420.0)
+            .alert(true)
+            .footer(|ui| {
+                if ui.add(Button::new("Delete project").accent(Accent::Red)).clicked() {
+                    confirm = true;
+                }
+                if ui.add(Button::new("Cancel").outline()).clicked() {
+                    cancel = true;
+                }
+            })
             .show(ctx, |ui| {
                 let theme = Theme::current(ui.ctx());
                 ui.add(egui::Label::new(theme.muted_text(
-                    "Centered over a dimmed backdrop. Press Esc or click the × to dismiss.",
+                    "All dashboards, alerts, and 3 active deployments will be permanently \
+                     removed. Members will lose access immediately.",
                 )));
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    let _ = ui.add(Button::new("Confirm").accent(Accent::Green));
-                    let _ = ui.add(Button::new("Cancel").outline());
-                });
             });
+        if confirm || cancel {
+            self.show_modal = false;
+        }
+    }
+
+    /// Verify-to-delete: typed phrase gates the destructive action; left
+    /// footer slot carries an "Export before deletion" checkbox.
+    fn modal_demo_verify(&mut self, ctx: &egui::Context) {
+        if !self.show_modal_verify {
+            return;
+        }
+        const PHRASE: &str = "elegance-labs";
+        let armed = self.modal_verify_text == PHRASE;
+        let mut confirm = false;
+        let mut cancel = false;
+        let verify_export = &mut self.modal_verify_export;
+        let verify_text = &mut self.modal_verify_text;
+        Modal::new("ref_modal_verify", &mut self.show_modal_verify)
+            .heading("Delete workspace")
+            .subtitle("This will remove all 38 projects, 214 dashboards, and 7 team members.")
+            .header_icon("!")
+            .header_accent(Accent::Red)
+            .max_width(480.0)
+            .alert(true)
+            .footer_left(|ui| {
+                ui.add(Checkbox::new(verify_export, "Export data before deletion"));
+            })
+            .footer(|ui| {
+                if ui
+                    .add(
+                        Button::new("Delete workspace")
+                            .accent(Accent::Red)
+                            .enabled(armed),
+                    )
+                    .clicked()
+                {
+                    confirm = true;
+                }
+                if ui.add(Button::new("Cancel").outline()).clicked() {
+                    cancel = true;
+                }
+            })
+            .show(ctx, |ui| {
+                let theme = Theme::current(ui.ctx());
+                ui.horizontal_wrapped(|ui| {
+                    ui.add(egui::Label::new(theme.muted_text("Type")));
+                    ui.add(egui::Label::new(
+                        egui::RichText::new(PHRASE)
+                            .monospace()
+                            .color(theme.palette.red),
+                    ));
+                    ui.add(egui::Label::new(theme.muted_text("to confirm.")));
+                });
+                ui.add_space(6.0);
+                ui.add(
+                    TextInput::new(verify_text)
+                        .desired_width(f32::INFINITY)
+                        .id_salt("ref_modal_verify_phrase"),
+                );
+            });
+        if confirm || cancel {
+            self.show_modal_verify = false;
+        }
+    }
+
+    /// Form dialog: multiple fields, kbd-hint in the left footer slot,
+    /// Cancel + Create on the right.
+    fn modal_demo_form(&mut self, ctx: &egui::Context) {
+        if !self.show_modal_form {
+            return;
+        }
+        let mut create = false;
+        let mut cancel = false;
+        let name = &mut self.modal_form_name;
+        let desc = &mut self.modal_form_desc;
+        let project = &mut self.modal_form_project;
+        let open_after = &mut self.modal_form_open_after;
+        Modal::new("ref_modal_form", &mut self.show_modal_form)
+            .heading("New dashboard")
+            .subtitle("Dashboards can be shared across projects.")
+            .header_icon("+")
+            .header_accent(Accent::Sky)
+            .max_width(540.0)
+            .footer_left(|ui| {
+                let theme = Theme::current(ui.ctx());
+                ui.add(egui::Label::new(
+                    theme.faint_text("Esc to cancel · ⌘ ↵ to create"),
+                ));
+            })
+            .footer(|ui| {
+                if ui
+                    .add(Button::new("Create dashboard").accent(Accent::Blue))
+                    .clicked()
+                {
+                    create = true;
+                }
+                if ui.add(Button::new("Cancel").outline()).clicked() {
+                    cancel = true;
+                }
+            })
+            .show(ctx, |ui| {
+                ui.add(
+                    TextInput::new(name)
+                        .label("Name")
+                        .desired_width(f32::INFINITY)
+                        .id_salt("ref_modal_form_name"),
+                );
+                ui.add_space(8.0);
+                ui.add(
+                    TextInput::new(desc)
+                        .label("Description")
+                        .hint("Shown in the listing and search results")
+                        .desired_width(f32::INFINITY)
+                        .id_salt("ref_modal_form_desc"),
+                );
+                ui.add_space(8.0);
+                ui.add(
+                    Select::strings(
+                        "ref_modal_form_project",
+                        project,
+                        ["Elegance Core", "elegance-charts", "Ingestion"],
+                    )
+                    .label("Project"),
+                );
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(8.0);
+                ui.add(Checkbox::new(open_after, "Open dashboard after creation"));
+            });
+        if create || cancel {
+            self.show_modal_form = false;
+        }
+    }
+
+    /// Plain modal: heading + body + single Close action, no icon halo.
+    fn modal_demo_plain(&mut self, ctx: &egui::Context) {
+        if !self.show_modal_plain {
+            return;
+        }
+        let mut close = false;
+        Modal::new("ref_modal_plain", &mut self.show_modal_plain)
+            .heading("Run summary")
+            .max_width(420.0)
+            .footer(|ui| {
+                if ui.add(Button::new("Close").outline()).clicked() {
+                    close = true;
+                }
+            })
+            .show(ctx, |ui| {
+                let theme = Theme::current(ui.ctx());
+                ui.add(egui::Label::new(theme.muted_text(
+                    "Build #4128 · main · 2m 04s · 312 tests passed",
+                )));
+                ui.add_space(8.0);
+                ui.add(egui::Label::new(theme.faint_text(
+                    "No icon, no subtitle. The minimal modal — heading row, body, optional \
+                     footer.",
+                )));
+            });
+        if close {
+            self.show_modal_plain = false;
+        }
+    }
+
+    /// Informational modal: success halo, single primary action.
+    fn modal_demo_info(&mut self, ctx: &egui::Context) {
+        if !self.show_modal_info {
+            return;
+        }
+        let mut done = false;
+        Modal::new("ref_modal_info", &mut self.show_modal_info)
+            .heading("Payment received")
+            .subtitle("Invoice INV-4208 · $842.00")
+            .header_icon("✓")
+            .header_accent(Accent::Green)
+            .max_width(380.0)
+            .footer(|ui| {
+                if ui.add(Button::new("Done").accent(Accent::Blue)).clicked() {
+                    done = true;
+                }
+            })
+            .show(ctx, |ui| {
+                let theme = Theme::current(ui.ctx());
+                ui.add(egui::Label::new(theme.muted_text(
+                    "Your billing period has been extended to May 31, 2026. A receipt has been \
+                     emailed to avery@example.com.",
+                )));
+            });
+        if done {
+            self.show_modal_info = false;
+        }
     }
 
     fn drawer_demos(&mut self, ctx: &egui::Context) {
