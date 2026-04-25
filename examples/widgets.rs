@@ -9,10 +9,10 @@ use eframe::egui;
 use elegance::{
     Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
     Checkbox, CollapsingSection, Drawer, DrawerSide, Indicator, IndicatorState, LogBar, Menu,
-    MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
-    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
-    TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
-    ThemeSwitcher, Toast, Toasts,
+    MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
+    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle,
+    SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,
+    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
 };
 
 fn main() -> eframe::Result<()> {
@@ -79,6 +79,14 @@ struct App {
     pop_filter_blocked: bool,
 
     callout_danger_open: bool,
+
+    mb_show_sidebar: bool,
+    mb_show_minimap: bool,
+    mb_show_status: bool,
+    mb_density: usize, // 0 = compact, 1 = comfortable, 2 = spacious
+    mb_theme: usize,   // 0 = light, 1 = dark, 2 = system
+    mb_schedule_on: bool,
+    mb_last_action: String,
 
     pairing_clients: Vec<PairItem>,
     pairing_servers: Vec<PairItem>,
@@ -165,6 +173,13 @@ impl Default for App {
             pop_filter_ready: false,
             pop_filter_blocked: false,
             callout_danger_open: true,
+            mb_show_sidebar: true,
+            mb_show_minimap: false,
+            mb_show_status: true,
+            mb_density: 1,
+            mb_theme: 1,
+            mb_schedule_on: true,
+            mb_last_action: String::new(),
             pairing_clients: vec![
                 PairItem::new("c1", "worker-pool-a")
                     .detail("24 instances")
@@ -371,7 +386,9 @@ impl eframe::App for App {
             ui.add_space(8.0);
             ui.add(TabBar::new(
                 &mut self.category,
-                ["Inputs", "Display", "Layout", "Overlays", "Tools"],
+                [
+                    "Buttons", "Inputs", "Display", "Layout", "Overlays", "Tools",
+                ],
             ));
             ui.add_space(8.0);
             egui::ScrollArea::vertical()
@@ -381,21 +398,24 @@ impl eframe::App for App {
                     match self.category {
                         0 => {
                             self.section_buttons(ui);
-                            self.section_text(ui);
-                            self.section_selects(ui);
                             self.section_toggles(ui);
-                            self.section_sliders(ui);
                         }
                         1 => {
+                            self.section_text(ui);
+                            self.section_selects(ui);
+                            self.section_sliders(ui);
+                        }
+                        2 => {
                             self.section_tabs(ui);
                             self.section_status(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
                         }
-                        2 => {
-                            self.section_containers(ui);
-                        }
                         3 => {
+                            self.section_containers(ui);
+                            self.section_menu_bar(ui);
+                        }
+                        4 => {
                             self.section_overlays(ui);
                         }
                         _ => {
@@ -938,6 +958,286 @@ impl App {
                         ));
                     });
             });
+        });
+    }
+
+    fn section_menu_bar(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Menu bar").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Click a trigger to open. Once any menu is open, hovering a sibling switches to it.",
+            )));
+            ui.add_space(8.0);
+
+            // Simulate a small app shell so the menu bar reads as window
+            // chrome rather than a free-floating control.
+            Card::new()
+                .padding(0.0)
+                .fill(theme.palette.bg)
+                .show(ui, |ui| {
+                    ui.scope(|ui| {
+                        ui.spacing_mut().item_spacing.y = 0.0;
+
+                        MenuBar::new("ref_menu_bar")
+                            .brand("Elegance")
+                            .status_with_dot("main \u{00b7} up to date", theme.palette.green)
+                            .show(ui, |bar| {
+                                self.menu_bar_file(bar);
+                                self.menu_bar_view(bar);
+                                self.menu_bar_actions(bar);
+                                bar.menu("Help", |ui| {
+                                    ui.add(MenuItem::new("Documentation").icon("\u{2139}"));
+                                    ui.add(MenuItem::new("Keyboard shortcuts"));
+                                    ui.separator();
+                                    ui.add(MenuItem::new("About Elegance"));
+                                });
+                            });
+
+                        // Body placeholder so the strip reads as chrome.
+                        ui.allocate_space(egui::vec2(ui.available_width(), 12.0));
+                        ui.horizontal(|ui| {
+                            ui.add_space(12.0);
+                            ui.add(egui::Label::new(theme.muted_text(
+                                if self.mb_last_action.is_empty() {
+                                    "(menu actions will be reported here)".to_string()
+                                } else {
+                                    format!("Last menu action: {}", self.mb_last_action)
+                                },
+                            )));
+                        });
+                        ui.allocate_space(egui::vec2(ui.available_width(), 12.0));
+                    });
+                });
+        });
+    }
+
+    fn menu_bar_file(&mut self, bar: &mut elegance::MenuBarUi<'_>) {
+        bar.menu("File", |ui| {
+            if ui
+                .add(
+                    MenuItem::new("New file")
+                        .icon("\u{2795}")
+                        .shortcut("\u{2318}N"),
+                )
+                .clicked()
+            {
+                self.mb_last_action = "New file".into();
+            }
+            if ui
+                .add(
+                    MenuItem::new("Open\u{2026}")
+                        .icon("\u{1F4C2}")
+                        .shortcut("\u{2318}O"),
+                )
+                .clicked()
+            {
+                self.mb_last_action = "Open\u{2026}".into();
+            }
+
+            // Submenu — flyout opens to the right when the row is hovered.
+            let last_action_slot = &mut self.mb_last_action;
+            SubMenuItem::new("Open Recent")
+                .icon("\u{1F552}")
+                .show(ui, |ui| {
+                    for (label, when) in [
+                        ("theme.rs", "5m ago"),
+                        ("widgets/button.rs", "1h ago"),
+                        ("README.md", "2d ago"),
+                        ("tokens.json", "Apr 18"),
+                    ] {
+                        if ui.add(MenuItem::new(label).shortcut(when)).clicked() {
+                            *last_action_slot = format!("Open recent \u{2192} {label}");
+                        }
+                    }
+                    ui.separator();
+                    if ui.add(MenuItem::new("Clear list")).clicked() {
+                        *last_action_slot = "Clear recent files".into();
+                    }
+                });
+
+            ui.separator();
+            if ui
+                .add(
+                    MenuItem::new("Save")
+                        .icon("\u{1F4BE}")
+                        .shortcut("\u{2318}S"),
+                )
+                .clicked()
+            {
+                self.mb_last_action = "Save".into();
+            }
+            ui.add(
+                MenuItem::new("Save as\u{2026}")
+                    .icon("\u{1F4BE}")
+                    .shortcut("\u{2318}\u{21E7}S"),
+            );
+            ui.add(
+                MenuItem::new("Revert (no changes)")
+                    .icon("\u{21BA}")
+                    .enabled(false),
+            );
+            ui.separator();
+            if ui
+                .add(
+                    MenuItem::new("Close window")
+                        .icon("\u{2715}")
+                        .shortcut("\u{2318}W"),
+                )
+                .clicked()
+            {
+                self.mb_last_action = "Close window".into();
+            }
+        });
+    }
+
+    fn menu_bar_view(&mut self, bar: &mut elegance::MenuBarUi<'_>) {
+        bar.menu_keep_open("View", |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text("LAYOUT")));
+            if ui
+                .add(
+                    MenuItem::new("Show sidebar")
+                        .checked(self.mb_show_sidebar)
+                        .shortcut("\u{2318}\\"),
+                )
+                .clicked()
+            {
+                self.mb_show_sidebar = !self.mb_show_sidebar;
+                self.mb_last_action = format!(
+                    "Show sidebar \u{2192} {}",
+                    if self.mb_show_sidebar { "on" } else { "off" }
+                );
+            }
+            if ui
+                .add(
+                    MenuItem::new("Show minimap")
+                        .checked(self.mb_show_minimap)
+                        .shortcut("\u{2318}\u{21E7}M"),
+                )
+                .clicked()
+            {
+                self.mb_show_minimap = !self.mb_show_minimap;
+                self.mb_last_action = format!(
+                    "Show minimap \u{2192} {}",
+                    if self.mb_show_minimap { "on" } else { "off" }
+                );
+            }
+            if ui
+                .add(MenuItem::new("Show status bar").checked(self.mb_show_status))
+                .clicked()
+            {
+                self.mb_show_status = !self.mb_show_status;
+                self.mb_last_action = format!(
+                    "Show status bar \u{2192} {}",
+                    if self.mb_show_status { "on" } else { "off" }
+                );
+            }
+
+            ui.separator();
+            ui.add(egui::Label::new(theme.faint_text("DENSITY")));
+            for (idx, label) in ["Compact", "Comfortable", "Spacious"].iter().enumerate() {
+                if ui
+                    .add(MenuItem::new(*label).radio(self.mb_density == idx))
+                    .clicked()
+                {
+                    self.mb_density = idx;
+                    self.mb_last_action = format!("Density \u{2192} {label}");
+                }
+            }
+
+            ui.separator();
+            ui.add(egui::Label::new(theme.faint_text("THEME")));
+            for (idx, label) in ["Light", "Dark \u{00b7} Slate", "System"]
+                .iter()
+                .enumerate()
+            {
+                if ui
+                    .add(MenuItem::new(*label).radio(self.mb_theme == idx))
+                    .clicked()
+                {
+                    self.mb_theme = idx;
+                    self.mb_last_action = format!("Theme \u{2192} {label}");
+                }
+            }
+
+            // Zoom flyout. The View menu is sticky (`menu_keep_open`) so
+            // child submenus inherit that close behaviour — handy here
+            // since the user can fire several zoom actions in a row.
+            ui.separator();
+            let last_action_slot = &mut self.mb_last_action;
+            SubMenuItem::new("Zoom").icon("\u{1F50D}").show(ui, |ui| {
+                if ui
+                    .add(MenuItem::new("Zoom in").shortcut("\u{2318}+"))
+                    .clicked()
+                {
+                    *last_action_slot = "Zoom in".into();
+                }
+                if ui
+                    .add(MenuItem::new("Zoom out").shortcut("\u{2318}\u{2212}"))
+                    .clicked()
+                {
+                    *last_action_slot = "Zoom out".into();
+                }
+                if ui
+                    .add(MenuItem::new("Reset zoom").shortcut("\u{2318}0"))
+                    .clicked()
+                {
+                    *last_action_slot = "Reset zoom".into();
+                }
+                ui.separator();
+                if ui.add(MenuItem::new("Fit to window")).clicked() {
+                    *last_action_slot = "Fit to window".into();
+                }
+            });
+        });
+    }
+
+    fn menu_bar_actions(&mut self, bar: &mut elegance::MenuBarUi<'_>) {
+        bar.menu("Actions", |ui| {
+            let theme = Theme::current(ui.ctx());
+            if ui
+                .add(MenuItem::new("Export as CSV").icon("\u{2B07}"))
+                .clicked()
+            {
+                self.mb_last_action = "Export as CSV".into();
+            }
+            ui.add(MenuItem::new("Export as PDF").icon("\u{2B07}"));
+            ui.add(
+                MenuItem::new("Share link\u{2026}")
+                    .icon("\u{1F517}")
+                    .shortcut("\u{2318}\u{21E7}L"),
+            );
+
+            ui.separator();
+            ui.add(egui::Label::new(theme.faint_text("SCHEDULE")));
+            if ui
+                .add(
+                    MenuItem::new("Every Monday 09:00")
+                        .icon("\u{1F4C5}")
+                        .checked(self.mb_schedule_on),
+                )
+                .clicked()
+            {
+                self.mb_schedule_on = !self.mb_schedule_on;
+                self.mb_last_action = format!(
+                    "Weekly schedule \u{2192} {}",
+                    if self.mb_schedule_on { "on" } else { "off" }
+                );
+            }
+            ui.add(MenuItem::new("Change schedule\u{2026}").icon("\u{23F1}"));
+
+            ui.separator();
+            if ui
+                .add(
+                    MenuItem::new("Delete report\u{2026}")
+                        .icon("\u{1F5D1}")
+                        .danger()
+                        .shortcut("\u{232B}"),
+                )
+                .clicked()
+            {
+                self.mb_last_action = "Delete report \u{2026}".into();
+            }
         });
     }
 

@@ -15,9 +15,9 @@ use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, Indicator, IndicatorState, LogBar, PairItem, Pairing, Popover, PopoverSide,
-    ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    CollapsingSection, Indicator, IndicatorState, LogBar, MenuBar, MenuItem, PairItem, Pairing,
+    Popover, PopoverSide, ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -606,6 +606,27 @@ fn pairing_ui(ui: &mut egui::Ui) {
 // egui only allows one popup open at a time per viewport, so each side
 // gets its own snapshot test.
 
+fn menu_bar_ui(ui: &mut egui::Ui) {
+    // Closed-bar snapshot — the strip itself is what we care about pinning.
+    // Live dropdowns paint into a top-level Area, which the kittest harness
+    // doesn't compose into the same surface, so we don't open one here.
+    let theme = Theme::current(ui.ctx());
+    MenuBar::new("snap_menu_bar")
+        .brand("Elegance")
+        .status_with_dot("main \u{00b7} up to date", theme.palette.green)
+        .show(ui, |bar| {
+            bar.menu("File", |ui| {
+                ui.add(MenuItem::new("New").shortcut("\u{2318}N"));
+            });
+            bar.menu("Edit", |ui| {
+                ui.add(MenuItem::new("Undo").shortcut("\u{2318}Z"));
+            });
+            bar.menu("View", |_| {});
+            bar.menu("Window", |_| {});
+            bar.menu("Help", |_| {});
+        });
+}
+
 fn popover_bottom_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
     egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_bottom"));
@@ -705,6 +726,7 @@ theme_tests!(popover_bottom, popover_bottom_ui);
 theme_tests!(popover_top, popover_top_ui);
 theme_tests!(popover_left, popover_left_ui);
 theme_tests!(popover_right, popover_right_ui);
+theme_tests!(menu_bar, menu_bar_ui);
 
 // ---------------------------------------------------------------------------
 // Interaction-state tests. Each renders a single widget, injects a mouse /

@@ -300,7 +300,7 @@ CollapsingSection::new("advanced", "Show advanced options").show(ui, |ui| {
 
 ![Menu](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/menu.png)
 
-Click-to-open popup attached to any trigger `Response`. `Esc`, outside-click, or item-click all dismiss.
+Click-to-open popup attached to any trigger `Response`. `Esc`, outside-click, or item-click all dismiss. For a desktop-style top-of-window strip with brand, multiple menus, and status, see [`MenuBar`](#menubar).
 
 ```rust
 use elegance::{Button, ButtonSize, Menu, MenuItem};
@@ -313,6 +313,62 @@ Menu::new("row_actions").show_below(&trigger, |ui| {
     if ui.add(MenuItem::new("Delete").danger()).clicked() { /* … */ }
 });
 ```
+
+`MenuItem` also supports `.icon("📄")` (a leading glyph in the gutter), `.checked(bool)` (a checkmark for togglable items), and `.radio(bool)` (a filled dot for mutually-exclusive choices). Items in the same menu align cleanly when they all opt in to the same gutter style.
+
+For nested menus, drop a `SubMenuItem` inside any menu body — it renders as a `MenuItem` with a right-pointing chevron and opens its body as a flyout submenu when hovered:
+
+```rust
+use elegance::{MenuBar, MenuItem, SubMenuItem};
+
+MenuBar::new("app").show(ui, |bar| {
+    bar.menu("File", |ui| {
+        ui.add(MenuItem::new("New"));
+        SubMenuItem::new("Open Recent").icon("🕒").show(ui, |ui| {
+            ui.add(MenuItem::new("theme.rs").shortcut("5m ago"));
+            ui.add(MenuItem::new("README.md").shortcut("2d ago"));
+            ui.separator();
+            ui.add(MenuItem::new("Clear list"));
+        });
+        ui.add(MenuItem::new("Save"));
+    });
+});
+```
+
+### MenuBar
+
+![MenuBar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/menu_bar.png)
+
+Desktop-style top-of-window menu strip: an optional brand on the left, a row of click-to-open menus (File, Edit, View, …), and an optional status slot on the right. Once any menu is open, hovering a sibling trigger switches to it — the same "menu mode" feel native menubars have. Each dropdown is a themed panel; populate it with `MenuItem`s, separators, and section headers. `MenuItem` exposes `.checked(bool)` (checkbox toggles), `.radio(bool)` (mutually-exclusive choices), `.icon(...)` (leading glyph), `.shortcut("⌘N")`, `.danger()`, and `.enabled(false)`.
+
+```rust
+use elegance::{MenuBar, MenuItem, Theme};
+
+MenuBar::new("app_menubar")
+    .brand("Elegance")
+    .status_with_dot("main · up to date", Theme::current(ctx).palette.green)
+    .show(ui, |bar| {
+        bar.menu("File", |ui| {
+            if ui.add(MenuItem::new("New").icon("📄").shortcut("⌘N")).clicked() { /* … */ }
+            ui.add(MenuItem::new("Open…").icon("📂").shortcut("⌘O"));
+            ui.separator();
+            ui.add(MenuItem::new("Save").shortcut("⌘S"));
+        });
+        // Settings-style menus stay open while the user toggles items, so
+        // the state change is visible. Action menus default to closing on
+        // click (use `bar.menu(...)` for those).
+        bar.menu_keep_open("View", |ui| {
+            ui.add(MenuItem::new("Show sidebar").checked(show_sidebar).shortcut("⌘\\"));
+            ui.add(MenuItem::new("Show minimap").checked(show_minimap));
+            ui.separator();
+            ui.add(MenuItem::new("Compact").radio(density == 0));
+            ui.add(MenuItem::new("Comfortable").radio(density == 1));
+            ui.add(MenuItem::new("Spacious").radio(density == 2));
+        });
+    });
+```
+
+For a single click-to-open menu attached to an arbitrary trigger button (e.g. row actions, a toolbar overflow), reach for [`Menu`](#menu--menuitem) directly instead.
 
 ### Modal
 
@@ -496,9 +552,9 @@ The tint fades out over `FLASH_DURATION` (~0.8 s). `resp.clear_flash()` dismisse
 
 ![Bundled glyphs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/glyphs.png)
 
-`Theme::install` registers a ~13 KB subset of DejaVu Sans (renamed `Elegance Symbols`) as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⌫`, `↩`, `▾` render out of the box without egui's default font missing them.
+`Theme::install` registers a ~14 KB subset of DejaVu Sans (renamed `Elegance Symbols`) as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⇧`, `⌫`, `⏎`, `↩`, `▾` render out of the box without egui's default font missing them.
 
-Covered blocks: arrows, math ellipsis, modifier keys (`⌘ ⌥ ⌃`), delete keys (`⌫ ⌦`), disclosure triangles, check / cross. See [`assets/README.md`](assets/README.md) for the full list and regeneration instructions.
+Covered blocks: arrows, math ellipsis, Mac modifier keys (`⌘ ⌥ ⌃ ⇧ ⇪`), editing keys (`⌫ ⌦ ⌧ ⏎ ⇥`), disclosure triangles, check / cross. See [`assets/README.md`](assets/README.md) for the full list and regeneration instructions.
 
 If you need additional fonts (emoji, CJK, a different text face), register them **after** `Theme::install(ctx)` — calling `ctx.set_fonts(...)` before install will be overwritten the first time `install` runs:
 

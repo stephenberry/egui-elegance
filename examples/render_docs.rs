@@ -15,9 +15,9 @@ use eframe::egui;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, Indicator, IndicatorState, MenuItem, PairItem, Pairing, ProgressBar,
-    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
-    TabBar, TextArea, TextInput, Theme,
+    CollapsingSection, Indicator, IndicatorState, MenuBar, MenuItem, PairItem, Pairing,
+    ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -41,6 +41,7 @@ fn main() {
     render_sliders();
     render_containers();
     render_menu();
+    render_menu_bar();
     render_modal();
     render_drawer();
     render_popover();
@@ -574,6 +575,67 @@ fn render_steps() {
     });
 }
 
+fn render_menu_bar() {
+    render("menu_bar", |ui| {
+        background(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            let p = &theme.palette;
+
+            // Allocate a fixed-size scaffold rect so the tile renders at a
+            // predictable width regardless of the harness viewport.
+            let scaffold_w = 820.0_f32;
+            let scaffold_h = 110.0_f32;
+            let (scaffold_rect, _) =
+                ui.allocate_exact_size(egui::vec2(scaffold_w, scaffold_h), egui::Sense::hover());
+            ui.painter().rect_filled(
+                scaffold_rect,
+                egui::CornerRadius::same(theme.card_radius as u8),
+                p.bg,
+            );
+            ui.painter().rect_stroke(
+                scaffold_rect,
+                egui::CornerRadius::same(theme.card_radius as u8),
+                egui::Stroke::new(1.0, p.border),
+                egui::StrokeKind::Inside,
+            );
+
+            // Paint the bar into the top portion of the scaffold using a
+            // child UI bounded to the scaffold's rect.
+            let mut bar_ui = ui.new_child(
+                egui::UiBuilder::new()
+                    .max_rect(scaffold_rect)
+                    .layout(egui::Layout::top_down(egui::Align::Min)),
+            );
+            MenuBar::new("docs_menu_bar")
+                .brand("Elegance")
+                .status_with_dot("main \u{00b7} up to date", p.green)
+                .show(&mut bar_ui, |bar| {
+                    bar.menu("File", |_| {});
+                    bar.menu("Edit", |_| {});
+                    bar.menu("View", |_| {});
+                    bar.menu("Window", |_| {});
+                    bar.menu("Help", |_| {});
+                });
+
+            // Faux body placeholder bars under the strip.
+            let body_top = bar_ui.min_rect().bottom() + 14.0;
+            let pad = 16.0;
+            let avail_w = scaffold_w - pad * 2.0;
+            for (i, w_frac) in [0.78, 0.55, 0.68].iter().enumerate() {
+                let bar = egui::Rect::from_min_size(
+                    egui::pos2(scaffold_rect.left() + pad, body_top + i as f32 * 12.0),
+                    egui::vec2(avail_w * w_frac, 8.0),
+                );
+                ui.painter().rect_filled(
+                    bar,
+                    egui::CornerRadius::same(3),
+                    p.depth_tint(p.card, 0.18),
+                );
+            }
+        });
+    });
+}
+
 fn render_drawer() {
     render("drawer", |ui| {
         // Drawer paints into top-level Areas (backdrop + panel), which the
@@ -991,8 +1053,8 @@ fn render_glyphs() {
                     for (label, glyphs) in [
                         ("Arrows", "← ↑ → ↓ ↩ ↲ ↵"),
                         ("Ellipsis", "⋮ ⋯"),
-                        ("Modifier keys", "⌃ ⌘ ⌥"),
-                        ("Delete keys", "⌫ ⌦"),
+                        ("Modifier keys", "⌃ ⌘ ⌥ ⇧ ⇪"),
+                        ("Editing keys", "⌫ ⌦ ⌧ ⏎ ⇥"),
                         ("Triangles", "▴ ▸ ▾ ◂"),
                         ("Status", "✓ ✗"),
                     ] {

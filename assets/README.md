@@ -23,13 +23,18 @@ Arev contributions) is preserved in `elegance-symbols-LICENSE.txt`.
 | U+21A9    | ↩     | leftwards arrow with hook |
 | U+21B2    | ↲     | downwards arrow with corner left |
 | U+21B5    | ↵     | downwards arrow with corner leftwards |
+| U+21E5    | ⇥     | rightwards arrow to bar (tab key) |
+| U+21E7    | ⇧     | upwards white arrow (shift key) |
+| U+21EA    | ⇪     | upwards white arrow from bar (caps lock) |
 | U+22EE    | ⋮     | vertical ellipsis         |
 | U+22EF    | ⋯     | midline horizontal ellipsis |
 | U+2303    | ⌃     | up arrowhead (control key) |
 | U+2318    | ⌘     | place of interest (command key) |
 | U+2325    | ⌥     | option key                |
-| U+232B    | ⌫     | erase to the left (backspace) |
 | U+2326    | ⌦     | erase to the right (forward delete) |
+| U+2327    | ⌧     | x in rectangle (clear key) |
+| U+232B    | ⌫     | erase to the left (backspace) |
+| U+23CE    | ⏎     | return symbol             |
 | U+25B4    | ▴     | small up-pointing triangle |
 | U+25B8    | ▸     | small right-pointing triangle |
 | U+25BE    | ▾     | small down-pointing triangle |
@@ -51,7 +56,7 @@ tar -xjf dejavu-fonts-ttf-2.37.tar.bz2
 pip install fonttools
 pyftsubset dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf \
     --output-file=assets/elegance-symbols.ttf \
-    --unicodes='U+2190-2193,U+21A9,U+21B2,U+21B5,U+22EE,U+22EF,U+2303,U+2318,U+2325,U+232B,U+2326,U+25B4,U+25B8,U+25BE,U+25C2,U+2713,U+2717' \
+    --unicodes='U+2190-2193,U+21A9,U+21B2,U+21B5,U+21E5,U+21E7,U+21EA,U+22EE,U+22EF,U+2303,U+2318,U+2325,U+2327,U+232B,U+2326,U+23CE,U+25B4,U+25B8,U+25BE,U+25C2,U+2713,U+2717' \
     --no-hinting --desubroutinize --name-IDs='*'
 
 # Then rename via fontTools (see scripts/rename-symbol-font.py if present).

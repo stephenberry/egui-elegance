@@ -57,6 +57,7 @@ mod indicator;
 mod input;
 mod log_bar;
 mod menu;
+mod menu_bar;
 mod modal;
 mod multi_terminal;
 mod pairing;
@@ -87,7 +88,8 @@ pub use flash::{flash_error, flash_success, FlashKind, ResponseFlashExt, FLASH_D
 pub use indicator::{Indicator, IndicatorState};
 pub use input::TextInput;
 pub use log_bar::{LogBar, LogEntry, LogKind};
-pub use menu::{Menu, MenuItem};
+pub use menu::{Menu, MenuItem, SubMenuItem};
+pub use menu_bar::{MenuBar, MenuBarUi};
 pub use modal::Modal;
 pub use multi_terminal::{
     LineKind, MultiTerminal, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,

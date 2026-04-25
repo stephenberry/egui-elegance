@@ -7,7 +7,9 @@
 use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
-use elegance::{BadgeTone, Drawer, DrawerSide, Modal, TextInput, Theme, Toast, Toasts};
+use elegance::{
+    BadgeTone, Drawer, DrawerSide, MenuBar, MenuItem, Modal, TextInput, Theme, Toast, Toasts,
+};
 
 fn new_harness<'a>(app: impl FnMut(&mut egui::Ui) + 'a) -> Harness<'a> {
     let mut harness = Harness::builder()
@@ -286,5 +288,74 @@ fn drawer_restores_focus_on_close() {
     assert!(
         email.accesskit_node().is_focused(),
         "focus should be restored to the widget that had it before the drawer opened"
+    );
+}
+
+#[test]
+fn menu_bar_triggers_expose_button_role() {
+    // Each MenuBar trigger should be reachable by its label so screen
+    // readers can announce them and automation tools can drive the bar.
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        MenuBar::new("a11y_menu_bar").brand("App").show(ui, |bar| {
+            bar.menu("File", |_| {});
+            bar.menu("Edit", |_| {});
+            bar.menu("View", |_| {});
+        });
+    });
+
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "File");
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Edit");
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "View");
+}
+
+#[test]
+fn menu_item_checked_reports_selected_state() {
+    // Toggle items should announce as checkboxes (with selected=true/false)
+    // rather than as plain buttons, so screen readers say "checked" / "not
+    // checked" instead of just "button".
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        ui.add(MenuItem::new("Show sidebar").checked(true));
+        ui.add(MenuItem::new("Show minimap").checked(false));
+    });
+
+    let on = harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Show sidebar");
+    let off = harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, "Show minimap");
+    assert!(
+        on.accesskit_node()
+            .toggled()
+            .map(|t| t == egui::accesskit::Toggled::True)
+            .unwrap_or(false),
+        "checked menu item should report toggled=True"
+    );
+    assert!(
+        off.accesskit_node()
+            .toggled()
+            .map(|t| t == egui::accesskit::Toggled::False)
+            .unwrap_or(false),
+        "unchecked menu item should report toggled=False"
+    );
+}
+
+#[test]
+fn menu_item_radio_reports_selected_state() {
+    // Radio items should announce as radio buttons. accesskit reports the
+    // selected state via `Toggled::True`/`False`.
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        ui.add(MenuItem::new("Compact").radio(false));
+        ui.add(MenuItem::new("Comfortable").radio(true));
+        ui.add(MenuItem::new("Spacious").radio(false));
+    });
+
+    let chosen = harness.get_by_role_and_label(egui::accesskit::Role::RadioButton, "Comfortable");
+    assert!(
+        chosen
+            .accesskit_node()
+            .toggled()
+            .map(|t| t == egui::accesskit::Toggled::True)
+            .unwrap_or(false),
+        "selected radio menu item should report toggled=True"
     );
 }
