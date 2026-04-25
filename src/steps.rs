@@ -5,7 +5,10 @@
 //!   with small gaps between them. Compact "N of M" progress.
 //! - [`StepsStyle::Numbered`] renders numbered circles connected by thin
 //!   lines. Done steps show a checkmark; the active step glows. Suits
-//!   user-facing wizard and onboarding flows.
+//!   user-facing wizard and onboarding flows. Pair with [`Steps::labeled`]
+//!   to render captions under each circle, and
+//!   [`Steps::active_sublabel`] for an "in progress" hint under the
+//!   active step.
 //! - [`StepsStyle::Labeled`] renders a sequence of labeled pills — taller
 //!   cells containing a text label. Horizontal by default (a progress bar
 //!   with readable stage names); flip to vertical with
@@ -64,6 +67,15 @@ enum Orient {
 /// // Onboarding — numbered circles.
 /// ui.add(Steps::new(5).current(2).style(StepsStyle::Numbered));
 ///
+/// // Setup wizard — numbered circles with labels and an "in progress"
+/// // hint under the active step.
+/// ui.add(
+///     Steps::labeled(["Account", "Workspace", "Billing", "Integrations", "Review"])
+///         .style(StepsStyle::Numbered)
+///         .current(2)
+///         .active_sublabel("In progress"),
+/// );
+///
 /// // Horizontal labeled strip — a progress bar with stage names.
 /// ui.add(
 ///     Steps::labeled(["Plan", "Build", "Test", "Deploy"])
@@ -87,6 +99,7 @@ pub struct Steps {
     style: StepsStyle,
     orientation: Orient,
     labels: Vec<String>,
+    active_sublabel: Option<String>,
     height: Option<f32>,
     desired_width: Option<f32>,
 }
@@ -102,15 +115,19 @@ impl Steps {
             style: StepsStyle::Cells,
             orientation: Orient::Horizontal,
             labels: Vec::new(),
+            active_sublabel: None,
             height: None,
             desired_width: None,
         }
     }
 
     /// Create a [`StepsStyle::Labeled`] widget whose step count and labels
-    /// come from `labels`. Horizontal by default — call [`Self::vertical`]
+    /// come from `labels`. Horizontal by default; call [`Self::vertical`]
     /// for a wizard-sidebar layout. All steps start pending; add
     /// `.current(n)` to mark the first `n` as done.
+    ///
+    /// Pair with `.style(StepsStyle::Numbered)` to render the same labels
+    /// as captions under numbered circles, an onboarding stepper layout.
     pub fn labeled(labels: impl IntoIterator<Item = impl Into<String>>) -> Self {
         let labels: Vec<String> = labels.into_iter().map(Into::into).collect();
         Self {
@@ -120,6 +137,7 @@ impl Steps {
             style: StepsStyle::Labeled,
             orientation: Orient::Horizontal,
             labels,
+            active_sublabel: None,
             height: None,
             desired_width: None,
         }
@@ -161,6 +179,16 @@ impl Steps {
     #[inline]
     pub fn style(mut self, style: StepsStyle) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Caption shown directly under the active step's label (numbered
+    /// style with labels only). Useful for stepper-style "In progress" or
+    /// "Action required" hints. No effect on other styles or when the
+    /// pipeline has no active step.
+    #[inline]
+    pub fn active_sublabel(mut self, text: impl Into<String>) -> Self {
+        self.active_sublabel = Some(text.into());
         self
     }
 
@@ -257,7 +285,19 @@ fn paint_numbered(ui: &mut Ui, s: &Steps) -> Response {
         .unwrap_or_else(|| ui.available_width())
         .max(dot_d * s.total as f32);
 
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, dot_d), Sense::hover());
+    let has_labels = !s.labels.is_empty();
+    let has_sublabel = has_labels && s.active_sublabel.is_some() && s.current < s.total;
+    let label_gap = 8.0;
+    let sublabel_gap = 2.0;
+    let label_block = if has_labels { t.body + label_gap } else { 0.0 };
+    let sublabel_block = if has_sublabel {
+        t.small + sublabel_gap
+    } else {
+        0.0
+    };
+    let total_h = dot_d + label_block + sublabel_block;
+
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, total_h), Sense::hover());
 
     if !ui.is_rect_visible(rect) {
         response
@@ -266,7 +306,7 @@ fn paint_numbered(ui: &mut Ui, s: &Steps) -> Response {
     }
 
     let painter = ui.painter();
-    let center_y = rect.center().y;
+    let center_y = rect.min.y + dot_r;
 
     let dot_center_x = |i: usize| -> f32 {
         if s.total == 1 {
@@ -324,6 +364,43 @@ fn paint_numbered(ui: &mut Ui, s: &Steps) -> Response {
                 center.y - galley.size().y * 0.5,
             );
             painter.galley(pos, galley, text_color);
+        }
+
+        if has_labels {
+            if let Some(label_text) = s.labels.get(i) {
+                let is_active = matches!(state, StepState::Active | StepState::Error);
+                let label_color = match state {
+                    StepState::Done => p.text_muted,
+                    StepState::Active => p.text,
+                    StepState::Error => p.danger,
+                    StepState::Pending => p.text_muted,
+                };
+                let label_galley = crate::theme::placeholder_galley(
+                    ui,
+                    label_text,
+                    t.body,
+                    is_active,
+                    f32::INFINITY,
+                );
+                let label_y = rect.min.y + dot_d + label_gap;
+                let pos = Pos2::new(center.x - label_galley.size().x * 0.5, label_y);
+                painter.galley(pos, label_galley, label_color);
+
+                if has_sublabel && i == s.current {
+                    if let Some(sub) = s.active_sublabel.as_deref() {
+                        let sub_galley = crate::theme::placeholder_galley(
+                            ui,
+                            sub,
+                            t.small,
+                            false,
+                            f32::INFINITY,
+                        );
+                        let sub_y = label_y + t.body + sublabel_gap;
+                        let sub_pos = Pos2::new(center.x - sub_galley.size().x * 0.5, sub_y);
+                        painter.galley(sub_pos, sub_galley, p.text_faint);
+                    }
+                }
+            }
         }
     }
 

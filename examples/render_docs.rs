@@ -16,8 +16,8 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, Indicator, IndicatorState, MenuBar, MenuItem, PairItem, Pairing,
-    ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner, StatusPill,
+    Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -28,6 +28,7 @@ const INITIAL_SIZE: (f32, f32) = (900.0, 600.0);
 fn main() {
     std::fs::create_dir_all(OUTPUT_DIR).expect("create output dir");
 
+    render_hero();
     render_buttons();
     render_text_inputs();
     render_text_areas();
@@ -39,6 +40,7 @@ fn main() {
     render_progress_ring();
     render_steps();
     render_sliders();
+    render_range_sliders();
     render_containers();
     render_menu();
     render_menu_bar();
@@ -57,6 +59,221 @@ fn main() {
 // ----------------------------------------------------------------------------
 // Tiles
 // ----------------------------------------------------------------------------
+
+fn render_hero() {
+    // The hero is rendered at a fixed wide aspect (no `fit_contents`) so the
+    // README banner reads as a real app screen rather than a cropped widget
+    // tile. State has to live outside the closure so the stateful widgets
+    // (TextInput, Slider, Switch, Select) can take `&mut`.
+    let mut env = "staging".to_string();
+    let mut region = "us-east-1".to_string();
+    let mut image_tag = "orbit:v2.14.3".to_string();
+    let mut replicas: u32 = 6;
+    let mut drain = true;
+    let mut notify = true;
+
+    let hero_size = egui::Vec2::new(1200.0, 510.0);
+    let mut harness = Harness::builder()
+        .with_size(hero_size)
+        .with_pixels_per_point(PIXELS_PER_POINT)
+        .wgpu()
+        .build_ui(move |ui| {
+            Theme::slate().install(ui.ctx());
+            let theme = Theme::current(ui.ctx());
+            let p = &theme.palette;
+
+            // Paint the full viewport with the theme background — without
+            // `fit_contents`, anything not covered by the inner Frame would
+            // otherwise show the harness default backdrop.
+            let full = ui.max_rect();
+            ui.painter()
+                .rect_filled(full, egui::CornerRadius::ZERO, p.bg);
+
+            egui::Frame::new()
+                .inner_margin(egui::Margin::same(22))
+                .show(ui, |ui| {
+                    ui.set_min_size(ui.available_size_before_wrap());
+                    ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
+
+                    // -- Header strip ------------------------------------------
+                    ui.horizontal(|ui| {
+                        ui.add(egui::Label::new(
+                            egui::RichText::new("Elegance")
+                                .color(p.sky)
+                                .size(24.0)
+                                .strong(),
+                        ));
+                        ui.add_space(10.0);
+                        ui.add(egui::Label::new(
+                            egui::RichText::new("Deployment command center")
+                                .color(p.text_faint)
+                                .size(13.0),
+                        ));
+                        ui.add_space(18.0);
+                        ui.add(
+                            StatusPill::new()
+                                .item("Control", IndicatorState::On)
+                                .item("Cluster", IndicatorState::On)
+                                .item("Registry", IndicatorState::Connecting)
+                                .item("Oncall", IndicatorState::Off),
+                        );
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add(Badge::new("STAGING", BadgeTone::Warning));
+                            ui.add_space(6.0);
+                            ui.add(Badge::new("v2.14.3", BadgeTone::Neutral));
+                            ui.add_space(6.0);
+                            ui.add(Badge::new("@you", BadgeTone::Info));
+                        });
+                    });
+
+                    ui.add_space(14.0);
+
+                    // -- Body: 2 columns ---------------------------------------
+                    ui.columns(2, |cols| {
+                        let mut it = cols.iter_mut();
+                        let left = it.next().unwrap();
+                        let right = it.next().unwrap();
+
+                        Card::new().heading("Release target").show(left, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.add(
+                                    Select::strings(
+                                        "hero_env",
+                                        &mut env,
+                                        ["production", "staging", "preview", "local"],
+                                    )
+                                    .label("Environment")
+                                    .width(170.0),
+                                );
+                                ui.add_space(10.0);
+                                ui.add(
+                                    Select::strings(
+                                        "hero_region",
+                                        &mut region,
+                                        ["us-east-1", "us-west-2", "eu-west-1", "ap-south-1"],
+                                    )
+                                    .label("Region")
+                                    .width(170.0),
+                                );
+                            });
+                            ui.add_space(8.0);
+                            ui.add(
+                                TextInput::new(&mut image_tag)
+                                    .label("Image tag")
+                                    .dirty(true)
+                                    .desired_width(f32::INFINITY)
+                                    .id_salt("hero_tag"),
+                            );
+                            ui.add_space(10.0);
+                            ui.add(
+                                Slider::new(&mut replicas, 1u32..=20u32)
+                                    .label("Replicas")
+                                    .accent(Accent::Sky),
+                            );
+                            ui.add_space(6.0);
+                            ui.add(Switch::new(&mut drain, "Drain connections before cutover"));
+                            ui.add(
+                                Switch::new(&mut notify, "Announce in #release-control")
+                                    .accent(Accent::Green),
+                            );
+
+                            ui.add_space(12.0);
+                            ui.separator();
+                            ui.add_space(10.0);
+
+                            ui.horizontal(|ui| {
+                                let _ = ui.add(
+                                    Button::new("Deploy").accent(Accent::Green).min_width(110.0),
+                                );
+                                let _ = ui.add(
+                                    Button::new("Rollback").accent(Accent::Red).min_width(110.0),
+                                );
+                                let _ = ui.add(Button::new("Dry run").outline());
+                            });
+                        });
+
+                        Card::new().heading("Pipeline").show(right, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.add(
+                                    ProgressRing::new(0.6)
+                                        .size(76.0)
+                                        .accent(Accent::Green)
+                                        .text("12 / 20")
+                                        .caption("steps"),
+                                );
+                                ui.add_space(16.0);
+                                ui.vertical(|ui| {
+                                    ui.add_space(4.0);
+                                    ui.add(
+                                        Steps::labeled(["Plan", "Build", "Test", "Deploy"])
+                                            .current(2)
+                                            .desired_width(360.0),
+                                    );
+                                    ui.add_space(10.0);
+                                    ui.horizontal(|ui| {
+                                        ui.add(Badge::new("3 / 4 passed", BadgeTone::Ok));
+                                        ui.add_space(6.0);
+                                        ui.add(Badge::new("ETA 2m", BadgeTone::Info));
+                                    });
+                                });
+                            });
+                        });
+
+                        right.add_space(10.0);
+
+                        Card::new().heading("Services").show(right, |ui| {
+                            ui.scope(|ui| {
+                                ui.spacing_mut().item_spacing.y = 4.0;
+                                let services: &[(&str, IndicatorState, &str, BadgeTone, &str)] = &[
+                                    (
+                                        "api",
+                                        IndicatorState::On,
+                                        "healthy",
+                                        BadgeTone::Ok,
+                                        "v2.14.3",
+                                    ),
+                                    (
+                                        "worker",
+                                        IndicatorState::On,
+                                        "healthy",
+                                        BadgeTone::Ok,
+                                        "v2.14.3",
+                                    ),
+                                    (
+                                        "scheduler",
+                                        IndicatorState::Connecting,
+                                        "draining",
+                                        BadgeTone::Warning,
+                                        "v2.14.2",
+                                    ),
+                                    (
+                                        "billing",
+                                        IndicatorState::Off,
+                                        "error",
+                                        BadgeTone::Danger,
+                                        "v2.13.9",
+                                    ),
+                                ];
+                                for (name, state, status, tone, version) in services {
+                                    hero_service_row(ui, name, *state, status, *tone, version);
+                                }
+                            });
+                        });
+                    });
+                });
+        });
+
+    // No `fit_contents` — the hero stays at the requested aspect.
+    harness.run();
+    harness.run();
+
+    let image = harness
+        .render()
+        .unwrap_or_else(|e| panic!("render hero: {e}"));
+    let path = format!("{OUTPUT_DIR}/hero.png");
+    image.save(&path).expect("save png");
+    println!("wrote {} ({}×{})", path, image.width(), image.height());
+}
 
 fn render_buttons() {
     render("buttons", |ui| {
@@ -349,6 +566,48 @@ fn render_sliders() {
     });
 }
 
+fn render_range_sliders() {
+    let (mut price_lo, mut price_hi): (u32, u32) = (24, 118);
+    let (mut latency_lo, mut latency_hi): (u32, u32) = (120, 340);
+    let (mut volume_lo, mut volume_hi): (u32, u32) = (18, 62);
+
+    render("range_sliders", move |ui| {
+        background(ui, |ui| {
+            let w = 520.0_f32;
+            Card::new().show(ui, |ui| {
+                ui.set_max_width(w);
+                ui.add(
+                    RangeSlider::new(&mut price_lo, &mut price_hi, 0u32..=200u32)
+                        .label("Price")
+                        .value_fmt(|v| format!("${v:.0}"))
+                        .desired_width(w)
+                        .id_salt("doc_range_price"),
+                );
+                ui.add_space(8.0);
+                ui.add(
+                    RangeSlider::new(&mut latency_lo, &mut latency_hi, 0u32..=500u32)
+                        .label("Latency target")
+                        .suffix(" ms")
+                        .step(10.0)
+                        .ticks(6)
+                        .show_tick_labels(true)
+                        .desired_width(w)
+                        .id_salt("doc_range_latency"),
+                );
+                ui.add_space(8.0);
+                ui.add(
+                    RangeSlider::new(&mut volume_lo, &mut volume_hi, 0u32..=100u32)
+                        .label("Volume")
+                        .suffix(" dB")
+                        .accent(Accent::Green)
+                        .desired_width(w)
+                        .id_salt("doc_range_volume"),
+                );
+            });
+        });
+    });
+}
+
 fn render_containers() {
     let mut open = true;
 
@@ -436,9 +695,13 @@ fn render_modal() {
                                 );
                                 let fg = theme.palette.accent_fill(Accent::Red);
                                 let bg = egui::Color32::from_rgba_unmultiplied(
-                                    fg.r(), fg.g(), fg.b(), 36,
+                                    fg.r(),
+                                    fg.g(),
+                                    fg.b(),
+                                    36,
                                 );
-                                ui.painter().circle_filled(rect.center(), halo_size * 0.5, bg);
+                                ui.painter()
+                                    .circle_filled(rect.center(), halo_size * 0.5, bg);
                                 ui.painter().text(
                                     rect.center(),
                                     egui::Align2::CENTER_CENTER,
@@ -1107,6 +1370,19 @@ fn render_glyphs() {
             egui::Grid::new("r_glyphs")
                 .spacing([20.0, 6.0])
                 .show(ui, |ui| {
+                    use elegance::glyphs as g;
+                    let icons: String = [
+                        g::UPLOAD,
+                        g::DOWNLOAD,
+                        g::SEARCH,
+                        g::PIN,
+                        g::COPY,
+                        g::CIRCLE_ALERT,
+                        g::NETWORK,
+                    ]
+                    .iter()
+                    .map(|c| format!("{c} "))
+                    .collect();
                     for (label, glyphs) in [
                         ("Arrows", "← ↑ → ↓ ↩ ↲ ↵"),
                         ("Ellipsis", "⋮ ⋯"),
@@ -1114,6 +1390,7 @@ fn render_glyphs() {
                         ("Editing keys", "⌫ ⌦ ⌧ ⏎ ⇥"),
                         ("Triangles", "▴ ▸ ▾ ◂"),
                         ("Status", "✓ ✗"),
+                        ("Icons", icons.trim_end()),
                     ] {
                         ui.add(egui::Label::new(theme.muted_text(label)));
                         ui.add(egui::Label::new(
@@ -1231,4 +1508,34 @@ fn caption(ui: &mut egui::Ui, text: &str) {
     let theme = Theme::current(ui.ctx());
     ui.add(egui::Label::new(theme.muted_text(text)));
     ui.add_space(4.0);
+}
+
+fn hero_service_row(
+    ui: &mut egui::Ui,
+    name: &str,
+    state: IndicatorState,
+    status: &str,
+    tone: BadgeTone,
+    version: &str,
+) {
+    let theme = Theme::current(ui.ctx());
+    let p = &theme.palette;
+    egui::Frame::new()
+        .fill(p.input_bg)
+        .corner_radius(egui::CornerRadius::same(6))
+        .inner_margin(egui::Margin::symmetric(12, 8))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(Indicator::new(state));
+                ui.add_space(8.0);
+                ui.add(egui::Label::new(
+                    egui::RichText::new(name).color(p.text).strong(),
+                ));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add(Badge::new(version, BadgeTone::Neutral));
+                    ui.add_space(6.0);
+                    ui.add(Badge::new(status, tone));
+                });
+            });
+        });
 }

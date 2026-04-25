@@ -58,7 +58,10 @@ impl<'a> std::fmt::Debug for Modal<'a> {
             .field("close_on_escape", &self.close_on_escape)
             .field("alert", &self.alert)
             .field("footer", &self.footer.as_ref().map(|_| "<closure>"))
-            .field("footer_left", &self.footer_left.as_ref().map(|_| "<closure>"))
+            .field(
+                "footer_left",
+                &self.footer_left.as_ref().map(|_| "<closure>"),
+            )
             .finish()
     }
 }
@@ -286,16 +289,13 @@ impl<'a> Modal<'a> {
                                                 ));
                                             }
                                         });
-                                        ui.with_layout(
-                                            Layout::right_to_left(Align::Min),
-                                            |ui| {
-                                                let resp = close_button(ui);
-                                                if resp.clicked() {
-                                                    should_close = true;
-                                                }
-                                                close_btn_id = Some(resp.id);
-                                            },
-                                        );
+                                        ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                                            let resp = close_button(ui);
+                                            if resp.clicked() {
+                                                should_close = true;
+                                            }
+                                            close_btn_id = Some(resp.id);
+                                        });
                                     });
                                 });
                             ui.add_space(6.0);
@@ -307,8 +307,16 @@ impl<'a> Modal<'a> {
                             .inner_margin(Margin {
                                 left: pad as i8,
                                 right: pad as i8,
-                                top: if has_heading || has_icon { 0 } else { pad as i8 },
-                                bottom: if self.footer.is_some() { pad as i8 / 2 } else { pad as i8 },
+                                top: if has_heading || has_icon {
+                                    0
+                                } else {
+                                    pad as i8
+                                },
+                                bottom: if self.footer.is_some() {
+                                    pad as i8 / 2
+                                } else {
+                                    pad as i8
+                                },
                             })
                             .show(ui, |ui| add_contents(ui))
                             .inner;

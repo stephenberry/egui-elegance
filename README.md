@@ -6,7 +6,7 @@ Opinionated widgets for [`egui`]: six-accent rounded buttons, text inputs with a
 
 The design aims to make native apps feel as polished as modern web UIs.
 
-![Buttons](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/buttons.png)
+![A polished deployment dashboard built with egui-elegance](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/hero.png)
 
 ## Install
 
@@ -211,6 +211,73 @@ ui.add(
 ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 ```
 
+### RangeSlider
+
+![Range sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/range_sliders.png)
+
+Two-handle range slider for picking a `[low, high]` interval. Same pill track and accent fill as `Slider`; the fill spans only the selected portion. Optional evenly-spaced ticks with labels, and the keyboard works on each focused thumb (arrows nudge by `step`, `Shift`+arrow for a 10x nudge, `Home`/`End` jump to the bounds).
+
+```rust
+use elegance::{Accent, RangeSlider};
+
+ui.add(
+    RangeSlider::new(&mut price_lo, &mut price_hi, 0u32..=200u32)
+        .label("Price")
+        .value_fmt(|v| format!("${v:.0}")),
+);
+ui.add(
+    RangeSlider::new(&mut latency_lo, &mut latency_hi, 0u32..=500u32)
+        .label("Latency target")
+        .suffix(" ms")
+        .step(10.0)
+        .ticks(6)
+        .show_tick_labels(true),
+);
+ui.add(
+    RangeSlider::new(&mut volume_lo, &mut volume_hi, 0u32..=100u32)
+        .label("Volume")
+        .accent(Accent::Green)
+        .suffix(" dB"),
+);
+```
+
+### ColorPicker
+
+Bound to a `Color32`. Renders as a compact swatch-and-hex trigger; clicking opens a popover containing any combination of a curated palette grid, an auto-tracked recents row, a continuous saturation/value plane plus hue slider, an alpha slider, and a hex input. Builder toggles let you mix-and-match: a palette-only picker for status colors, a continuous picker for free-form brand colors, or both stacked. Recent picks are persisted in egui context memory keyed by `id_salt`. Hex parsing accepts `#RGB`, `#RRGGBB`, `#RRGGBBAA` (with or without `#`).
+
+```rust
+use elegance::ColorPicker;
+
+ui.add(ColorPicker::new("brand", &mut brand).label("Brand"));
+
+ui.add(
+    ColorPicker::new("status", &mut status)
+        .label("Status color")
+        .palette(ColorPicker::default_palette())
+        .continuous(false)
+        .alpha(false),
+);
+```
+
+### FileDropZone
+
+A click-and-drop file target: dashed border, cloud icon, and prompt. The widget renders the visual treatment and drag-over state; the caller handles the dropped files reported on `FileDropResponse.dropped_files` and opens a native picker on click (use a crate like `rfd`).
+
+```rust
+use elegance::FileDropZone;
+
+let drop = FileDropZone::new()
+    .hint("up to 10 MB · PNG, JPG, CSV, PDF")
+    .show(ui);
+if drop.response.clicked() {
+    // open file picker
+}
+for file in &drop.dropped_files {
+    // file.path on native, file.bytes on web
+    let _ = file;
+}
+```
+
 ### Spinner · ProgressBar
 
 ![Spinners and progress bars](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/feedback.png)
@@ -293,6 +360,29 @@ Card::new().heading("Account").show(ui, |ui| {
 
 CollapsingSection::new("advanced", "Show advanced options").show(ui, |ui| {
     ui.label("…hidden until expanded…");
+});
+```
+
+### Accordion
+
+A grouped stack of collapsible items inside one bordered panel. Each row gets a chevron, a title, and optional subtitle, icon halo, and right-aligned meta slot (badges, counts, status dots). Use `.exclusive(true)` to allow only one item open at a time, or `.flush(true)` to drop the outer border for inline use inside a form.
+
+```rust
+use elegance::{Accordion, Accent, Badge, BadgeTone};
+
+Accordion::new("settings").exclusive(true).show(ui, |acc| {
+    acc.item("Notifications")
+        .icon("\u{1F514}")
+        .accent(Accent::Sky)
+        .subtitle("Email, Slack, and in-app alerts")
+        .meta(|ui| { ui.add(Badge::new("3 channels", BadgeTone::Ok)); })
+        .default_open(true)
+        .show(|ui| { ui.label("…channel details…"); });
+    acc.item("Security")
+        .icon("\u{1F512}")
+        .accent(Accent::Green)
+        .subtitle("2FA, sessions, and trusted devices")
+        .show(|ui| { ui.label("…"); });
 });
 ```
 
@@ -566,9 +656,15 @@ The tint fades out over `FLASH_DURATION` (~0.8 s). `resp.clear_flash()` dismisse
 
 ![Bundled glyphs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/glyphs.png)
 
-`Theme::install` registers a ~14 KB subset of DejaVu Sans (renamed `Elegance Symbols`) as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⇧`, `⌫`, `⏎`, `↩`, `▾` render out of the box without egui's default font missing them.
+`Theme::install` registers the ~15 KB `Elegance Symbols` font as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⇧`, `⌫`, `⏎`, `↩`, `▾` render out of the box without egui's default font missing them.
 
-Covered blocks: arrows, math ellipsis, Mac modifier keys (`⌘ ⌥ ⌃ ⇧ ⇪`), editing keys (`⌫ ⌦ ⌧ ⏎ ⇥`), disclosure triangles, check / cross. See [`assets/README.md`](assets/README.md) for the full list and regeneration instructions.
+The font combines a subset of DejaVu Sans (arrows, math ellipsis, Mac modifier keys `⌘ ⌥ ⌃ ⇧ ⇪`, editing keys `⌫ ⌦ ⌧ ⏎ ⇥`, disclosure triangles) with a small set of [Lucide](https://lucide.dev) UI icons baked in at the Private Use Area (`upload`, `download`, `search`, `pin`, `copy`, `circle-alert`, `network`) plus Lucide-styled `check` / `x` overriding the standard U+2713 / U+2717 codepoints. The icons are exposed as constants in the [`glyphs`] module:
+
+```rust
+ui.label(egui::RichText::new(elegance::glyphs::UPLOAD).size(20.0));
+```
+
+See [`assets/README.md`](assets/README.md) for the full glyph table and regeneration instructions.
 
 If you need additional fonts (emoji, CJK, a different text face), register them **after** `Theme::install(ctx)` — calling `ctx.set_fonts(...)` before install will be overwritten the first time `install` runs:
 

@@ -7,12 +7,13 @@
 
 use eframe::egui;
 use elegance::{
-    Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
-    Checkbox, CollapsingSection, Drawer, DrawerSide, Indicator, IndicatorState, LogBar, Menu,
-    MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
-    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle,
-    SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,
-    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    Accent, Accordion, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone,
+    Card, Checkbox, CollapsingSection, ColorPicker, Drawer, DrawerSide, FileDropZone, Indicator,
+    IndicatorState, LogBar, Menu, MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing,
+    Popover, PopoverSide, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider,
+    Spinner, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent,
+    TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
+    Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -61,6 +62,15 @@ struct App {
 
     slider_int: u32,
     slider_float: f32,
+    color_brand: egui::Color32,
+    color_overlay: egui::Color32,
+    color_status: egui::Color32,
+    range_price_lo: u32,
+    range_price_hi: u32,
+    range_latency_lo: u32,
+    range_latency_hi: u32,
+    range_volume_lo: u32,
+    range_volume_hi: u32,
 
     show_modal: bool,
     show_modal_verify: bool,
@@ -167,6 +177,15 @@ impl Default for App {
             collapsing_open: true,
             slider_int: 48,
             slider_float: 0.62,
+            color_brand: egui::Color32::from_rgb(0x38, 0xbd, 0xf8),
+            color_overlay: egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6),
+            color_status: egui::Color32::from_rgb(0xf8, 0x71, 0x71),
+            range_price_lo: 24,
+            range_price_hi: 118,
+            range_latency_lo: 120,
+            range_latency_hi: 340,
+            range_volume_lo: 18,
+            range_volume_hi: 62,
             show_modal: false,
             show_modal_verify: false,
             modal_verify_text: "elegance-".into(),
@@ -424,6 +443,8 @@ impl eframe::App for App {
                             self.section_text(ui);
                             self.section_selects(ui);
                             self.section_sliders(ui);
+                            self.section_color_picker(ui);
+                            self.section_file_drop_zone(ui);
                         }
                         2 => {
                             self.section_tabs(ui);
@@ -433,6 +454,7 @@ impl eframe::App for App {
                         }
                         3 => {
                             self.section_containers(ui);
+                            self.section_accordion(ui);
                             self.section_menu_bar(ui);
                         }
                         4 => {
@@ -909,6 +931,20 @@ impl App {
             labeled(ui, "Stepped — numbered", |ui| {
                 ui.add(Steps::new(5).current(2).style(StepsStyle::Numbered));
             });
+            labeled(ui, "Stepped — numbered with labels (setup wizard)", |ui| {
+                ui.add(
+                    Steps::labeled(["Account", "Workspace", "Billing", "Integrations", "Review"])
+                        .style(StepsStyle::Numbered)
+                        .current(2)
+                        .active_sublabel("In progress"),
+                );
+                ui.add_space(18.0);
+                ui.add(
+                    Steps::labeled(["Details", "Payment", "Confirm"])
+                        .style(StepsStyle::Numbered)
+                        .current(0),
+                );
+            });
             labeled(ui, "Stepped — labeled (horizontal)", |ui| {
                 ui.add(Steps::labeled(["Plan", "Build", "Test", "Deploy"]).current(2));
                 ui.add_space(6.0);
@@ -948,6 +984,32 @@ impl App {
         });
     }
 
+    fn section_file_drop_zone(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("FileDropZone").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Click-and-drop target. Reports dropped files via FileDropResponse.dropped_files.",
+            )));
+            ui.add_space(6.0);
+            let drop = FileDropZone::new()
+                .hint("up to 10 MB \u{00b7} PNG, JPG, CSV, PDF")
+                .show(ui);
+            if drop.response.clicked() {
+                self.log.sys("FileDropZone clicked (open file picker here)");
+            }
+            for f in &drop.dropped_files {
+                let label = f
+                    .path
+                    .as_ref()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .map(str::to_string)
+                    .unwrap_or_else(|| f.name.clone());
+                self.log.recv(format!("dropped: {label}"));
+            }
+        });
+    }
+
     fn section_sliders(&mut self, ui: &mut egui::Ui) {
         Card::new().heading("Slider").show(ui, |ui| {
             ui.add(
@@ -961,6 +1023,74 @@ impl App {
                     .label("Gain")
                     .accent(Accent::Green),
             );
+        });
+
+        Card::new().heading("RangeSlider").show(ui, |ui| {
+            ui.add(
+                RangeSlider::new(
+                    &mut self.range_price_lo,
+                    &mut self.range_price_hi,
+                    0u32..=200u32,
+                )
+                .label("Price")
+                .value_fmt(|v| format!("${v:.0}"))
+                .id_salt("ex_range_price"),
+            );
+            ui.add_space(8.0);
+            ui.add(
+                RangeSlider::new(
+                    &mut self.range_latency_lo,
+                    &mut self.range_latency_hi,
+                    0u32..=500u32,
+                )
+                .label("Latency target")
+                .suffix(" ms")
+                .step(10.0)
+                .ticks(6)
+                .show_tick_labels(true)
+                .id_salt("ex_range_latency"),
+            );
+            ui.add_space(8.0);
+            ui.add(
+                RangeSlider::new(
+                    &mut self.range_volume_lo,
+                    &mut self.range_volume_hi,
+                    0u32..=100u32,
+                )
+                .label("Volume")
+                .suffix(" dB")
+                .accent(Accent::Green)
+                .id_salt("ex_range_volume"),
+            );
+        });
+    }
+
+    fn section_color_picker(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("ColorPicker").show(ui, |ui| {
+            labeled(ui, "Continuous (default) — HSV plane, alpha, hex", |ui| {
+                ui.add(ColorPicker::new("ex_cp_brand", &mut self.color_brand).label("Brand"));
+            });
+
+            labeled(ui, "Curated palette + alpha + hex", |ui| {
+                ui.add(
+                    ColorPicker::new("ex_cp_overlay", &mut self.color_overlay)
+                        .label("Overlay")
+                        .palette(ColorPicker::default_palette())
+                        .continuous(false),
+                );
+            });
+
+            labeled(ui, "Compact, palette-only, no alpha", |ui| {
+                ui.add(
+                    ColorPicker::new("ex_cp_status", &mut self.color_status)
+                        .label("Status")
+                        .palette(ColorPicker::default_palette())
+                        .continuous(false)
+                        .alpha(false)
+                        .hex_input(false)
+                        .recents(false),
+                );
+            });
         });
     }
 
@@ -986,6 +1116,114 @@ impl App {
                                 .faint_text("…hidden until the header is clicked."),
                         ));
                     });
+            });
+        });
+    }
+
+    fn section_accordion(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Accordion").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Click a header (or focus + Space/Enter) to toggle. Use \u{2191}/\u{2193} to move between rows.",
+            )));
+            ui.add_space(8.0);
+
+            labeled(ui, "FAQ — bordered", |ui| {
+                Accordion::new("ref_acc_faq").show(ui, |acc| {
+                    acc.item("How do I invite teammates to my workspace?")
+                        .default_open(true)
+                        .show(|ui| {
+                            ui.add(egui::Label::new(theme.muted_text(
+                                "Open Settings \u{25B8} Members and click Invite. You can paste a list of emails or share a role-scoped signup link. Invitations expire after 7 days.",
+                            )));
+                        });
+                    acc.item("What happens when I archive a project?")
+                        .show(|ui| {
+                            ui.add(egui::Label::new(theme.muted_text(
+                                "Archived projects are hidden from the sidebar and read-only. You can restore them within 90 days.",
+                            )));
+                        });
+                    acc.item("Is there an API for bulk imports?").show(|ui| {
+                        ui.add(egui::Label::new(theme.muted_text(
+                            "Yes \u{2014} see the Imports API reference. Rate limits apply per workspace.",
+                        )));
+                    });
+                });
+            });
+
+            labeled(ui, "Settings — exclusive, with icon halos", |ui| {
+                Accordion::new("ref_acc_settings")
+                    .exclusive(true)
+                    .show(ui, |acc| {
+                        acc.item("Notifications")
+                            .icon("\u{1F514}")
+                            .accent(Accent::Sky)
+                            .subtitle("Email, Slack, and in-app alerts")
+                            .meta(|ui| {
+                                ui.add(Badge::new("3 channels", BadgeTone::Ok));
+                            })
+                            .default_open(true)
+                            .show(|ui| {
+                                ui.add(egui::Label::new(theme.muted_text(
+                                    "Three channels enabled. Tap Manage channels to edit them.",
+                                )));
+                            });
+                        acc.item("Security")
+                            .icon("\u{1F512}")
+                            .accent(Accent::Green)
+                            .subtitle("2FA, sessions, and trusted devices")
+                            .meta(|ui| {
+                                ui.add(Badge::new("Strong", BadgeTone::Ok));
+                            })
+                            .show(|ui| {
+                                ui.add(egui::Label::new(theme.muted_text(
+                                    "Two-factor authentication is enabled for all admins.",
+                                )));
+                            });
+                        acc.item("Integrations")
+                            .icon("\u{2731}")
+                            .accent(Accent::Amber)
+                            .subtitle("GitHub, Linear, PagerDuty, and 2 more")
+                            .meta(|ui| {
+                                ui.add(Badge::new("1 needs auth", BadgeTone::Warning));
+                            })
+                            .show(|ui| {
+                                ui.add(egui::Label::new(theme.muted_text(
+                                    "PagerDuty requires re-authorization. Other integrations are healthy.",
+                                )));
+                            });
+                        acc.item("Billing (owner-only)")
+                            .icon("\u{1F3E0}")
+                            .subtitle("Invoices, plan, and seats")
+                            .meta(|ui| {
+                                ui.add(egui::Label::new(theme.faint_text("Admin required")));
+                            })
+                            .disabled(true)
+                            .show(|_| {});
+                    });
+            });
+
+            labeled(ui, "Flush — inline, no outer card", |ui| {
+                Accordion::new("ref_acc_flush").flush(true).show(ui, |acc| {
+                    acc.item("Advanced options")
+                        .subtitle("(rarely needed)")
+                        .default_open(true)
+                        .show(|ui| {
+                            ui.add(egui::Label::new(theme.muted_text(
+                                "Override the default request timeout and retry behaviour.",
+                            )));
+                        });
+                    acc.item("Experimental features").show(|ui| {
+                        ui.add(egui::Label::new(theme.muted_text(
+                            "Toggle features still in development.",
+                        )));
+                    });
+                    acc.item("Danger zone").show(|ui| {
+                        ui.add(egui::Label::new(theme.muted_text(
+                            "Destructive actions. Cannot be undone.",
+                        )));
+                    });
+                });
             });
         });
     }
@@ -1374,10 +1612,7 @@ impl App {
                 {
                     self.show_modal = true;
                 }
-                if ui
-                    .add(Button::new("Verify to delete").outline())
-                    .clicked()
-                {
+                if ui.add(Button::new("Verify to delete").outline()).clicked() {
                     self.show_modal_verify = true;
                 }
                 if ui
@@ -1646,7 +1881,10 @@ impl App {
             .max_width(420.0)
             .alert(true)
             .footer(|ui| {
-                if ui.add(Button::new("Delete project").accent(Accent::Red)).clicked() {
+                if ui
+                    .add(Button::new("Delete project").accent(Accent::Red))
+                    .clicked()
+                {
                     confirm = true;
                 }
                 if ui.add(Button::new("Cancel").outline()).clicked() {
@@ -1810,9 +2048,9 @@ impl App {
             })
             .show(ctx, |ui| {
                 let theme = Theme::current(ui.ctx());
-                ui.add(egui::Label::new(theme.muted_text(
-                    "Build #4128 · main · 2m 04s · 312 tests passed",
-                )));
+                ui.add(egui::Label::new(
+                    theme.muted_text("Build #4128 · main · 2m 04s · 312 tests passed"),
+                ));
                 ui.add_space(8.0);
                 ui.add(egui::Label::new(theme.faint_text(
                     "No icon, no subtitle. The minimal modal — heading row, body, optional \

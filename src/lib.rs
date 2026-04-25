@@ -45,13 +45,16 @@
 #![warn(missing_debug_implementations)]
 #![deny(missing_docs)]
 
+mod accordion;
 mod badge;
 mod button;
 mod callout;
 mod card;
 mod checkbox;
 mod collapsing;
+mod color_picker;
 mod drawer;
+mod file_drop_zone;
 mod flash;
 mod indicator;
 mod input;
@@ -65,6 +68,7 @@ mod pill;
 mod popover;
 mod progress_bar;
 mod progress_ring;
+mod range_slider;
 mod segmented;
 mod select;
 mod slider;
@@ -78,13 +82,16 @@ mod theme_switcher;
 mod toast;
 mod tooltip;
 
+pub use accordion::{Accordion, AccordionItem, AccordionUi};
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize};
 pub use callout::{Callout, CalloutTone};
 pub use card::Card;
 pub use checkbox::Checkbox;
 pub use collapsing::CollapsingSection;
+pub use color_picker::ColorPicker;
 pub use drawer::{Drawer, DrawerSide};
+pub use file_drop_zone::{FileDropResponse, FileDropZone};
 pub use flash::{flash_error, flash_success, FlashKind, ResponseFlashExt, FLASH_DURATION};
 pub use indicator::{Indicator, IndicatorState};
 pub use input::TextInput;
@@ -100,6 +107,7 @@ pub use pill::StatusPill;
 pub use popover::{Popover, PopoverSide};
 pub use progress_bar::ProgressBar;
 pub use progress_ring::ProgressRing;
+pub use range_slider::RangeSlider;
 pub use segmented::SegmentedButton;
 pub use select::Select;
 pub use slider::Slider;
@@ -115,6 +123,43 @@ pub use tooltip::{Tooltip, TooltipSide};
 
 /// Re-export of [`egui`] for convenience.
 pub use egui;
+
+/// Stable codepoints for the icon glyphs bundled in the Elegance Symbols
+/// font. All icons are sourced from [Lucide](https://lucide.dev) and are
+/// kept in sync via `scripts/update_lucide_glyphs.py`. Use these in
+/// [`egui::RichText`] when you want one of elegance's icons in your own
+/// UI.
+///
+/// ```no_run
+/// # use elegance::glyphs;
+/// # egui::__run_test_ui(|ui| {
+/// ui.label(egui::RichText::new(glyphs::UPLOAD).size(24.0));
+/// # });
+/// ```
+pub mod glyphs {
+    /// Upload-tray icon. Source: [Lucide `upload`](https://lucide.dev/icons/upload).
+    pub const UPLOAD: char = '\u{E000}';
+    /// Download-tray icon. Source: [Lucide `download`](https://lucide.dev/icons/download).
+    pub const DOWNLOAD: char = '\u{E001}';
+    /// Search / magnifier icon. Source: [Lucide `search`](https://lucide.dev/icons/search).
+    pub const SEARCH: char = '\u{E002}';
+    /// Pin icon. Source: [Lucide `pin`](https://lucide.dev/icons/pin).
+    pub const PIN: char = '\u{E003}';
+    /// Copy / duplicate icon. Source: [Lucide `copy`](https://lucide.dev/icons/copy).
+    pub const COPY: char = '\u{E004}';
+    /// Circular alert icon. Source: [Lucide `circle-alert`](https://lucide.dev/icons/circle-alert).
+    pub const CIRCLE_ALERT: char = '\u{E005}';
+    /// Network / hub icon. Source: [Lucide `network`](https://lucide.dev/icons/network).
+    pub const NETWORK: char = '\u{E006}';
+    /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
+    /// also pick up the elegance treatment.
+    /// Source: [Lucide `check`](https://lucide.dev/icons/check).
+    pub const CHECK: char = '\u{2713}';
+    /// Cross / dismiss mark, mapped at standard U+2717 so plain `'✗'` literals
+    /// also pick up the elegance treatment.
+    /// Source: [Lucide `x`](https://lucide.dev/icons/x).
+    pub const X: char = '\u{2717}';
+}
 
 /// Request a repaint such that the next paint comes ~`1/hz` seconds from now,
 /// independent of display refresh rate.

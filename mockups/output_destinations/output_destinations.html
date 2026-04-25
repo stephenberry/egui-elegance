@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Output Destinations (Slate)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --input-bg: #0f172a;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sky: #38bdf8;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --danger: #f87171;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 56px 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif;
+      color: var(--text);
+    }
+
+    .card {
+      width: min(620px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .card header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 16px; font-weight: 600; margin: 0; }
+    .card .caption { font-size: 12px; color: var(--text-faint); }
+
+    /* Filter chips ------------------------------------------------------ */
+    .filters {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 120ms, color 120ms, background 120ms;
+    }
+    .chip:hover { border-color: var(--text-muted); color: var(--text); }
+    .chip.active {
+      color: var(--sky);
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    /* Machines list ----------------------------------------------------- */
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 20px 1fr 160px;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 120ms, background 120ms, box-shadow 120ms;
+    }
+    .row:hover { border-color: var(--text-muted); }
+    .row.selected {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: rgba(56, 189, 248, 0.04);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.06);
+    }
+    .row.offline {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .row.offline:hover { border-color: var(--border); }
+
+    .check {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border);
+      display: grid;
+      place-items: center;
+      background: var(--card);
+      color: transparent;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+    .row:hover .check { border-color: var(--text-muted); }
+    .row.selected .check {
+      background: var(--sky);
+      border-color: var(--sky);
+      color: var(--bg);
+    }
+
+    .info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      flex-shrink: 0;
+    }
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+    }
+    .status-dot.syncing {
+      background: var(--warning);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18);
+    }
+    .status-dot.offline { background: var(--danger); }
+
+    .primary-badge {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--sky);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .capacity {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: stretch;
+    }
+    .capacity-bar {
+      height: 4px;
+      background: var(--card);
+      border-radius: 2px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .capacity-bar > div {
+      height: 100%;
+      background: var(--sky);
+      border-radius: 2px 0 0 2px;
+      transition: width 200ms;
+    }
+    .capacity-bar > div.warn { background: var(--warning); }
+    .capacity-bar > div.full { background: var(--danger); }
+    .capacity-text {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .capacity-text strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* Footer ------------------------------------------------------------ */
+    .footer {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .summary {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .summary strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 120ms, background 120ms;
+    }
+    .btn:hover { border-color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <h2>Output destinations</h2>
+      <span class="caption" id="selection-caption">3 of 5 machines selected</span>
+    </header>
+
+    <div class="filters">
+      <span class="chip active" data-filter="all">All</span>
+      <span class="chip" data-filter="online">Online only</span>
+      <span class="chip" data-filter="selected">Selected</span>
+    </div>
+
+    <div class="list" id="list" role="listbox" aria-multiselectable="true"></div>
+
+    <div class="footer">
+      <span class="summary" id="summary">
+        Writing to <strong>3</strong> machines · <strong>40 TB</strong> total free
+      </span>
+      <div class="actions">
+        <button class="btn" id="select-online">Select all online</button>
+        <button class="btn" id="clear">Clear</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const MACHINES = [
+  { id: 'ws-01',    name: 'workstation-01',  meta: '10.0.1.5 . primary lab rig',     status: 'online',  freeGb: 12_000, totalGb: 16_000, primary: true,  selected: true  },
+  { id: 'arch-fa',  name: 'archive-fast',    meta: '10.0.4.12 . NVMe array',          status: 'online',  freeGb: 4_000,  totalGb: 8_000,  primary: false, selected: true  },
+  { id: 'cold-01',  name: 'backup-cold',     meta: '10.0.7.3 . spinning disk',         status: 'online',  freeGb: 24_000, totalGb: 48_000, primary: false, selected: true  },
+  { id: 'desk-04',  name: 'analyst-desk-04', meta: '10.0.2.41 . scratch space',        status: 'syncing', freeGb: 800,    totalGb: 2_000,  primary: false, selected: false },
+  { id: 'nas-old',  name: 'legacy-nas',      meta: 'unreachable since 14:02',          status: 'offline', freeGb: 2_000,  totalGb: 6_000,  primary: false, selected: false },
+];
+
+let machines = MACHINES.map(m => ({ ...m }));
+let activeFilter = 'all';
+
+const list = document.getElementById('list');
+const caption = document.getElementById('selection-caption');
+const summary = document.getElementById('summary');
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function checkSvg() {
+  return '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 7 12 13 4"/></svg>';
+}
+
+function fmtSize(gb) {
+  if (gb >= 1000) return (gb / 1000).toFixed(gb >= 10_000 ? 0 : 1) + ' TB';
+  return gb + ' GB';
+}
+
+function rowHtml(m) {
+  const used = 1 - m.freeGb / m.totalGb;
+  const pct = Math.round(used * 100);
+  const fill = used > 0.9 ? 'full' : used > 0.75 ? 'warn' : '';
+  const primary = m.primary ? '<span class="primary-badge">primary</span>' : '';
+  return (
+    '<div class="check">' + checkSvg() + '</div>' +
+    '<div class="info">' +
+      '<div class="name-row">' +
+        '<span class="status-dot ' + m.status + '" title="' + m.status + '"></span>' +
+        '<span class="name">' + escapeHtml(m.name) + '</span>' +
+        primary +
+      '</div>' +
+      '<div class="meta">' + escapeHtml(m.meta) + '</div>' +
+    '</div>' +
+    '<div class="capacity">' +
+      '<div class="capacity-bar"><div class="' + fill + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="capacity-text"><strong>' + fmtSize(m.freeGb) + '</strong> free of ' + fmtSize(m.totalGb) + '</div>' +
+    '</div>'
+  );
+}
+
+function visible(m) {
+  if (activeFilter === 'online')   return m.status !== 'offline';
+  if (activeFilter === 'selected') return m.selected;
+  return true;
+}
+
+function render() {
+  let html = '';
+  machines.filter(visible).forEach(m => {
+    const cls = 'row'
+      + (m.selected ? ' selected' : '')
+      + (m.status === 'offline' ? ' offline' : '');
+    html += '<div class="' + cls + '" data-id="' + m.id + '" role="option" aria-selected="' + m.selected + '">' + rowHtml(m) + '</div>';
+  });
+  list.innerHTML = html;
+
+  list.querySelectorAll('.row').forEach(row => {
+    row.addEventListener('click', () => {
+      const m = machines.find(x => x.id === row.dataset.id);
+      if (!m || m.status === 'offline') return;
+      m.selected = !m.selected;
+      render();
+    });
+  });
+
+  const sel = machines.filter(m => m.selected);
+  const free = sel.reduce((s, m) => s + m.freeGb, 0);
+  caption.textContent = sel.length + ' of ' + machines.length + ' machines selected';
+  summary.innerHTML = sel.length === 0
+    ? 'No destinations selected . output writes will fail'
+    : 'Writing to <strong>' + sel.length + '</strong> machine' + (sel.length === 1 ? '' : 's') + ' . <strong>' + fmtSize(free) + '</strong> total free';
+}
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    render();
+  });
+});
+
+document.getElementById('select-online').addEventListener('click', () => {
+  machines.forEach(m => { if (m.status !== 'offline') m.selected = true; });
+  render();
+});
+document.getElementById('clear').addEventListener('click', () => {
+  machines.forEach(m => { m.selected = false; });
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

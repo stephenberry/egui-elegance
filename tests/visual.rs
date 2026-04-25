@@ -14,11 +14,11 @@ use eframe::egui;
 use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
-    Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, Indicator, IndicatorState, LogBar, MenuBar, MenuItem, PairItem, Pairing,
-    Popover, PopoverSide, ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner,
-    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
-    TooltipSide,
+    Accent, Accordion, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
+    CollapsingSection, ColorPicker, FileDropZone, Indicator, IndicatorState, LogBar, MenuBar,
+    MenuItem, PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RangeSlider,
+    SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
+    TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -343,6 +343,53 @@ fn sliders_ui(ui: &mut egui::Ui) {
     );
 }
 
+fn range_sliders_ui(ui: &mut egui::Ui) {
+    let (mut price_lo, mut price_hi): (u32, u32) = (24, 118);
+    let (mut latency_lo, mut latency_hi): (u32, u32) = (120, 340);
+    let (mut volume_lo, mut volume_hi): (u32, u32) = (18, 62);
+    let (mut retention_lo, mut retention_hi): (u32, u32) = (7, 30);
+    let w = 520.0_f32;
+    Card::new().show(ui, |ui| {
+        ui.set_max_width(w);
+        ui.add(
+            RangeSlider::new(&mut price_lo, &mut price_hi, 0u32..=200u32)
+                .label("Price")
+                .value_fmt(|v| format!("${v:.0}"))
+                .desired_width(w)
+                .id_salt("rs_price"),
+        );
+        ui.add_space(8.0);
+        ui.add(
+            RangeSlider::new(&mut latency_lo, &mut latency_hi, 0u32..=500u32)
+                .label("Latency target")
+                .suffix(" ms")
+                .step(10.0)
+                .ticks(6)
+                .show_tick_labels(true)
+                .desired_width(w)
+                .id_salt("rs_latency"),
+        );
+        ui.add_space(8.0);
+        ui.add(
+            RangeSlider::new(&mut volume_lo, &mut volume_hi, 0u32..=100u32)
+                .label("Volume")
+                .suffix(" dB")
+                .accent(Accent::Green)
+                .desired_width(w)
+                .id_salt("rs_volume"),
+        );
+        ui.add_space(8.0);
+        ui.add(
+            RangeSlider::new(&mut retention_lo, &mut retention_hi, 1u32..=90u32)
+                .label("Retention window (locked)")
+                .suffix(" days")
+                .enabled(false)
+                .desired_width(w)
+                .id_salt("rs_retention"),
+        );
+    });
+}
+
 fn feedback_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
     ui.set_max_width(500.0);
@@ -462,6 +509,23 @@ fn steps_ui(ui: &mut egui::Ui) {
     );
     ui.add_space(14.0);
 
+    ui.label(theme.muted_text("Numbered — labeled with active sublabel"));
+    ui.add(
+        Steps::labeled(["Account", "Workspace", "Billing", "Integrations", "Review"])
+            .style(StepsStyle::Numbered)
+            .current(2)
+            .active_sublabel("In progress"),
+    );
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Numbered — labeled, no sublabel"));
+    ui.add(
+        Steps::labeled(["Details", "Payment", "Confirm"])
+            .style(StepsStyle::Numbered)
+            .current(0),
+    );
+    ui.add_space(14.0);
+
     ui.label(theme.muted_text("Labeled — horizontal"));
     ui.add(Steps::labeled(["Plan", "Build", "Test", "Deploy"]).current(2));
     ui.add_space(6.0);
@@ -515,6 +579,85 @@ fn containers_ui(ui: &mut egui::Ui) {
         });
 }
 
+fn accordion_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    ui.set_min_width(620.0);
+
+    ui.label(theme.muted_text("FAQ — bordered, default"));
+    Accordion::new("vis_acc_faq").show(ui, |acc| {
+        acc.item("How do I invite teammates to my workspace?")
+            .default_open(true)
+            .show(|ui| {
+                ui.label(theme.muted_text(
+                    "Open Settings ▸ Members and click Invite. Paste a list of emails or share a role-scoped signup link.",
+                ));
+            });
+        acc.item("What happens when I archive a project?")
+            .show(|_| {});
+        acc.item("Is there an API for bulk imports?").show(|_| {});
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Settings — exclusive, with icon and meta"));
+    Accordion::new("vis_acc_settings")
+        .exclusive(true)
+        .show(ui, |acc| {
+            acc.item("Notifications")
+                .icon("\u{1F514}")
+                .accent(Accent::Sky)
+                .subtitle("Email, Slack, and in-app alerts")
+                .meta(|ui| {
+                    ui.add(Badge::new("3 channels", BadgeTone::Ok));
+                })
+                .default_open(true)
+                .show(|ui| {
+                    ui.label(
+                        theme
+                            .muted_text("Three channels enabled. Tap Manage channels for details."),
+                    );
+                });
+            acc.item("Security")
+                .icon("\u{1F512}")
+                .accent(Accent::Green)
+                .subtitle("2FA, sessions, and trusted devices")
+                .meta(|ui| {
+                    ui.add(Badge::new("Strong", BadgeTone::Ok));
+                })
+                .show(|_| {});
+            acc.item("Integrations")
+                .icon("\u{2731}")
+                .accent(Accent::Amber)
+                .subtitle("GitHub, Linear, PagerDuty, and 2 more")
+                .meta(|ui| {
+                    ui.add(Badge::new("1 needs auth", BadgeTone::Warning));
+                })
+                .show(|_| {});
+            acc.item("Billing (owner-only)")
+                .icon("\u{1F3E0}")
+                .subtitle("Invoices, plan, and seats")
+                .meta(|ui| {
+                    ui.label(theme.faint_text("Admin required"));
+                })
+                .disabled(true)
+                .show(|_| {});
+        });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Flush — inline, no outer card"));
+    Accordion::new("vis_acc_flush").flush(true).show(ui, |acc| {
+        acc.item("Advanced options")
+            .subtitle("(rarely needed)")
+            .default_open(true)
+            .show(|ui| {
+                ui.label(
+                    theme.muted_text("Override the default request timeout and retry behavior."),
+                );
+            });
+        acc.item("Experimental features").show(|_| {});
+        acc.item("Danger zone").show(|_| {});
+    });
+}
+
 fn log_bar_ui(ui: &mut egui::Ui) {
     let mut log = LogBar::new();
     log.sys("Ready");
@@ -563,6 +706,19 @@ fn callouts_ui(ui: &mut egui::Ui) {
         .show(ui, |_| {});
 }
 
+fn file_drop_zone_ui(ui: &mut egui::Ui) {
+    ui.set_max_width(560.0);
+    let _ = FileDropZone::new()
+        .hint("up to 10 MB \u{00b7} PNG, JPG, CSV, PDF")
+        .show(ui);
+    ui.add_space(10.0);
+    let _ = FileDropZone::new()
+        .prompt("Drop a CSV to import")
+        .min_height(96.0)
+        .enabled(false)
+        .show(ui);
+}
+
 fn pairing_ui(ui: &mut egui::Ui) {
     let clients = vec![
         PairItem::new("c1", "worker-pool-a")
@@ -602,6 +758,53 @@ fn pairing_ui(ui: &mut egui::Ui) {
         .left_label("Clients")
         .right_label("Servers")
         .show(ui);
+}
+
+fn color_picker_triggers_ui(ui: &mut egui::Ui) {
+    let mut a = egui::Color32::from_rgb(0x38, 0xbd, 0xf8);
+    let mut b = egui::Color32::from_rgb(0x4a, 0xde, 0x80);
+    let mut c = egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6);
+    ui.set_min_width(360.0);
+    ui.horizontal(|ui| {
+        ui.add(ColorPicker::new("cp_a", &mut a).label("Brand"));
+        ui.add_space(12.0);
+        ui.add(ColorPicker::new("cp_b", &mut b).label("Success"));
+        ui.add_space(12.0);
+        ui.add(
+            ColorPicker::new("cp_c", &mut c)
+                .label("Overlay")
+                .alpha(true),
+        );
+    });
+}
+
+fn color_picker_palette_open_ui(ui: &mut egui::Ui) {
+    let id = "cp_open_palette";
+    egui::Popup::open_id(
+        &ui.ctx().clone(),
+        elegance::Popover::popup_id(("elegance::color_picker", egui::Id::new(id))),
+    );
+    let mut color = egui::Color32::from_rgb(0x38, 0xbd, 0xf8);
+    ui.set_min_size(egui::vec2(360.0, 540.0));
+    ui.add_space(8.0);
+    ui.add(
+        ColorPicker::new(id, &mut color)
+            .palette(ColorPicker::default_palette())
+            .continuous(false)
+            .recents(false),
+    );
+}
+
+fn color_picker_continuous_open_ui(ui: &mut egui::Ui) {
+    let id = "cp_open_continuous";
+    egui::Popup::open_id(
+        &ui.ctx().clone(),
+        elegance::Popover::popup_id(("elegance::color_picker", egui::Id::new(id))),
+    );
+    let mut color = egui::Color32::from_rgba_unmultiplied(0x38, 0xbd, 0xf8, 0xd9);
+    ui.set_min_size(egui::vec2(360.0, 380.0));
+    ui.add_space(8.0);
+    ui.add(ColorPicker::new(id, &mut color).recents(false));
 }
 
 // egui only allows one popup open at a time per viewport, so each side
@@ -762,11 +965,14 @@ theme_tests!(toggles, toggles_ui);
 theme_tests!(tabs, tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(sliders, sliders_ui);
+theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(feedback, feedback_ui);
 theme_tests!(progress_rings, progress_rings_ui);
 theme_tests!(steps, steps_ui);
 theme_tests!(containers, containers_ui);
+theme_tests!(accordion, accordion_ui);
 theme_tests!(callouts, callouts_ui);
+theme_tests!(file_drop_zone, file_drop_zone_ui);
 theme_tests!(log_bar, log_bar_ui);
 theme_tests!(pairing, pairing_ui);
 theme_tests!(popover_bottom, popover_bottom_ui);
@@ -777,6 +983,12 @@ theme_tests!(menu_bar, menu_bar_ui);
 theme_tests!(tooltip_label, tooltip_label_ui);
 theme_tests!(tooltip_rich, tooltip_rich_ui);
 theme_tests!(tooltip_below, tooltip_below_ui);
+theme_tests!(color_picker_triggers, color_picker_triggers_ui);
+theme_tests!(color_picker_palette_open, color_picker_palette_open_ui);
+theme_tests!(
+    color_picker_continuous_open,
+    color_picker_continuous_open_ui
+);
 
 // ---------------------------------------------------------------------------
 // Interaction-state tests. Each renders a single widget, injects a mouse /

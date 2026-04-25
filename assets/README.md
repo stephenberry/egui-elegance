@@ -2,9 +2,10 @@
 
 ## `elegance-symbols.ttf`
 
-A ~13 KB subset of DejaVu Sans containing just the glyphs elegance widgets
-and consumers are likely to inline in text: arrows, math ellipsis, modifier
-keys, delete keys, return arrows, disclosure triangles, check / cross.
+A ~15 KB font combining a subset of DejaVu Sans (arrows, math ellipsis,
+modifier keys, delete keys, return arrows, disclosure triangles) with a
+small set of [Lucide](https://lucide.dev) UI icons (upload, download,
+search, pin, copy, alert, network, check, x).
 
 The source font, DejaVu Sans, is derived from Bitstream Vera. Its license
 permits redistribution of modified/subset fonts provided the font is renamed
@@ -39,8 +40,15 @@ Arev contributions) is preserved in `elegance-symbols-LICENSE.txt`.
 | U+25B8    | ▸     | small right-pointing triangle |
 | U+25BE    | ▾     | small down-pointing triangle |
 | U+25C2    | ◂     | small left-pointing triangle |
-| U+2713    | ✓     | check mark                |
-| U+2717    | ✗     | ballot x                  |
+| U+2713    | ✓     | check mark (Lucide `check` — overrides DejaVu) |
+| U+2717    | ✗     | ballot x (Lucide `x` — overrides DejaVu) |
+| U+E000    | (PUA) | upload tray (Lucide `upload`) |
+| U+E001    | (PUA) | download tray (Lucide `download`) |
+| U+E002    | (PUA) | magnifier (Lucide `search`) |
+| U+E003    | (PUA) | pin (Lucide `pin`) |
+| U+E004    | (PUA) | copy / duplicate (Lucide `copy`) |
+| U+E005    | (PUA) | circular alert (Lucide `circle-alert`) |
+| U+E006    | (PUA) | network / hub (Lucide `network`) |
 
 ### Regenerating the subset
 
@@ -60,7 +68,25 @@ pyftsubset dejavu-fonts-ttf-2.37/ttf/DejaVuSans.ttf \
     --no-hinting --desubroutinize --name-IDs='*'
 
 # Then rename via fontTools (see scripts/rename-symbol-font.py if present).
+
+# Re-bake the Lucide icon set on top of the DejaVu subset.
+pip install picosvg fonttools
+python3 scripts/update_lucide_glyphs.py
 ```
 
 Any new codepoints must also be added to the table above and any consumer-
 facing documentation that lists the bundled glyphs.
+
+### Imported (Lucide) glyphs
+
+The U+2713 / U+2717 overrides and every Private Use Area entry in the
+table above are baked in by `scripts/update_lucide_glyphs.py`, which
+fetches each icon's SVG from a pinned [Lucide](https://lucide.dev)
+release tag, flattens the stroked paths via `picosvg`, and writes the
+result through `fontTools`. Lucide is dual-licensed (ISC + MIT for
+Feather-derived icons); see `lucide-LICENSE.txt`. The list of glyphs
+to bake is hard-coded near the top of the script — edit
+`LUCIDE_GLYPHS` and re-run to add or update an icon.
+
+The matching Rust constants in `src/lib.rs` (`pub mod glyphs`) must
+stay in sync with the script's codepoint assignments.
