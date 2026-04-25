@@ -16,16 +16,24 @@
 //! * Click a pane header or body to move keyboard focus onto that pane.
 //! * Click a pane's broadcast pill to toggle it in or out of the broadcast
 //!   set. Every pane with broadcast on will receive input; offline panes
-//!   are skipped. If the set is empty, the focused pane receives input as
-//!   a fallback, so the buffer always has somewhere to go.
+//!   are skipped. An empty broadcast set is a real state: Enter is a no-op
+//!   until at least one pane is toggled on.
 //! * Each pane has a **Solo** target button next to its broadcast pill:
 //!   clicking solos that pane (broadcast = `{this}`); clicking again
 //!   restores the previously stashed set.
 //! * The gridbar has an **All on** toggle: clicking turns broadcast on
 //!   for every connected pane, and clicking again turns all of them off.
-//! * Keyboard: `Enter` sends, `Backspace` edits, `Esc` clears; `Cmd`/
-//!   `Ctrl` + `A` toggles All on/off, `Cmd`/`Ctrl` + `D` solos the focused
-//!   pane.
+//! * Keyboard: `Enter` sends, `Backspace` / `Delete` edit, `Esc` clears.
+//!   `Left` / `Right` move the editing caret one character; `Home` / `End`
+//!   jump to the start / end of the input (`Ctrl + E` is also bound to
+//!   end-of-line; the readline `Ctrl + A` is reserved for the All-on
+//!   toggle). `Up` / `Down` walk a shared command history (replacing the
+//!   pending buffer with the selected entry). `Ctrl + C` cancels the
+//!   current input line (SIGINT-style, distinct from `Cmd + C` which
+//!   copies a text selection on macOS). `Ctrl + L` (Unix `clear`) and
+//!   `Cmd + K` (macOS Terminal) clear scrollback in every receiving pane.
+//!   `Cmd`/`Ctrl` + `A` toggles All on/off; `Cmd`/`Ctrl` + `D` solos the
+//!   focused pane.
 //!
 //! # Example
 //!
@@ -78,6 +86,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 use egui::epaint::text::{LayoutJob, TextFormat};
+use egui::text::CCursor;
 use egui::{
     Align2, Color32, CornerRadius, Event, FontFamily, FontId, Id, Key, Modifiers, Pos2, Rect,
     Response, Sense, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetType,
@@ -310,9 +319,24 @@ pub struct MultiTerminal {
     stashed: Option<HashSet<String>>,
     focused_id: Option<String>,
     pending: String,
+    /// Byte offset into `pending` where the editing caret sits. Always
+    /// aligned to a UTF-8 char boundary; updated by every editing path
+    /// (insert / backspace / delete / arrow keys / paste / history).
+    pending_cursor: usize,
+    /// Submitted commands, oldest first. Up / Down navigate this list,
+    /// replacing `pending` with the selected entry.
+    history: Vec<String>,
+    /// `Some(i)` while the user is browsing history; `None` when editing
+    /// a fresh buffer. Reset on Enter and Esc.
+    history_cursor: Option<usize>,
+    history_cap: usize,
     columns_mode: ColumnsMode,
     pane_min_height: f32,
     scrollback_cap: usize,
+    /// When true (default), the widget claims keyboard focus whenever no
+    /// other widget owns it. Apps with multiple non-text surfaces may want
+    /// to disable this to avoid swallowing global Tab / Esc navigation.
+    auto_focus: bool,
     events: Vec<TerminalEvent>,
 }
 
@@ -339,6 +363,7 @@ impl std::fmt::Debug for MultiTerminal {
             .field("collapsed", &self.collapsed)
             .field("focused_id", &self.focused_id)
             .field("pending", &self.pending)
+            .field("history", &self.history.len())
             .field("columns_mode", &self.columns_mode)
             .field("events", &self.events.len())
             .finish()
@@ -357,9 +382,14 @@ impl MultiTerminal {
             stashed: None,
             focused_id: None,
             pending: String::new(),
+            pending_cursor: 0,
+            history: Vec::new(),
+            history_cursor: None,
+            history_cap: 200,
             columns_mode: ColumnsMode::Fixed(2),
             pane_min_height: 220.0,
             scrollback_cap: 500,
+            auto_focus: true,
             events: Vec::new(),
         }
     }
@@ -414,15 +444,39 @@ impl MultiTerminal {
         self
     }
 
+    /// Cap on the shared command history (Up / Down navigation). Older
+    /// entries are dropped when the buffer exceeds this count. Default: 200.
+    #[inline]
+    pub fn history_cap(mut self, n: usize) -> Self {
+        self.history_cap = n.max(1);
+        // Trim if we just shrank past the current length.
+        if self.history.len() > self.history_cap {
+            let drop = self.history.len() - self.history_cap;
+            self.history.drain(0..drop);
+        }
+        self
+    }
+
+    /// Whether the widget should auto-claim keyboard focus when no other
+    /// widget owns it. Default: `true`. Disable in apps where global Tab /
+    /// Esc navigation would otherwise be swallowed.
+    #[inline]
+    pub fn auto_focus(mut self, enabled: bool) -> Self {
+        self.auto_focus = enabled;
+        self
+    }
+
     /// Append a pane at runtime.
     pub fn add_pane(&mut self, pane: TerminalPane) {
         // If this is the first pane, focus it by default.
         if self.focused_id.is_none() {
             self.focused_id = Some(pane.id.clone());
         }
-        // Connected panes start in the broadcast set so the widget has a
-        // sensible initial target.
-        if pane.status == TerminalStatus::Connected {
+        // Auto-broadcast only the very first pane added: gives single-pane
+        // setups a sensible default target without silently broadcasting
+        // every newly-added pane in bulk-add flows (where the user can
+        // accidentally fan a command out to a dozen brand-new targets).
+        if pane.status == TerminalStatus::Connected && self.panes.is_empty() {
             self.broadcast.insert(pane.id.clone());
         }
         self.panes.push(pane);
@@ -587,10 +641,8 @@ impl MultiTerminal {
 
     /// Toggle broadcast on every connected pane. If every connected pane
     /// is already in the broadcast set, clears it; otherwise fills it with
-    /// every connected pane.
-    ///
-    /// Note: when the set ends up empty, the focused pane still receives
-    /// input as a fallback so the buffer always has somewhere to go.
+    /// every connected pane. When the set ends up empty, Enter is a no-op
+    /// until the user opts panes back in.
     pub fn broadcast_all(&mut self) {
         let connected: Vec<String> = self
             .panes
@@ -632,9 +684,10 @@ impl MultiTerminal {
         &self.pending
     }
 
-    /// Clear the pending input buffer.
+    /// Clear the pending input buffer (and reset the editing cursor).
     pub fn clear_pending(&mut self) {
         self.pending.clear();
+        self.pending_cursor = 0;
     }
 
     /// Drain and return the events accumulated since the previous call.
@@ -667,19 +720,38 @@ impl MultiTerminal {
         // `request_focus(focus_id)` explicitly when clicked.
         let bg = ui.interact(inner.rect, focus_id, Sense::focusable_noninteractive());
 
-        // Auto-claim focus whenever nothing else has it — the widget is a
+        // Auto-claim focus whenever nothing else has it: the widget is a
         // REPL-style typing surface, so keystrokes should land in the panes
         // as soon as the widget is visible, without requiring an initial
         // click. We only take focus when the app isn't focused on something
-        // else (a TextEdit elsewhere, for instance).
-        let someone_else_has_focus = ui
-            .ctx()
-            .memory(|m| m.focused().is_some_and(|f| f != focus_id));
-        if !someone_else_has_focus {
-            ui.ctx().memory_mut(|m| m.request_focus(focus_id));
+        // else (a TextEdit elsewhere, for instance). Disabled via
+        // `auto_focus(false)` for apps where this would swallow global Tab /
+        // Esc navigation.
+        if self.auto_focus {
+            let someone_else_has_focus = ui
+                .ctx()
+                .memory(|m| m.focused().is_some_and(|f| f != focus_id));
+            if !someone_else_has_focus {
+                ui.ctx().memory_mut(|m| m.request_focus(focus_id));
+            }
         }
 
         if ui.ctx().memory(|m| m.has_focus(focus_id)) {
+            // Capture arrow keys: vertical for history (Up / Down) and
+            // horizontal for cursor positioning (Left / Right). Without
+            // this, egui's default focus-navigation eats them and they
+            // never reach `handle_keys`.
+            ui.ctx().memory_mut(|m| {
+                m.set_focus_lock_filter(
+                    focus_id,
+                    egui::EventFilter {
+                        tab: false,
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        escape: false,
+                    },
+                );
+            });
             self.handle_keys(ui);
         }
 
@@ -704,6 +776,11 @@ impl MultiTerminal {
     /// pane if nothing is stashed.
     fn restore_or_fallback(&mut self) {
         if let Some(stash) = self.stashed.take() {
+            // Honor the stash, including an explicitly-empty one: if the
+            // user had no panes broadcasting before solo, un-solo returns
+            // to no panes broadcasting. Filter to currently-connected
+            // panes so a stash referencing a since-disconnected pane
+            // doesn't leave a dangling id behind.
             self.broadcast = stash
                 .into_iter()
                 .filter(|id| {
@@ -712,36 +789,26 @@ impl MultiTerminal {
                         .any(|p| p.id == *id && p.status == TerminalStatus::Connected)
                 })
                 .collect();
-        }
-        if self.broadcast.is_empty() {
-            if let Some(fid) = self.focused_id.clone() {
-                self.broadcast.insert(fid);
-            }
+        } else {
+            // No stash to restore (the soloed pane was the only initial
+            // broadcaster). Clear the set so un-solo is a meaningful
+            // toggle without forcing an "all panes" default the user
+            // didn't ask for; they can opt back in via pane pills or
+            // the gridbar's All-on button.
+            self.broadcast.clear();
         }
     }
 
     /// The set of pane ids that should actually receive input right now.
-    /// Falls back to the focused pane when the user-chosen set is empty.
+    /// Empty when the broadcast set is empty (or every member is offline);
+    /// in that case Enter is a no-op and the gridbar mode pill shows
+    /// "NO TARGET".
     fn target_ids(&self) -> Vec<String> {
-        let alive: Vec<String> = self
-            .panes
+        self.panes
             .iter()
             .filter(|p| self.broadcast.contains(&p.id) && p.status == TerminalStatus::Connected)
             .map(|p| p.id.clone())
-            .collect();
-        if !alive.is_empty() {
-            return alive;
-        }
-        if let Some(fid) = &self.focused_id {
-            if self
-                .panes
-                .iter()
-                .any(|p| p.id == *fid && p.status == TerminalStatus::Connected)
-            {
-                return vec![fid.clone()];
-            }
-        }
-        Vec::new()
+            .collect()
     }
 
     fn connected_count(&self) -> usize {
@@ -751,14 +818,42 @@ impl MultiTerminal {
             .count()
     }
 
+    /// Clear scrollback in every pane that would currently receive input
+    /// (the broadcast targets, with the same focused-pane fallback as
+    /// [`run_pending`](Self::run_pending)). Bound to `Ctrl+L` and `Cmd+K`.
+    fn clear_targets(&mut self) {
+        let targets = self.target_ids();
+        for id in targets {
+            if let Some(pane) = self.panes.iter_mut().find(|p| p.id == id) {
+                pane.lines.clear();
+            }
+        }
+    }
+
     fn run_pending(&mut self) {
-        let cmd = self.pending.trim().to_string();
+        let cmd = self.pending.clone();
+        if self.send_command(&cmd) {
+            self.clear_pending();
+            self.history_cursor = None;
+        }
+    }
+
+    /// Run `cmd` against the current broadcast targets exactly as if the
+    /// user had typed it and pressed Enter: trims the command, echoes it
+    /// into each target pane, appends to the shared history (deduped
+    /// against the previous entry), and emits a [`TerminalEvent::Command`].
+    /// The pending input buffer is left untouched.
+    ///
+    /// Returns `true` if the command was dispatched, `false` if it was
+    /// empty after trimming or no panes are reachable.
+    pub fn send_command(&mut self, cmd: &str) -> bool {
+        let cmd = cmd.trim().to_string();
         if cmd.is_empty() {
-            return;
+            return false;
         }
         let targets = self.target_ids();
         if targets.is_empty() {
-            return;
+            return false;
         }
         // Echo the command into each target pane before emitting the event,
         // so the caller just appends the response.
@@ -773,11 +868,132 @@ impl MultiTerminal {
                 }
             }
         }
+        // Push the submitted command onto the shared history, deduped
+        // against the immediately previous entry so repeated Enter doesn't
+        // bloat the buffer.
+        if self.history.last().map(String::as_str) != Some(cmd.as_str()) {
+            self.history.push(cmd.clone());
+            if self.history.len() > self.history_cap {
+                let drop = self.history.len() - self.history_cap;
+                self.history.drain(0..drop);
+            }
+        }
         self.events.push(TerminalEvent::Command {
             targets,
             command: cmd,
         });
-        self.pending.clear();
+        true
+    }
+
+    // ---- Pending-buffer editing helpers --------------------------------
+    //
+    // All edits flow through these so the cursor stays in sync with the
+    // buffer. `pending_cursor` is a byte offset that always sits on a
+    // UTF-8 char boundary.
+
+    fn pending_set(&mut self, text: String) {
+        self.pending = text;
+        self.pending_cursor = self.pending.len();
+    }
+
+    fn pending_insert(&mut self, s: &str) {
+        self.pending.insert_str(self.pending_cursor, s);
+        self.pending_cursor += s.len();
+    }
+
+    fn pending_backspace(&mut self) {
+        if self.pending_cursor == 0 {
+            return;
+        }
+        let prev = self.pending_prev_boundary(self.pending_cursor);
+        self.pending.replace_range(prev..self.pending_cursor, "");
+        self.pending_cursor = prev;
+    }
+
+    fn pending_delete(&mut self) {
+        if self.pending_cursor >= self.pending.len() {
+            return;
+        }
+        let next = self.pending_next_boundary(self.pending_cursor);
+        self.pending.replace_range(self.pending_cursor..next, "");
+    }
+
+    fn pending_cursor_left(&mut self) {
+        self.pending_cursor = self.pending_prev_boundary(self.pending_cursor);
+    }
+
+    fn pending_cursor_right(&mut self) {
+        self.pending_cursor = self.pending_next_boundary(self.pending_cursor);
+    }
+
+    fn pending_cursor_home(&mut self) {
+        self.pending_cursor = 0;
+    }
+
+    fn pending_cursor_end(&mut self) {
+        self.pending_cursor = self.pending.len();
+    }
+
+    fn pending_prev_boundary(&self, idx: usize) -> usize {
+        if idx == 0 {
+            return 0;
+        }
+        let mut i = idx - 1;
+        while i > 0 && !self.pending.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    }
+
+    fn pending_next_boundary(&self, idx: usize) -> usize {
+        let len = self.pending.len();
+        if idx >= len {
+            return len;
+        }
+        let mut i = idx + 1;
+        while i < len && !self.pending.is_char_boundary(i) {
+            i += 1;
+        }
+        i
+    }
+
+    /// Move the history cursor by `delta` (negative = older, positive =
+    /// newer) and replace `pending` with the selected entry. Stepping past
+    /// the newest entry exits history mode and clears the buffer.
+    fn step_history(&mut self, delta: isize) {
+        if self.history.is_empty() {
+            return;
+        }
+        let last = self.history.len() - 1;
+        let next = match self.history_cursor {
+            None => {
+                if delta < 0 {
+                    Some(last)
+                } else {
+                    return;
+                }
+            }
+            Some(i) => {
+                let i = i as isize + delta;
+                if i < 0 {
+                    Some(0)
+                } else if i as usize > last {
+                    None
+                } else {
+                    Some(i as usize)
+                }
+            }
+        };
+        match next {
+            Some(i) => {
+                self.pending_set(self.history[i].clone());
+                self.history_cursor = Some(i);
+            }
+            None => {
+                self.clear_pending();
+                self.history_cursor = None;
+            }
+        }
     }
 
     fn handle_keys(&mut self, ui: &mut Ui) {
@@ -792,12 +1008,36 @@ impl MultiTerminal {
                     modifiers,
                     ..
                 } => {
+                    // Ctrl-only (distinct from Cmd on macOS, where Cmd+C
+                    // is reserved for copy via egui's selectable labels).
+                    if modifiers.matches_exact(Modifiers::CTRL) {
+                        match key {
+                            Key::C => {
+                                // SIGINT-style: cancel the current input line.
+                                self.clear_pending();
+                                self.history_cursor = None;
+                                continue;
+                            }
+                            // readline `end-of-line`. The complementary
+                            // `Ctrl+A` (start-of-line) clashes with the
+                            // existing All-on toggle; `Home` covers it.
+                            Key::E => {
+                                self.pending_cursor_end();
+                                continue;
+                            }
+                            _ => {}
+                        }
+                    }
                     if modifiers.matches_exact(Modifiers::COMMAND)
                         || modifiers.matches_exact(Modifiers::CTRL)
                     {
                         match key {
                             Key::A => self.broadcast_all(),
                             Key::D => self.solo_focused(),
+                            // Clear scrollback. `L` is the Unix `clear`
+                            // convention; `K` is the macOS Terminal.app
+                            // convention (Cmd+K).
+                            Key::L | Key::K => self.clear_targets(),
                             _ => {}
                         }
                         continue;
@@ -808,18 +1048,36 @@ impl MultiTerminal {
                     }
                     match key {
                         Key::Enter => self.run_pending(),
-                        Key::Escape => self.pending.clear(),
-                        Key::Backspace => {
-                            self.pending.pop();
+                        Key::Escape => {
+                            self.clear_pending();
+                            self.history_cursor = None;
                         }
+                        Key::Backspace => self.pending_backspace(),
+                        Key::Delete => self.pending_delete(),
+                        Key::ArrowLeft => self.pending_cursor_left(),
+                        Key::ArrowRight => self.pending_cursor_right(),
+                        Key::Home => self.pending_cursor_home(),
+                        Key::End => self.pending_cursor_end(),
+                        Key::ArrowUp => self.step_history(-1),
+                        Key::ArrowDown => self.step_history(1),
                         _ => {}
                     }
                 }
                 Event::Text(text) => {
-                    for ch in text.chars() {
-                        if !ch.is_control() {
-                            self.pending.push(ch);
-                        }
+                    let cleaned: String = text.chars().filter(|c| !c.is_control()).collect();
+                    if !cleaned.is_empty() {
+                        self.pending_insert(&cleaned);
+                    }
+                }
+                Event::Paste(text) => {
+                    // Insert pasted text at the cursor. Strip control
+                    // characters (including newlines) so a multi-line
+                    // paste collapses into a single command; auto-submitting
+                    // on `\n` would silently broadcast every line to every
+                    // receiving pane.
+                    let cleaned: String = text.chars().filter(|c| !c.is_control()).collect();
+                    if !cleaned.is_empty() {
+                        self.pending_insert(&cleaned);
                     }
                 }
                 _ => {}
@@ -1021,8 +1279,12 @@ impl MultiTerminal {
         let full_w = ui.available_width();
         ui.spacing_mut().item_spacing.y = 0.0;
 
-        let inner_pad = 12.0;
-        let gap = 12.0;
+        // Panes tile edge-to-edge separated by 1px lines: the container is
+        // filled with `palette.border`, and a 1px gap (`inner_pad` around the
+        // outside, `gap` between cells) lets that fill show through as thin
+        // separators.
+        let inner_pad = 1.0;
+        let gap = 1.0;
 
         // Resolve the column count from the configured mode. Auto picks
         // the largest column count that keeps every column at least
@@ -1084,12 +1346,26 @@ impl MultiTerminal {
                 sw: theme.card_radius as u8,
                 se: theme.card_radius as u8,
             },
-            palette.card,
-            Stroke::new(1.0, palette.border),
+            palette.border,
+            Stroke::NONE,
             StrokeKind::Inside,
         );
 
         if self.panes.is_empty() {
+            // Repaint with the card colour: with no panes to overlay, the
+            // border-coloured base would look like a solid block.
+            ui.painter().rect(
+                outer_rect,
+                CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: theme.card_radius as u8,
+                    se: theme.card_radius as u8,
+                },
+                palette.card,
+                Stroke::new(1.0, palette.border),
+                StrokeKind::Inside,
+            );
             ui.painter().text(
                 outer_rect.center(),
                 Align2::CENTER_CENTER,
@@ -1101,7 +1377,14 @@ impl MultiTerminal {
         }
 
         let inner = outer_rect.shrink(inner_pad);
-        let cell_w = (inner.width() - gap * (cols as f32 - 1.0)) / cols as f32;
+        // Width per cell, parameterised by row pane count so a partial last
+        // row (e.g. 2 panes in a 3-col grid) stretches its panes to fill the
+        // full inner width rather than leaving an empty column. Panes within
+        // any single row always share width equally.
+        let cell_w_for = |panes_in_row: usize| -> f32 {
+            let n = panes_in_row.max(1) as f32;
+            (inner.width() - gap * (n - 1.0)) / n
+        };
 
         // Collect click intents across panes so we can apply mutations
         // after the read-only iteration.
@@ -1118,27 +1401,54 @@ impl MultiTerminal {
             y_cursor += h + gap;
         }
 
+        // Outermost panes touching the container's rounded sw/se corners
+        // need matching rounded corners on the pane, otherwise their square
+        // corners would protrude past the container's curve. Inset by 1px
+        // (the inner_pad) so the pane's curve runs parallel to the container's.
+        let pane_corner = (theme.card_radius - inner_pad).max(0.0) as u8;
+        let last_idx = self.panes.len() - 1;
+        let last_row = n_rows - 1;
+        let panes_in_last_row = self.panes.len() - last_row * cols;
         for (idx, pane) in self.panes.iter().enumerate() {
             let row = idx / cols;
             let col = idx % cols;
+            let row_pane_count = if row == last_row {
+                panes_in_last_row
+            } else {
+                cols
+            };
+            let row_cell_w = cell_w_for(row_pane_count);
             let cell_top = row_top_for[row];
-            let cell_left = inner.left() + col as f32 * (cell_w + gap);
+            let cell_left = inner.left() + col as f32 * (row_cell_w + gap);
             // Collapsed panes render as just the header row at the top of
-            // their row-slot — the space below stays empty (and stays the
-            // same colour as the grid container so it's invisible).
+            // their row-slot — the space below stays empty and shows the
+            // container's border-colour fill, blending with the gap lines.
             let is_collapsed = self.collapsed.contains(&pane.id);
             let cell_h = if is_collapsed {
                 header_only_h
             } else {
                 row_heights[row]
             };
-            let cell_rect =
-                Rect::from_min_size(Pos2::new(cell_left, cell_top), Vec2::new(cell_w, cell_h));
+            let cell_rect = Rect::from_min_size(
+                Pos2::new(cell_left, cell_top),
+                Vec2::new(row_cell_w, cell_h),
+            );
 
             let is_focused = self.focused_id.as_deref() == Some(pane.id.as_str());
             let is_receiving =
                 self.broadcast.contains(&pane.id) && pane.status == TerminalStatus::Connected;
             let is_solo = self.broadcast.len() == 1 && self.broadcast.contains(&pane.id);
+
+            let corner_radius = CornerRadius {
+                nw: 0,
+                ne: 0,
+                sw: if row == last_row && col == 0 {
+                    pane_corner
+                } else {
+                    0
+                },
+                se: if idx == last_idx { pane_corner } else { 0 },
+            };
 
             let ctx = PaneCtx {
                 rect: cell_rect,
@@ -1147,7 +1457,9 @@ impl MultiTerminal {
                 is_receiving,
                 is_solo,
                 is_collapsed,
+                corner_radius,
                 pending: if is_receiving { &self.pending } else { "" },
+                pending_cursor: if is_receiving { self.pending_cursor } else { 0 },
                 theme,
                 id_salt: self.id_salt.with(("pane", idx)),
             };
@@ -1162,7 +1474,11 @@ impl MultiTerminal {
             if actions.solo_clicked {
                 intent_solo = Some(pane.id.clone());
             }
-            if actions.collapse_clicked {
+            // Clicking anywhere on the header strip (outside the chevron,
+            // solo, broadcast and indicator child widgets, which consume
+            // their own clicks) toggles collapse. The chevron remains a
+            // precise target for the same action.
+            if actions.collapse_clicked || actions.header_clicked {
                 intent_collapse = Some(pane.id.clone());
             }
         }
@@ -1203,7 +1519,14 @@ struct PaneCtx<'a> {
     is_solo: bool,
     /// This pane is collapsed to a header-only strip.
     is_collapsed: bool,
+    /// Per-pane corner rounding: square in the interior of the grid; the
+    /// outermost panes touching the container's rounded corners get those
+    /// corners rounded so they don't protrude past the container's curve.
+    corner_radius: CornerRadius,
     pending: &'a str,
+    /// Byte offset of the editing caret within `pending` for receiving
+    /// panes; `0` for non-receiving panes (their `pending` is empty).
+    pending_cursor: usize,
     theme: &'a Theme,
     id_salt: Id,
 }
@@ -1220,32 +1543,25 @@ fn draw_pane(ui: &mut Ui, ctx: &PaneCtx<'_>) -> PaneActions {
     let palette = &ctx.theme.palette;
     let p = ctx.rect;
 
-    // Background and border.
-    let border_color = if ctx.is_focused {
-        palette.sky
+    // Panes tile edge-to-edge with 1px gaps; the gap lines come from the
+    // grid container's border-coloured fill showing through. The default
+    // pane has no border of its own. Focused / receiving panes draw an
+    // inset accent stroke (`StrokeKind::Inside`) so it stays inside the
+    // pane and doesn't bleed into the gap.
+    let stroke = if ctx.is_focused {
+        Stroke::new(1.5, palette.sky)
     } else if ctx.is_receiving {
-        with_alpha(palette.sky, 115)
+        Stroke::new(1.0, with_alpha(palette.sky, 115))
     } else {
-        palette.border
+        Stroke::NONE
     };
-    let border_stroke = Stroke::new(if ctx.is_focused { 1.5 } else { 1.0 }, border_color);
     ui.painter().rect(
         p,
-        CornerRadius::same((ctx.theme.control_radius + 2.0) as u8),
+        ctx.corner_radius,
         palette.card,
-        border_stroke,
+        stroke,
         StrokeKind::Inside,
     );
-
-    // Focus glow.
-    if ctx.is_focused {
-        ui.painter().rect_stroke(
-            p.expand(2.0),
-            CornerRadius::same((ctx.theme.control_radius + 4.0) as u8),
-            Stroke::new(1.0, with_alpha(palette.sky, 50)),
-            StrokeKind::Outside,
-        );
-    }
 
     // Header + (optional) body layout. Collapsed panes don't render a
     // body — the rect is sized to just the header height by the caller.
@@ -1293,10 +1609,30 @@ fn draw_pane_header(ui: &mut Ui, rect: Rect, ctx: &PaneCtx<'_>) -> (bool, bool, 
     let edge_pad = 6.0;
     let (collapse_clicked, chev_w) = draw_chevron_button(ui, ctx, rect, edge_pad);
 
-    // Hostname, offset to the right of the chevron.
+    // Right cluster: status indicator, broadcast pill, solo button. Drawn
+    // before the hostname so we know the leftmost X of the cluster and can
+    // clip the hostname to fit the available space (long hostnames would
+    // otherwise overrun the pill / solo button on narrow panes).
     let pad_x = 13.0;
+    let ind_size = 10.0;
+    let ind_center = Pos2::new(rect.right() - pad_x - ind_size * 0.5, rect.center().y);
+    paint_status_indicator(ui.painter(), ind_center, ctx.pane.status, palette, ind_size);
+
+    let bc_rect_right = ind_center.x - ind_size * 0.5 - 8.0;
+    let (toggle_clicked, bc_w) = draw_broadcast_pill(ui, ctx, bc_rect_right, rect.center().y);
+
+    let solo_right = bc_rect_right - bc_w - 6.0;
+    let (solo_clicked, solo_w) = draw_solo_button(ui, ctx, solo_right, rect.center().y);
+    let solo_left = solo_right - solo_w;
+
+    // Hostname, clipped to fit between the chevron and the right cluster.
     let host_x = rect.left() + edge_pad + chev_w + 6.0;
+    let host_max_w = (solo_left - host_x - 6.0).max(0.0);
     let mut job = LayoutJob::default();
+    job.wrap.max_width = host_max_w;
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    job.wrap.overflow_character = Some('\u{2026}');
     job.append(
         &ctx.pane.host,
         0.0,
@@ -1321,20 +1657,6 @@ fn draw_pane_header(ui: &mut Ui, rect: Rect, ctx: &PaneCtx<'_>) -> (bool, bool, 
         galley,
         palette.text,
     );
-
-    // Status indicator on the right — same glyph set as the library's
-    // `Indicator` widget (On / Connecting / Off).
-    let ind_size = 10.0;
-    let ind_center = Pos2::new(rect.right() - pad_x - ind_size * 0.5, rect.center().y);
-    paint_status_indicator(ui.painter(), ind_center, ctx.pane.status, palette, ind_size);
-
-    // Broadcast toggle pill, sitting between the hostname and the indicator.
-    let bc_rect_right = ind_center.x - ind_size * 0.5 - 8.0;
-    let (toggle_clicked, bc_w) = draw_broadcast_pill(ui, ctx, bc_rect_right, rect.center().y);
-
-    // Solo button sits to the left of the broadcast pill.
-    let solo_right = bc_rect_right - bc_w - 6.0;
-    let (solo_clicked, _solo_w) = draw_solo_button(ui, ctx, solo_right, rect.center().y);
 
     (
         header_resp.clicked(),
@@ -1609,21 +1931,38 @@ fn draw_pane_body(ui: &mut Ui, rect: Rect, ctx: &PaneCtx<'_>) -> bool {
     );
     child.spacing_mut().item_spacing.y = 2.0;
 
+    // Scrollback labels are always selectable so drag-to-select works on
+    // any pane, focused or not. To preserve click-to-focus on text (since
+    // selectable labels consume clicks), we treat any label interaction
+    // as a focus signal alongside the body's click.
+    let mut label_interacted = false;
     egui::ScrollArea::vertical()
         .id_salt(ctx.id_salt.with("scroll"))
         .auto_shrink([false, false])
         .stick_to_bottom(true)
         .show(&mut child, |ui| {
             for line in &ctx.pane.lines {
-                paint_line(ui, line, palette, typo);
+                if paint_line(ui, line, palette, typo) {
+                    label_interacted = true;
+                }
             }
-            paint_live_prompt(ui, ctx, palette, typo);
+            if paint_live_prompt(ui, ctx, palette, typo) {
+                label_interacted = true;
+            }
         });
 
-    body_resp.clicked()
+    body_resp.clicked() || label_interacted
 }
 
-fn paint_line(ui: &mut Ui, line: &TerminalLine, palette: &Palette, typo: &Typography) {
+/// Returns `true` if the rendered label was clicked or dragged (used by
+/// the caller to focus the pane on any text interaction, since selectable
+/// labels consume clicks that would otherwise reach the body).
+fn paint_line(
+    ui: &mut Ui,
+    line: &TerminalLine,
+    palette: &Palette,
+    typo: &Typography,
+) -> bool {
     let size = typo.small + 0.5;
     let font = FontId::monospace(size);
     let wrap_width = ui.available_width();
@@ -1687,19 +2026,24 @@ fn paint_line(ui: &mut Ui, line: &TerminalLine, palette: &Palette, typo: &Typogr
                     ..Default::default()
                 },
             );
-            ui.label(job);
+            let resp = ui.add(egui::Label::new(job).selectable(true));
+            resp.clicked() || resp.dragged()
         }
         other => {
             let color = color_for_kind(other, palette);
             let italic = matches!(other, LineKind::Info);
             let rich = egui::RichText::new(&line.text).font(font).color(color);
             let rich = if italic { rich.italics() } else { rich };
-            ui.add(egui::Label::new(rich).wrap());
+            let resp = ui.add(egui::Label::new(rich).wrap().selectable(true));
+            resp.clicked() || resp.dragged()
         }
     }
 }
 
-fn paint_live_prompt(ui: &mut Ui, ctx: &PaneCtx<'_>, palette: &Palette, typo: &Typography) {
+/// Returns `true` if the prompt's label was clicked or dragged (treated
+/// like a scrollback-line interaction by the caller, so dragging on the
+/// in-progress prompt selects text and focuses the pane).
+fn paint_live_prompt(ui: &mut Ui, ctx: &PaneCtx<'_>, palette: &Palette, typo: &Typography) -> bool {
     let size = typo.small + 0.5;
     let font = FontId::monospace(size);
     let pane = ctx.pane;
@@ -1760,31 +2104,50 @@ fn paint_live_prompt(ui: &mut Ui, ctx: &PaneCtx<'_>, palette: &Palette, typo: &T
         );
     }
 
-    // Lay out the wrapped prompt ourselves (without a horizontal wrapper,
-    // whose effectively-unbounded available width can override the job's
-    // wrap cap) and paint the caret at the end of the last wrapped row.
+    // Lay out the wrapped prompt (without a horizontal wrapper, whose
+    // effectively-unbounded available width can override the job's wrap
+    // cap) so we can ask the galley where the caret sits.
     let galley = ui.painter().layout_job(job);
     let caret_h = size + 2.0;
-    let caret_w = 7.0;
+    let block_caret_w = 7.0;
     let total_size = Vec2::new(
-        galley.size().x + caret_w + 2.0,
+        galley.size().x + block_caret_w + 2.0,
         galley.size().y.max(caret_h),
     );
+
+    // Locate the caret. Galley positions are in character offsets, not
+    // bytes, so convert the byte cursor through `chars().count()`. The
+    // prefix is everything before the (possibly empty) pending insert.
+    let prefix_chars = pane.user.chars().count()
+        + 1 // '@'
+        + pane.host.chars().count()
+        + 1 // ':'
+        + pane.cwd.chars().count()
+        + 2; // '$ '
+    let cursor_byte = ctx.pending_cursor.min(ctx.pending.len());
+    let pending_chars_before = ctx.pending[..cursor_byte].chars().count();
+    let caret_local = galley.pos_from_cursor(CCursor::new(prefix_chars + pending_chars_before));
+    let cursor_at_end = ctx.pending_cursor >= ctx.pending.len();
+    let caret_w = if cursor_at_end { block_caret_w } else { 2.0 };
+
+    let galley_size = galley.size();
+
+    // Reserve the full galley + caret-padding area in the parent layout,
+    // then place a selectable label using the pre-laid-out galley so the
+    // pending buffer is drag-selectable just like submitted scrollback.
     let (rect, _resp) = ui.allocate_exact_size(total_size, Sense::hover());
     let galley_origin = rect.min;
+    let label_rect = Rect::from_min_size(galley_origin, galley_size);
+    let resp = ui.put(label_rect, egui::Label::new(galley).selectable(true));
 
-    // Remember where the last row ends before we move the Arc into painter.galley.
-    let last_row = galley.rows.last();
-    let caret_x = galley_origin.x + last_row.map(|r| r.rect().right()).unwrap_or(0.0) + 1.0;
-    let caret_y = galley_origin.y
-        + last_row
-            .map(|r| r.rect().center().y)
-            .unwrap_or(galley.size().y * 0.5);
-
-    ui.painter().galley(galley_origin, galley, palette.text);
-
+    let row_top = galley_origin.y + caret_local.top();
+    let row_bottom = galley_origin.y + caret_local.bottom();
+    let caret_y_center = (row_top + row_bottom) * 0.5;
     let caret_rect = Rect::from_min_size(
-        Pos2::new(caret_x, caret_y - caret_h * 0.5),
+        Pos2::new(
+            galley_origin.x + caret_local.left(),
+            caret_y_center - caret_h * 0.5,
+        ),
         Vec2::new(caret_w, caret_h),
     );
     let caret_color = if ctx.is_receiving {
@@ -1794,6 +2157,8 @@ fn paint_live_prompt(ui: &mut Ui, ctx: &PaneCtx<'_>, palette: &Palette, typo: &T
     };
     ui.painter()
         .rect_filled(caret_rect, CornerRadius::ZERO, caret_color);
+
+    resp.clicked() || resp.dragged()
 }
 
 fn color_for_kind(kind: &LineKind, palette: &Palette) -> Color32 {
