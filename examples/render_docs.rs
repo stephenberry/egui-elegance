@@ -18,7 +18,8 @@ use elegance::{
     Card, Checkbox, CollapsingSection, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
     LinearGauge, MenuBar, MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RadialGauge,
     RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput,
+    Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -33,6 +34,7 @@ fn main() {
     render_buttons();
     render_text_inputs();
     render_text_areas();
+    render_tag_input();
     render_selects();
     render_toggles();
     render_tabs();
@@ -387,6 +389,35 @@ fn render_text_areas() {
                         .desired_width(240.0)
                         .id_salt("r_area_mono"),
                 );
+            });
+        });
+    });
+}
+
+fn render_tag_input() {
+    let mut recipients: Vec<String> = vec!["thomas@example.com".into(), "team@orbit.dev".into()];
+    let mut skills: Vec<String> = vec!["rust".into(), "egui".into(), "wgpu".into()];
+
+    render("tag_input", move |ui| {
+        background(ui, |ui| {
+            // `ui.horizontal` cross-aligns to Center; with two columns
+            // of unequal height that drops the shorter one mid-row.
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                ui.allocate_ui(egui::vec2(360.0, 0.0), |ui| {
+                    TagInput::new("r_ti_recipients", &mut recipients)
+                        .label("Recipients")
+                        .placeholder("Add an email…")
+                        .commit_on_space(true)
+                        .show(ui);
+                });
+                ui.add_space(12.0);
+                ui.allocate_ui(egui::vec2(360.0, 0.0), |ui| {
+                    TagInput::new("r_ti_skills", &mut skills)
+                        .label("Skills")
+                        .placeholder("Add a skill…")
+                        .accent(Accent::Purple)
+                        .show(ui);
+                });
             });
         });
     });

@@ -121,6 +121,30 @@ ui.add(
 ui.add(TextArea::new(&mut json).monospace(true).rows(8));
 ```
 
+### TagInput
+
+![Tag input — recipients with email validation, plus skill chips](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/tag_input.png)
+
+A pill-list text input bound to a `Vec<String>`. Enter or comma commits the buffer as a tag; with `commit_on_space(true)` whitespace commits too. Backspace on an empty buffer arms the last pill (red highlight) and a second Backspace removes it; clicking a pill's `×` removes it directly. Pasted text containing commas or whitespace splits into multiple tags. Optional `validator` closure rejects malformed values with an inline error.
+
+```rust
+use elegance::TagInput;
+
+let mut recipients: Vec<String> = Vec::new();
+TagInput::new("recipients", &mut recipients)
+    .label("Recipients")
+    .placeholder("Add an email…")
+    .commit_on_space(true)
+    .validator(|v| {
+        if v.contains('@') && v.contains('.') {
+            Ok(())
+        } else {
+            Err(format!("\"{v}\" isn't a valid email."))
+        }
+    })
+    .show(ui);
+```
+
 ### Select
 
 ![Selects](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/selects.png)

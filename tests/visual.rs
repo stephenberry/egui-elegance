@@ -19,8 +19,8 @@ use elegance::{
     Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, PairItem,
     Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment,
     SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
-    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
-    TooltipSide,
+    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
+    Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -165,6 +165,35 @@ fn text_inputs_ui(ui: &mut egui::Ui) {
                 .desired_width(240.0)
                 .id_salt("t_pw"),
         );
+    });
+}
+
+fn tag_inputs_ui(ui: &mut egui::Ui) {
+    let mut recipients: Vec<String> = vec![
+        "thomas@example.com".into(),
+        "team@orbit.dev".into(),
+        "oncall@orbit.dev".into(),
+    ];
+    let mut tags: Vec<String> = vec!["rust".into(), "egui".into()];
+    let mut empty: Vec<String> = Vec::new();
+
+    ui.allocate_ui(egui::vec2(420.0, 0.0), |ui| {
+        TagInput::new("ti_recipients", &mut recipients)
+            .label("Recipients")
+            .placeholder("Add an email…")
+            .commit_on_space(true)
+            .show(ui);
+        ui.add_space(10.0);
+        TagInput::new("ti_tags", &mut tags)
+            .label("Tags")
+            .placeholder("Add tags…")
+            .accent(Accent::Purple)
+            .show(ui);
+        ui.add_space(10.0);
+        TagInput::new("ti_empty", &mut empty)
+            .label("Skills")
+            .placeholder("e.g. Rust, egui, gpu…")
+            .show(ui);
     });
 }
 
@@ -1266,6 +1295,7 @@ fn tooltip_below_ui(ui: &mut egui::Ui) {
 
 theme_tests!(buttons, buttons_ui);
 theme_tests!(text_inputs, text_inputs_ui);
+theme_tests!(tag_inputs, tag_inputs_ui);
 theme_tests!(text_areas, text_areas_ui);
 theme_tests!(selects, selects_ui);
 theme_tests!(toggles, toggles_ui);

@@ -13,9 +13,9 @@ use elegance::{
     LinearGauge, LogBar, Menu, MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover,
     PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
     SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatCard,
-    StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine,
-    TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
-    Tooltip, TooltipSide,
+    StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TerminalEvent,
+    TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
+    Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -42,6 +42,8 @@ struct App {
     text_pw: String,
     area_body: String,
     area_mono: String,
+    tag_recipients: Vec<String>,
+    tag_skills: Vec<String>,
     select_unit: String,
     select_env: String,
 
@@ -171,7 +173,7 @@ impl Default for App {
              while flushing buffered samples; backtrace truncated, see core.42137 for details",
         );
         log.sys(
-            "/Users/stephen/Library/Application Support/elegance-demo/cache/snapshots/\
+            "/Users/thomas/Library/Application Support/elegance-demo/cache/snapshots/\
              2026-04-23T18-04-12Z-warehouse-east-3-sensor-7f3a2c1e.snapshot.json",
         );
         Self {
@@ -182,6 +184,8 @@ impl Default for App {
             text_pw: "hunter2".into(),
             area_body: "Short note.\nA second line.".into(),
             area_mono: "{\n  \"id\": 42,\n  \"ok\": true\n}".into(),
+            tag_recipients: vec!["thomas@example.com".into(), "team@orbit.dev".into()],
+            tag_skills: vec!["rust".into(), "egui".into(), "wgpu".into()],
             select_unit: "ms".into(),
             select_env: "Production".into(),
             check_on: true,
@@ -515,6 +519,7 @@ impl eframe::App for App {
                         }
                         1 => {
                             self.section_text(ui);
+                            self.section_tag_input(ui);
                             self.section_selects(ui);
                             self.section_color_picker(ui);
                             self.section_file_drop_zone(ui);
@@ -670,6 +675,35 @@ impl App {
                         .desired_width(220.0)
                         .id_salt("ref_a_mono"),
                 );
+            });
+        });
+    }
+
+    fn section_tag_input(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Tag input").show(ui, |ui| {
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                ui.allocate_ui(egui::vec2(380.0, 0.0), |ui| {
+                    TagInput::new("ref_ti_recipients", &mut self.tag_recipients)
+                        .label("Recipients")
+                        .placeholder("Add an email…")
+                        .commit_on_space(true)
+                        .validator(|v| {
+                            if v.contains('@') && v.contains('.') {
+                                Ok(())
+                            } else {
+                                Err(format!("\"{v}\" isn't a valid email."))
+                            }
+                        })
+                        .show(ui);
+                });
+                ui.add_space(16.0);
+                ui.allocate_ui(egui::vec2(380.0, 0.0), |ui| {
+                    TagInput::new("ref_ti_skills", &mut self.tag_skills)
+                        .label("Skills")
+                        .placeholder("Add a skill…")
+                        .accent(Accent::Purple)
+                        .show(ui);
+                });
             });
         });
     }
