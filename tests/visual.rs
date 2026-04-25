@@ -16,8 +16,8 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, Indicator, IndicatorState, LogBar, PairItem, Pairing, Popover, PopoverSide,
-    ProgressBar, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
-    TabBar, TextArea, TextInput, Theme,
+    ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -369,6 +369,65 @@ fn feedback_ui(ui: &mut egui::Ui) {
     ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 }
 
+fn progress_rings_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    ui.set_max_width(560.0);
+
+    ui.label(theme.muted_text("Progression"));
+    ui.horizontal(|ui| {
+        for f in [0.0_f32, 0.25, 0.5, 0.75, 1.0] {
+            ui.add(ProgressRing::new(f));
+            ui.add_space(8.0);
+        }
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Sizes"));
+    ui.horizontal(|ui| {
+        ui.add(ProgressRing::new(0.62).size(36.0));
+        ui.add_space(12.0);
+        ui.add(ProgressRing::new(0.62).size(56.0));
+        ui.add_space(12.0);
+        ui.add(ProgressRing::new(0.62).size(88.0));
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Accents"));
+    ui.horizontal(|ui| {
+        for a in [
+            Accent::Sky,
+            Accent::Green,
+            Accent::Amber,
+            Accent::Red,
+            Accent::Purple,
+        ] {
+            ui.add(ProgressRing::new(0.62).accent(a));
+            ui.add_space(8.0);
+        }
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Custom centre"));
+    ui.horizontal(|ui| {
+        ui.add(
+            ProgressRing::new(0.6)
+                .size(88.0)
+                .text("12 / 20")
+                .caption("files"),
+        );
+        ui.add_space(16.0);
+        ui.add(
+            ProgressRing::new(0.83)
+                .size(88.0)
+                .accent(Accent::Amber)
+                .text("3.4s")
+                .caption("remaining"),
+        );
+        ui.add_space(16.0);
+        ui.add(ProgressRing::new(1.0).size(72.0).accent(Accent::Green));
+    });
+}
+
 fn steps_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
     ui.set_max_width(520.0);
@@ -636,6 +695,7 @@ theme_tests!(tabs, tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(feedback, feedback_ui);
+theme_tests!(progress_rings, progress_rings_ui);
 theme_tests!(steps, steps_ui);
 theme_tests!(containers, containers_ui);
 theme_tests!(callouts, callouts_ui);

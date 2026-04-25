@@ -9,9 +9,10 @@ use eframe::egui;
 use elegance::{
     Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
     Checkbox, CollapsingSection, Indicator, IndicatorState, LogBar, Menu, MenuItem, Modal,
-    MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar, SegmentedButton, Select,
-    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TerminalEvent, TerminalLine,
-    TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing,
+    SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
+    TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
+    ThemeSwitcher, Toast, Toasts,
 };
 
 fn main() -> eframe::Result<()> {
@@ -751,6 +752,67 @@ impl App {
                 ui.add(ProgressBar::new(0.6).accent(Accent::Green));
                 ui.add_space(4.0);
                 ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
+            });
+            // Drive every ProgressRing tile from a shared clock: 5 s of
+            // linear fill, 1.5 s hold at 100%, then snap back to 0.
+            let time = ui.ctx().input(|i| i.time) as f32;
+            let cycle_len = 6.5_f32;
+            let rise_len = 5.0_f32;
+            let progress_at = |offset: f32| -> f32 {
+                let t = (time + offset).rem_euclid(cycle_len);
+                (t / rise_len).min(1.0)
+            };
+            let ring_fraction = progress_at(0.0);
+            elegance::request_repaint_at_rate(ui.ctx(), 30.0);
+
+            labeled(ui, "ProgressRing — progression", |ui| {
+                // Five rings phase-offset through the cycle, so at any
+                // instant the row reads as a left-to-right "progression".
+                ui.horizontal(|ui| {
+                    for i in 0..5 {
+                        let offset = (i as f32 / 5.0) * cycle_len;
+                        ui.add(ProgressRing::new(progress_at(offset)));
+                        ui.add_space(8.0);
+                    }
+                });
+            });
+            labeled(ui, "ProgressRing — sizes & centre text", |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(ProgressRing::new(ring_fraction).size(36.0));
+                    ui.add_space(12.0);
+                    ui.add(ProgressRing::new(ring_fraction).size(56.0));
+                    ui.add_space(12.0);
+                    let done = (ring_fraction * 20.0).round() as u32;
+                    ui.add(
+                        ProgressRing::new(ring_fraction)
+                            .size(88.0)
+                            .text(format!("{} / 20", done))
+                            .caption("files"),
+                    );
+                    ui.add_space(12.0);
+                    let remaining = (1.0 - ring_fraction) * 4.0;
+                    ui.add(
+                        ProgressRing::new(ring_fraction)
+                            .size(72.0)
+                            .accent(Accent::Amber)
+                            .text(format!("{:.1}s", remaining))
+                            .caption("remaining"),
+                    );
+                });
+            });
+            labeled(ui, "ProgressRing — accents", |ui| {
+                ui.horizontal(|ui| {
+                    for a in [
+                        Accent::Sky,
+                        Accent::Green,
+                        Accent::Amber,
+                        Accent::Red,
+                        Accent::Purple,
+                    ] {
+                        ui.add(ProgressRing::new(ring_fraction).accent(a));
+                        ui.add_space(8.0);
+                    }
+                });
             });
             labeled(ui, "Stepped — cells", |ui| {
                 ui.add(Steps::new(6).current(4));

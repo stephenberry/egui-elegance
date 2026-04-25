@@ -226,6 +226,27 @@ ui.add(ProgressBar::new(0.6));
 ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 ```
 
+### ProgressRing
+
+A determinate circular progress indicator — a ring-shaped cousin of `ProgressBar`. A faint track plus an accent-coloured arc that sweeps clockwise from 12 o'clock as the fraction grows. Centre text defaults to the rounded percent; override with `.text(...)` and add a small muted sub-caption with `.caption(...)`. For indeterminate "still working" loaders, use `Spinner` instead.
+
+```rust
+use elegance::{Accent, ProgressRing};
+
+ui.add(ProgressRing::new(0.42));
+
+ui.add(
+    ProgressRing::new(0.6)
+        .size(88.0)
+        .accent(Accent::Green)
+        .text("12 / 20")
+        .caption("files"),
+);
+
+// Hide the centre text entirely.
+ui.add(ProgressRing::new(0.3).size(32.0).text(""));
+```
+
 ### Steps
 
 A stepped progress indicator for discrete, countable stages. Three visual styles share the same state model (`total`, `current`, `errored`): `StepsStyle::Cells` paints a segmented bar of uniform rounded cells, suited to compact "N of M" progress. `StepsStyle::Numbered` paints numbered circles connected by thin lines, with a checkmark on completed dots and a glow on the active one. `StepsStyle::Labeled` (via `Steps::labeled`) paints taller pills containing text labels — horizontal by default (a progress bar with readable stage names), or call `.vertical()` for a wizard-sidebar layout. Done cells use the theme's success green, the active one uses sky, and errors use danger red.

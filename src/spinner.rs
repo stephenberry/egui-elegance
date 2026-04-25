@@ -94,13 +94,22 @@ impl Widget for Spinner {
             let painter = ui.painter();
             let center = rect.center();
             let radius = (self.size * 0.5) - thickness * 0.5 - 1.0;
+            let point_at = |a: f32| {
+                let (sin, cos) = a.sin_cos();
+                pos2(center.x + radius * cos, center.y + radius * sin)
+            };
 
-            // Dim track ring.
-            painter.circle_stroke(
-                center,
-                radius,
-                egui::Stroke::new(thickness, with_alpha(color, 40)),
-            );
+            // Dim track ring. Built as a polyline (not `circle_stroke`)
+            // so it lives on the same primitive as the arc below and
+            // lands on identical pixels.
+            let n_full: usize = 96;
+            let track_points: Vec<_> = (0..n_full)
+                .map(|i| point_at((i as f32 / n_full as f32) * TAU))
+                .collect();
+            painter.add(PathShape::closed_line(
+                track_points,
+                PathStroke::new(thickness, with_alpha(color, 40)),
+            ));
 
             // Sweeping arc: rotates steadily while its length breathes
             // between ~29° and ~270°. The base rotation is fast enough
@@ -115,11 +124,7 @@ impl Widget for Spinner {
 
             let n_points = 48;
             let points: Vec<_> = (0..=n_points)
-                .map(|i| {
-                    let a = rotation + (i as f32 / n_points as f32) * sweep;
-                    let (sin, cos) = a.sin_cos();
-                    pos2(center.x + radius * cos, center.y + radius * sin)
-                })
+                .map(|i| point_at(rotation + (i as f32 / n_points as f32) * sweep))
                 .collect();
 
             // Rounded caps, since PathShape strokes are butt-ended.
