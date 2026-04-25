@@ -12,6 +12,9 @@ use egui::{
 
 use crate::{theme::Theme, Accent, Button, ButtonSize};
 
+/// Boxed `FnOnce(&mut Ui)` callback used by the footer slots.
+type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;
+
 /// A centered modal dialog.
 ///
 /// The `open` flag drives visibility: when it's `false` on entry to
@@ -40,8 +43,8 @@ pub struct Modal<'a> {
     close_on_backdrop: bool,
     close_on_escape: bool,
     alert: bool,
-    footer: Option<Box<dyn FnOnce(&mut Ui) + 'a>>,
-    footer_left: Option<Box<dyn FnOnce(&mut Ui) + 'a>>,
+    footer: Option<UiFn<'a>>,
+    footer_left: Option<UiFn<'a>>,
 }
 
 impl<'a> std::fmt::Debug for Modal<'a> {

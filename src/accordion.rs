@@ -27,6 +27,9 @@ use egui::{
 use crate::theme::{with_alpha, Theme};
 use crate::Accent;
 
+/// Boxed `FnOnce(&mut Ui)` callback used by the meta slot.
+type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;
+
 const HEADER_PAD_X: f32 = 16.0;
 const HEADER_PAD_Y: f32 = 13.0;
 const FLUSH_HEADER_PAD_Y: f32 = 12.0;
@@ -215,7 +218,7 @@ pub struct AccordionItem<'a, 'u> {
     subtitle: Option<WidgetText>,
     icon: Option<WidgetText>,
     accent: Option<Accent>,
-    meta: Option<Box<dyn FnOnce(&mut Ui) + 'a>>,
+    meta: Option<UiFn<'a>>,
     default_open: bool,
     disabled: bool,
 }
