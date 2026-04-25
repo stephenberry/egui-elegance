@@ -8,10 +8,10 @@
 use eframe::egui;
 use elegance::{
     Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
-    Checkbox, CollapsingSection, Indicator, IndicatorState, LogBar, Menu, MenuItem, Modal,
-    MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing,
-    SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
-    TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
+    Checkbox, CollapsingSection, Drawer, DrawerSide, Indicator, IndicatorState, LogBar, Menu,
+    MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
+    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
+    TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
     ThemeSwitcher, Toast, Toasts,
 };
 
@@ -63,6 +63,12 @@ struct App {
     slider_float: f32,
 
     show_modal: bool,
+    show_drawer_detail: bool,
+    show_drawer_form: bool,
+    drawer_form_name: String,
+    drawer_form_email: String,
+    drawer_form_role: String,
+    drawer_form_notes: String,
 
     pop_filter_open: bool,
     pop_filter_in_review: bool,
@@ -144,6 +150,13 @@ impl Default for App {
             slider_int: 48,
             slider_float: 0.62,
             show_modal: false,
+            show_drawer_detail: false,
+            show_drawer_form: false,
+            drawer_form_name: "Avery Lin".into(),
+            drawer_form_email: "avery.lin@elegance.dev".into(),
+            drawer_form_role: "Admin".into(),
+            drawer_form_notes: "On-call rotation lead, Q2. Prefers Slack over email for paging."
+                .into(),
             pop_filter_open: true,
             pop_filter_in_review: true,
             pop_filter_merged: false,
@@ -395,6 +408,7 @@ impl eframe::App for App {
         });
 
         self.modal_demo(ui.ctx());
+        self.drawer_demos(ui.ctx());
         Toasts::new().render(ui.ctx());
     }
 }
@@ -1052,6 +1066,23 @@ impl App {
                 });
             });
 
+            labeled(ui, "Drawer", |ui| {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(Button::new("Open detail drawer").accent(Accent::Blue))
+                        .clicked()
+                    {
+                        self.show_drawer_detail = true;
+                    }
+                    if ui
+                        .add(Button::new("Open form drawer (left)").outline())
+                        .clicked()
+                    {
+                        self.show_drawer_form = true;
+                    }
+                });
+            });
+
             self.popover_examples(ui);
         });
     }
@@ -1190,6 +1221,144 @@ impl App {
                     let _ = ui.add(Button::new("Cancel").outline());
                 });
             });
+    }
+
+    fn drawer_demos(&mut self, ctx: &egui::Context) {
+        // Right-side detail drawer with status pill, KV details, and a
+        // pinned footer with two action buttons.
+        Drawer::new("ref_drawer_detail", &mut self.show_drawer_detail)
+            .side(DrawerSide::Right)
+            .width(420.0)
+            .title("INC-2187 — api-west-02")
+            .subtitle("Latency spike · 18 minutes ago")
+            .show(ctx, |ui| {
+                let theme = Theme::current(ui.ctx());
+                let footer_h = 56.0;
+                let body_h = (ui.available_height() - footer_h).max(0.0);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), body_h),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            ui.add(egui::Label::new(theme.faint_text("STATUS")));
+                            ui.add_space(4.0);
+                            ui.add(StatusPill::new().item("api-web", IndicatorState::Connecting));
+                            ui.add_space(14.0);
+
+                            ui.add(egui::Label::new(theme.faint_text("DETAILS")));
+                            ui.add_space(4.0);
+                            for (k, v) in [
+                                ("Service", "api-web"),
+                                ("Region", "us-west-2"),
+                                ("Signal", "p95_latency_ms > 300 for 3m"),
+                                ("Owner", "Platform Edge"),
+                                ("Assignee", "Avery Lin"),
+                            ] {
+                                ui.horizontal(|ui| {
+                                    ui.add_sized(
+                                        [110.0, 18.0],
+                                        egui::Label::new(theme.muted_text(k)),
+                                    );
+                                    ui.add(egui::Label::new(
+                                        egui::RichText::new(v)
+                                            .color(theme.palette.text)
+                                            .monospace()
+                                            .size(theme.typography.label),
+                                    ));
+                                });
+                                ui.add_space(2.0);
+                            }
+                            ui.add_space(12.0);
+                            ui.add(egui::Label::new(theme.faint_text("SUMMARY")));
+                            ui.add_space(4.0);
+                            ui.add(egui::Label::new(theme.muted_text(
+                                "Traffic to /v1/query is 3.4× baseline since 14:12 UTC. \
+                                 p95 latency has crossed 300 ms for the last 18 minutes. \
+                                 Upstream search is healthy; reranker queue depth is rising.",
+                            )));
+                        });
+                    },
+                );
+                ui.separator();
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let _ = ui.add(
+                            Button::new("Acknowledge")
+                                .accent(Accent::Blue)
+                                .size(ButtonSize::Small),
+                        );
+                        let _ = ui.add(Button::new("Snooze").outline().size(ButtonSize::Small));
+                    });
+                });
+            });
+
+        // Left-side form drawer — exercises the Left anchor + form inputs.
+        let mut form_cancel = false;
+        Drawer::new("ref_drawer_form", &mut self.show_drawer_form)
+            .side(DrawerSide::Left)
+            .width(440.0)
+            .title("Edit member · Avery Lin")
+            .subtitle("Changes apply after save.")
+            .show(ctx, |ui| {
+                let theme = Theme::current(ui.ctx());
+                let footer_h = 56.0;
+                let body_h = (ui.available_height() - footer_h).max(0.0);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), body_h),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            ui.add(egui::Label::new(theme.faint_text("PROFILE")));
+                            ui.add_space(4.0);
+                            ui.add(
+                                TextInput::new(&mut self.drawer_form_name)
+                                    .label("Display name")
+                                    .id_salt("drawer_form_name"),
+                            );
+                            ui.add(
+                                TextInput::new(&mut self.drawer_form_email)
+                                    .label("Email")
+                                    .id_salt("drawer_form_email"),
+                            );
+                            ui.add(
+                                TextInput::new(&mut self.drawer_form_role)
+                                    .label("Role")
+                                    .id_salt("drawer_form_role"),
+                            );
+                            ui.add_space(10.0);
+                            ui.add(egui::Label::new(theme.faint_text("NOTES")));
+                            ui.add_space(4.0);
+                            ui.add(
+                                TextArea::new(&mut self.drawer_form_notes)
+                                    .label("Notes (internal)")
+                                    .rows(3)
+                                    .id_salt("drawer_form_notes"),
+                            );
+                        });
+                    },
+                );
+                ui.separator();
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let _ = ui.add(
+                            Button::new("Save changes")
+                                .accent(Accent::Blue)
+                                .size(ButtonSize::Small),
+                        );
+                        if ui
+                            .add(Button::new("Cancel").outline().size(ButtonSize::Small))
+                            .clicked()
+                        {
+                            form_cancel = true;
+                        }
+                    });
+                });
+            });
+        if form_cancel {
+            self.show_drawer_form = false;
+        }
     }
 }
 

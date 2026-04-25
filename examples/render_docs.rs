@@ -42,6 +42,7 @@ fn main() {
     render_containers();
     render_menu();
     render_modal();
+    render_drawer();
     render_popover();
     render_callout();
     render_toast();
@@ -573,6 +574,305 @@ fn render_steps() {
     });
 }
 
+fn render_drawer() {
+    render("drawer", |ui| {
+        // Drawer paints into top-level Areas (backdrop + panel), which the
+        // Harness can't compose into a tile. Mock the scaffold (page +
+        // backdrop + drawer panel) inline so the tile reads as the open
+        // state from the right side of an app window.
+        let theme = Theme::current(ui.ctx());
+        let p = &theme.palette;
+
+        let scaffold_w = 800.0_f32;
+        let scaffold_h = 360.0_f32;
+        let panel_w = 360.0_f32;
+
+        // Allocate the scaffold rect.
+        let (scaffold_rect, _) =
+            ui.allocate_exact_size(egui::vec2(scaffold_w, scaffold_h), egui::Sense::hover());
+        let painter = ui.painter_at(scaffold_rect);
+
+        // Page background.
+        painter.rect_filled(
+            scaffold_rect,
+            egui::CornerRadius::same(theme.card_radius as u8),
+            p.bg,
+        );
+
+        // Faux page content — a couple of placeholder bars + a tile grid.
+        let content_pad = 18.0;
+        let mut y = scaffold_rect.top() + content_pad;
+        for w in [scaffold_w - panel_w - 60.0, scaffold_w - panel_w - 140.0] {
+            let bar = egui::Rect::from_min_size(
+                egui::pos2(scaffold_rect.left() + content_pad, y),
+                egui::vec2(w, 8.0),
+            );
+            painter.rect_filled(bar, egui::CornerRadius::same(3), p.depth_tint(p.card, 0.18));
+            y += 14.0;
+        }
+        y += 8.0;
+        let cell_w = (scaffold_w - panel_w - content_pad * 2.0 - 24.0) / 4.0;
+        let cell_h = 50.0;
+        for col in 0..4 {
+            for row in 0..2 {
+                let r = egui::Rect::from_min_size(
+                    egui::pos2(
+                        scaffold_rect.left() + content_pad + col as f32 * (cell_w + 8.0),
+                        y + row as f32 * (cell_h + 8.0),
+                    ),
+                    egui::vec2(cell_w, cell_h),
+                );
+                let fill = if col == 1 && row == 0 {
+                    egui::Color32::from_rgba_unmultiplied(p.sky.r(), p.sky.g(), p.sky.b(), 30)
+                } else {
+                    p.depth_tint(p.card, 0.18)
+                };
+                painter.rect_filled(r, egui::CornerRadius::same(5), fill);
+                if col == 1 && row == 0 {
+                    painter.rect_stroke(
+                        r,
+                        egui::CornerRadius::same(5),
+                        egui::Stroke::new(
+                            1.0,
+                            egui::Color32::from_rgba_unmultiplied(
+                                p.sky.r(),
+                                p.sky.g(),
+                                p.sky.b(),
+                                115,
+                            ),
+                        ),
+                        egui::StrokeKind::Inside,
+                    );
+                }
+            }
+        }
+
+        // Backdrop dimming.
+        painter.rect_filled(
+            scaffold_rect,
+            egui::CornerRadius::same(theme.card_radius as u8),
+            egui::Color32::from_black_alpha(120),
+        );
+
+        // Drawer panel.
+        let panel_rect = egui::Rect::from_min_max(
+            egui::pos2(scaffold_rect.right() - panel_w, scaffold_rect.top()),
+            scaffold_rect.right_bottom(),
+        );
+
+        // Soft shadow on the panel's leading (left) edge — paint a few
+        // alpha-decreasing strips so the rendered tile shows the depth that
+        // the live `Frame::shadow` produces.
+        for i in 0..16 {
+            let t = i as f32;
+            let alpha = ((1.0 - t / 16.0) * 50.0) as u8;
+            let strip = egui::Rect::from_min_max(
+                egui::pos2(panel_rect.left() - t - 1.0, panel_rect.top()),
+                egui::pos2(panel_rect.left() - t, panel_rect.bottom()),
+            );
+            painter.rect_filled(
+                strip,
+                egui::CornerRadius::ZERO,
+                egui::Color32::from_black_alpha(alpha),
+            );
+        }
+
+        painter.rect_filled(panel_rect, egui::CornerRadius::ZERO, p.card);
+        painter.line_segment(
+            [panel_rect.left_top(), panel_rect.left_bottom()],
+            egui::Stroke::new(1.0, p.border),
+        );
+
+        // Header band.
+        let header_h = 64.0;
+        let header_rect = egui::Rect::from_min_max(
+            panel_rect.left_top(),
+            egui::pos2(panel_rect.right(), panel_rect.top() + header_h),
+        );
+        painter.line_segment(
+            [
+                egui::pos2(header_rect.left(), header_rect.bottom()),
+                egui::pos2(header_rect.right(), header_rect.bottom()),
+            ],
+            egui::Stroke::new(1.0, p.border),
+        );
+
+        // Header text.
+        painter.text(
+            egui::pos2(header_rect.left() + 18.0, header_rect.top() + 14.0),
+            egui::Align2::LEFT_TOP,
+            "INC-2187 — api-west-02",
+            egui::FontId::proportional(theme.typography.heading),
+            p.text,
+        );
+        painter.text(
+            egui::pos2(header_rect.left() + 18.0, header_rect.top() + 36.0),
+            egui::Align2::LEFT_TOP,
+            "Latency spike · 18 min ago",
+            egui::FontId::proportional(theme.typography.label),
+            p.text_muted,
+        );
+
+        // Close × glyph (mocked, like the live Drawer's outline button).
+        let close_size = 24.0;
+        let close_rect = egui::Rect::from_center_size(
+            egui::pos2(
+                header_rect.right() - 18.0 - close_size * 0.5,
+                header_rect.top() + 18.0,
+            ),
+            egui::vec2(close_size, close_size),
+        );
+        painter.rect_stroke(
+            close_rect,
+            egui::CornerRadius::same(theme.control_radius as u8),
+            egui::Stroke::new(1.0, p.border),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            close_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "×",
+            egui::FontId::proportional(theme.typography.body + 1.0),
+            p.text_muted,
+        );
+
+        // Body — a couple of section labels + KV rows + status pill row.
+        let mut by = header_rect.bottom() + 14.0;
+        let body_left = panel_rect.left() + 18.0;
+        painter.text(
+            egui::pos2(body_left, by),
+            egui::Align2::LEFT_TOP,
+            "STATUS",
+            egui::FontId::proportional(theme.typography.small),
+            p.text_faint,
+        );
+        by += 18.0;
+        let pill = egui::Rect::from_min_size(egui::pos2(body_left, by), egui::vec2(110.0, 22.0));
+        painter.rect_filled(
+            pill,
+            egui::CornerRadius::same(11),
+            egui::Color32::from_rgba_unmultiplied(p.warning.r(), p.warning.g(), p.warning.b(), 30),
+        );
+        painter.rect_stroke(
+            pill,
+            egui::CornerRadius::same(11),
+            egui::Stroke::new(
+                1.0,
+                egui::Color32::from_rgba_unmultiplied(
+                    p.warning.r(),
+                    p.warning.g(),
+                    p.warning.b(),
+                    80,
+                ),
+            ),
+            egui::StrokeKind::Inside,
+        );
+        painter.circle_filled(
+            egui::pos2(pill.left() + 12.0, pill.center().y),
+            3.5,
+            p.warning,
+        );
+        painter.text(
+            egui::pos2(pill.left() + 22.0, pill.center().y),
+            egui::Align2::LEFT_CENTER,
+            "Investigating",
+            egui::FontId::proportional(theme.typography.small),
+            p.warning,
+        );
+        by += 32.0;
+
+        painter.text(
+            egui::pos2(body_left, by),
+            egui::Align2::LEFT_TOP,
+            "DETAILS",
+            egui::FontId::proportional(theme.typography.small),
+            p.text_faint,
+        );
+        by += 18.0;
+        for (k, v) in [
+            ("Service", "api-web"),
+            ("Region", "us-west-2"),
+            ("Signal", "p95 > 300 ms · 3 m"),
+            ("Owner", "Platform Edge"),
+        ] {
+            painter.text(
+                egui::pos2(body_left, by),
+                egui::Align2::LEFT_TOP,
+                k,
+                egui::FontId::proportional(theme.typography.label),
+                p.text_muted,
+            );
+            painter.text(
+                egui::pos2(body_left + 100.0, by),
+                egui::Align2::LEFT_TOP,
+                v,
+                egui::FontId::monospace(theme.typography.label),
+                p.text,
+            );
+            painter.line_segment(
+                [
+                    egui::pos2(body_left, by + 22.0),
+                    egui::pos2(panel_rect.right() - 18.0, by + 22.0),
+                ],
+                egui::Stroke::new(1.0, p.border),
+            );
+            by += 26.0;
+        }
+
+        // Footer band with two mock buttons.
+        let foot_h = 56.0;
+        let foot_rect = egui::Rect::from_min_max(
+            egui::pos2(panel_rect.left(), panel_rect.bottom() - foot_h),
+            panel_rect.right_bottom(),
+        );
+        painter.rect_filled(
+            foot_rect,
+            egui::CornerRadius::ZERO,
+            p.depth_tint(p.card, 0.04),
+        );
+        painter.line_segment(
+            [foot_rect.left_top(), foot_rect.right_top()],
+            egui::Stroke::new(1.0, p.border),
+        );
+
+        let btn_y = foot_rect.center().y;
+        let primary = egui::Rect::from_center_size(
+            egui::pos2(panel_rect.right() - 18.0 - 56.0, btn_y),
+            egui::vec2(112.0, 30.0),
+        );
+        painter.rect_filled(
+            primary,
+            egui::CornerRadius::same(theme.control_radius as u8),
+            p.blue,
+        );
+        painter.text(
+            primary.center(),
+            egui::Align2::CENTER_CENTER,
+            "Acknowledge",
+            egui::FontId::proportional(theme.typography.button),
+            p.bg,
+        );
+
+        let secondary = egui::Rect::from_center_size(
+            egui::pos2(primary.left() - 8.0 - 40.0, btn_y),
+            egui::vec2(80.0, 30.0),
+        );
+        painter.rect_stroke(
+            secondary,
+            egui::CornerRadius::same(theme.control_radius as u8),
+            egui::Stroke::new(1.0, p.border),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            secondary.center(),
+            egui::Align2::CENTER_CENTER,
+            "Snooze",
+            egui::FontId::proportional(theme.typography.button),
+            p.text,
+        );
+    });
+}
+
 fn render_popover() {
     render("popover", |ui| {
         background(ui, |ui| {
@@ -601,9 +901,9 @@ fn render_popover() {
                             .size(theme.typography.body),
                     ));
                     ui.add_space(4.0);
-                    ui.add(egui::Label::new(theme.muted_text(
-                        "This removes the branch from origin too.",
-                    )));
+                    ui.add(egui::Label::new(
+                        theme.muted_text("This removes the branch from origin too."),
+                    ));
                     ui.add_space(10.0);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let _ = ui.add(

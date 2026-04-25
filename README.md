@@ -65,7 +65,7 @@ Every widget follows one of three usage patterns:
 
 - **Leaf widgets** — including stateful ones that take a `&mut T` in their constructor like `TextInput::new(&mut email)` or `Select::new(id, &mut unit)` — implement `egui::Widget` and render with `ui.add(…)`.
 - **Container widgets** (`Card`, `CollapsingSection`) take a body closure with `.show(ui, |ui| …)` and return an `InnerResponse<R>`.
-- **Overlay widgets** create their own top-level `Area`s and render at `Context` scope: `Modal::new("id", &mut open).show(ctx, |ui| …)` for a dialog, `Toast::new("…").show(ctx)` to enqueue a notification paired with `Toasts::new().render(ctx)` once per frame to draw the stack, and `LogBar` — owned state on your app struct — rendered once per frame with `log.show(ui)`.
+- **Overlay widgets** create their own top-level `Area`s and render at `Context` scope: `Modal::new("id", &mut open).show(ctx, |ui| …)` for a dialog, `Drawer::new("id", &mut open).show(ctx, |ui| …)` for a side-anchored slide-in panel, `Toast::new("…").show(ctx)` to enqueue a notification paired with `Toasts::new().render(ctx)` once per frame to draw the stack, and `LogBar` — owned state on your app struct — rendered once per frame with `log.show(ui)`.
 
 Reference for each widget follows. Tiles are rendered headlessly by `cargo render-docs` — see [Regenerating widget screenshots](#regenerating-widget-screenshots).
 
@@ -329,6 +329,42 @@ Modal::new("stats", &mut open)
         ui.label("…");
     });
 ```
+
+### Drawer
+
+![Drawer](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/drawer.png)
+
+Side-anchored slide-in overlay panel: full-height, dimmed backdrop, slides over the page rather than carving space out of it. Reach for `Drawer` when the content is too tall for a `Modal` but doesn't deserve its own route — record inspectors, edit forms, filter sidebars. `Esc`, backdrop-click, and the built-in × button all flip the bound `open` flag back to `false`. The slide animation, focus capture, and focus restore on close are built in.
+
+```rust
+use elegance::{Drawer, DrawerSide};
+
+Drawer::new("inspector", &mut open)
+    .side(DrawerSide::Right)
+    .width(420.0)
+    .title("INC-2187 — api-west-02")
+    .subtitle("Latency spike · 18 minutes ago")
+    .show(ctx, |ui| {
+        // Slice the body into a scrollable region + pinned footer:
+        let footer_h = 56.0;
+        let body_h = (ui.available_height() - footer_h).max(0.0);
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), body_h),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    ui.label("…details, status, KV rows…");
+                });
+            },
+        );
+        ui.separator();
+        ui.horizontal(|ui| {
+            // …footer buttons…
+        });
+    });
+```
+
+For a *persistent* (non-overlay) side panel that resizes the surrounding content, use `egui::SidePanel` directly with the elegance palette — `Drawer` is the modal slide-in case.
 
 ### Popover
 

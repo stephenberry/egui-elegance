@@ -7,7 +7,7 @@
 use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
-use elegance::{BadgeTone, Modal, TextInput, Theme, Toast, Toasts};
+use elegance::{BadgeTone, Drawer, DrawerSide, Modal, TextInput, Theme, Toast, Toasts};
 
 fn new_harness<'a>(app: impl FnMut(&mut egui::Ui) + 'a) -> Harness<'a> {
     let mut harness = Harness::builder()
@@ -182,5 +182,109 @@ fn modal_restores_focus_on_close() {
     assert!(
         email.accesskit_node().is_focused(),
         "focus should be restored to the widget that had it before the modal opened"
+    );
+}
+
+#[test]
+fn drawer_exposes_dialog_role() {
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        let mut open = true;
+        Drawer::new("a11y_drawer", &mut open)
+            .side(DrawerSide::Right)
+            .title("Inspector")
+            .subtitle("api-west-02 · INC-2187")
+            .show(ui.ctx(), |ui| {
+                ui.label("Body");
+            });
+    });
+
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Dialog, "Inspector");
+}
+
+#[test]
+fn drawer_close_button_has_close_label() {
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        let mut open = true;
+        Drawer::new("a11y_drawer_close", &mut open)
+            .title("Inspector")
+            .show(ui.ctx(), |ui| {
+                ui.label("Body");
+            });
+    });
+
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Close");
+}
+
+fn drawer_focus_harness<'a>() -> Harness<'a, FocusTestState> {
+    Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 400.0))
+        .build_ui_state(
+            |ui, state: &mut FocusTestState| {
+                Theme::slate().install(ui.ctx());
+                ui.add(
+                    TextInput::new(&mut state.email)
+                        .label("Email")
+                        .id_salt("focus_email"),
+                );
+                Drawer::new("focus_drawer", &mut state.open)
+                    .title("Inspector")
+                    .show(ui.ctx(), |ui| {
+                        ui.label("Body");
+                    });
+            },
+            FocusTestState {
+                open: false,
+                email: "hi".into(),
+            },
+        )
+}
+
+#[test]
+fn drawer_focuses_close_button_on_open() {
+    let mut harness = drawer_focus_harness();
+
+    harness.run();
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Email")
+        .focus();
+    harness.run();
+
+    harness.state_mut().open = true;
+    // Two extra frames: one for the open transition + accesskit publish, one
+    // more so the focus request settles into the new node.
+    harness.run();
+    harness.run();
+    harness.run();
+
+    let close = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Close");
+    assert!(
+        close.accesskit_node().is_focused(),
+        "close button should be focused on drawer open"
+    );
+}
+
+#[test]
+fn drawer_restores_focus_on_close() {
+    let mut harness = drawer_focus_harness();
+
+    harness.run();
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Email")
+        .focus();
+    harness.run();
+    harness.state_mut().open = true;
+    harness.run();
+    harness.run();
+
+    harness.state_mut().open = false;
+    harness.run();
+    harness.run();
+
+    let email = harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "Email");
+    assert!(
+        email.accesskit_node().is_focused(),
+        "focus should be restored to the widget that had it before the drawer opened"
     );
 }
