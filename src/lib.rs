@@ -151,6 +151,12 @@ pub mod glyphs {
     pub const CIRCLE_ALERT: char = '\u{E005}';
     /// Network / hub icon. Source: [Lucide `network`](https://lucide.dev/icons/network).
     pub const NETWORK: char = '\u{E006}';
+    /// Zoom-in (magnifier with `+`) icon. Source: [Lucide `zoom-in`](https://lucide.dev/icons/zoom-in).
+    pub const ZOOM_IN: char = '\u{E007}';
+    /// Zoom-out (magnifier with `-`) icon. Source: [Lucide `zoom-out`](https://lucide.dev/icons/zoom-out).
+    pub const ZOOM_OUT: char = '\u{E008}';
+    /// Power icon. Source: [Lucide `power`](https://lucide.dev/icons/power).
+    pub const POWER: char = '\u{E009}';
     /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
     /// also pick up the elegance treatment.
     /// Source: [Lucide `check`](https://lucide.dev/icons/check).

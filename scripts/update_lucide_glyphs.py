@@ -51,6 +51,9 @@ LUCIDE_GLYPHS = [
     ("copy", 0xE004),
     ("circle-alert", 0xE005),
     ("network", 0xE006),
+    ("zoom-in", 0xE007),
+    ("zoom-out", 0xE008),
+    ("power", 0xE009),
     ("check", 0x2713),
     ("x", 0x2717),
 ]

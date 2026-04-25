@@ -1379,6 +1379,9 @@ fn render_glyphs() {
                         g::COPY,
                         g::CIRCLE_ALERT,
                         g::NETWORK,
+                        g::ZOOM_IN,
+                        g::ZOOM_OUT,
+                        g::POWER,
                     ]
                     .iter()
                     .map(|c| format!("{c} "))
