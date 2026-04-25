@@ -10,8 +10,8 @@ use elegance::{
     Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Callout, CalloutTone, Card,
     Checkbox, CollapsingSection, Indicator, IndicatorState, LogBar, Menu, MenuItem, Modal,
     MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar, SegmentedButton, Select,
-    Slider, Spinner, StatusPill, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
-    TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TerminalEvent, TerminalLine,
+    TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
 };
 
 fn main() -> eframe::Result<()> {
@@ -751,6 +751,50 @@ impl App {
                 ui.add(ProgressBar::new(0.6).accent(Accent::Green));
                 ui.add_space(4.0);
                 ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
+            });
+            labeled(ui, "Stepped — cells", |ui| {
+                ui.add(Steps::new(6).current(4));
+                ui.add_space(6.0);
+                ui.add(Steps::new(5).current(2).errored(true));
+            });
+            labeled(ui, "Stepped — numbered", |ui| {
+                ui.add(Steps::new(5).current(2).style(StepsStyle::Numbered));
+            });
+            labeled(ui, "Stepped — labeled (horizontal)", |ui| {
+                ui.add(Steps::labeled(["Plan", "Build", "Test", "Deploy"]).current(2));
+                ui.add_space(6.0);
+                ui.add(
+                    Steps::labeled(["Schema", "Backfill", "Reindex", "Finalize"])
+                        .current(2)
+                        .errored(true),
+                );
+            });
+            labeled(ui, "Stepped — labeled (vertical)", |ui| {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.set_max_width(200.0);
+                        ui.add(
+                            Steps::labeled(["Plan", "Design", "Build", "Test", "Deploy"])
+                                .current(2)
+                                .vertical(),
+                        );
+                    });
+                    ui.add_space(20.0);
+                    ui.vertical(|ui| {
+                        ui.set_max_width(220.0);
+                        ui.add(
+                            Steps::labeled([
+                                "Schema validated",
+                                "Backfill complete",
+                                "Index rebuild",
+                                "Finalize",
+                            ])
+                            .current(2)
+                            .errored(true)
+                            .vertical(),
+                        );
+                    });
+                });
             });
         });
     }

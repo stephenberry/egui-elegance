@@ -16,8 +16,8 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, Indicator, IndicatorState, LogBar, PairItem, Pairing, Popover, PopoverSide,
-    ProgressBar, SegmentedButton, Select, Slider, Spinner, StatusPill, Switch, TabBar, TextArea,
-    TextInput, Theme,
+    ProgressBar, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
+    TabBar, TextArea, TextInput, Theme,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -369,6 +369,72 @@ fn feedback_ui(ui: &mut egui::Ui) {
     ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 }
 
+fn steps_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    ui.set_max_width(520.0);
+
+    ui.label(theme.muted_text("Cells — in progress"));
+    ui.add(Steps::new(6).current(4));
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Cells — errored"));
+    ui.add(Steps::new(5).current(2).errored(true));
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Cells — complete"));
+    ui.add(Steps::new(4).current(4));
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Numbered — in progress"));
+    ui.add(Steps::new(5).current(2).style(StepsStyle::Numbered));
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Numbered — complete"));
+    ui.add(Steps::new(4).current(4).style(StepsStyle::Numbered));
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Numbered — errored"));
+    ui.add(
+        Steps::new(5)
+            .current(2)
+            .errored(true)
+            .style(StepsStyle::Numbered),
+    );
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Labeled — horizontal"));
+    ui.add(Steps::labeled(["Plan", "Build", "Test", "Deploy"]).current(2));
+    ui.add_space(6.0);
+    ui.add(
+        Steps::labeled(["Schema", "Backfill", "Reindex", "Finalize"])
+            .current(2)
+            .errored(true),
+    );
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Labeled — vertical"));
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_max_width(200.0);
+            ui.add(
+                Steps::labeled(["Plan", "Design", "Build", "Test", "Deploy"])
+                    .current(2)
+                    .vertical(),
+            );
+        });
+        ui.add_space(16.0);
+        ui.vertical(|ui| {
+            ui.set_max_width(220.0);
+            ui.add(
+                Steps::labeled(["Schema validated", "Backfill", "Index rebuild", "Finalize"])
+                    .current(2)
+                    .errored(true)
+                    .vertical(),
+            );
+        });
+    });
+}
+
 fn containers_ui(ui: &mut egui::Ui) {
     let mut open = true;
     let theme = Theme::current(ui.ctx());
@@ -570,6 +636,7 @@ theme_tests!(tabs, tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(feedback, feedback_ui);
+theme_tests!(steps, steps_ui);
 theme_tests!(containers, containers_ui);
 theme_tests!(callouts, callouts_ui);
 theme_tests!(log_bar, log_bar_ui);

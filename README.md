@@ -226,6 +226,33 @@ ui.add(ProgressBar::new(0.6));
 ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 ```
 
+### Steps
+
+A stepped progress indicator for discrete, countable stages. Three visual styles share the same state model (`total`, `current`, `errored`): `StepsStyle::Cells` paints a segmented bar of uniform rounded cells, suited to compact "N of M" progress. `StepsStyle::Numbered` paints numbered circles connected by thin lines, with a checkmark on completed dots and a glow on the active one. `StepsStyle::Labeled` (via `Steps::labeled`) paints taller pills containing text labels — horizontal by default (a progress bar with readable stage names), or call `.vertical()` for a wizard-sidebar layout. Done cells use the theme's success green, the active one uses sky, and errors use danger red.
+
+```rust
+use elegance::{Steps, StepsStyle};
+
+// 4 of 6 release steps complete, step 5 running.
+ui.add(Steps::new(6).current(4));
+
+// Migration failed on step 3 of 5.
+ui.add(Steps::new(5).current(2).errored(true));
+
+// Onboarding wizard, step 3 of 5.
+ui.add(Steps::new(5).current(2).style(StepsStyle::Numbered));
+
+// Labeled horizontal strip — a progress bar with stage names.
+ui.add(Steps::labeled(["Plan", "Build", "Test", "Deploy"]).current(2));
+
+// Same data, rendered as a vertical wizard sidebar.
+ui.add(
+    Steps::labeled(["Plan", "Design", "Build", "Test", "Deploy"])
+        .current(2)
+        .vertical(),
+);
+```
+
 ### Card · CollapsingSection
 
 ![Containers](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/containers.png)
