@@ -9,12 +9,13 @@ use eframe::egui;
 use elegance::{
     Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme,
     Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
-    Drawer, DrawerSide, FileDropZone, Indicator, IndicatorState, Knob, KnobSize, LogBar, Menu,
-    MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
-    ProgressRing, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
-    SegmentedSize, Select, Slider, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem,
-    Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput,
-    Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
+    LinearGauge, LogBar, Menu, MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover,
+    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
+    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatCard,
+    StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine,
+    TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -530,6 +531,7 @@ impl eframe::App for App {
                         }
                         4 => {
                             self.section_status(ui);
+                            self.section_gauge(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
                         }
@@ -1193,6 +1195,87 @@ impl App {
                             .vertical(),
                         );
                     });
+                });
+            });
+        });
+    }
+
+    fn section_gauge(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Gauges").show(ui, |ui| {
+            let zones = GaugeZones::new(0.6, 0.85);
+            labeled(ui, "Radial — half-circle with threshold zones", |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(RadialGauge::new(0.42).zones(zones).size(180.0));
+                    ui.add_space(20.0);
+                    ui.add(RadialGauge::new(0.72).zones(zones).size(180.0));
+                    ui.add_space(20.0);
+                    ui.add(RadialGauge::new(0.94).zones(zones).size(180.0));
+                });
+            });
+            labeled(ui, "Donut — ProgressRing in gauge mode", |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(
+                        ProgressRing::new(0.68)
+                            .size(160.0)
+                            .zones(zones)
+                            .text("68")
+                            .unit("GB")
+                            .caption_below("of 100"),
+                    );
+                    ui.add_space(20.0);
+                    ui.add(
+                        ProgressRing::new(0.65)
+                            .size(160.0)
+                            .zones(zones)
+                            .text("65")
+                            .unit("%")
+                            .caption_below("of monthly budget"),
+                    );
+                    ui.add_space(20.0);
+                    ui.add(
+                        ProgressRing::new(0.8)
+                            .size(160.0)
+                            .text("32")
+                            .unit("/ 40")
+                            .caption_below("widgets complete"),
+                    );
+                });
+            });
+            labeled(ui, "Linear — meter with threshold zones", |ui| {
+                let theme = Theme::current(ui.ctx());
+                for (label, frac, value) in [
+                    ("CPU", 0.42_f32, "42%"),
+                    ("Memory", 0.72, "72%"),
+                    ("Disk", 0.94, "94%"),
+                ] {
+                    ui.horizontal(|ui| {
+                        ui.add_sized([100.0, 14.0], egui::Label::new(theme.body_text(label)));
+                        ui.add(
+                            LinearGauge::new(frac)
+                                .zones(zones)
+                                .show_zone_labels()
+                                .desired_width(420.0),
+                        );
+                        ui.add_sized([60.0, 14.0], egui::Label::new(theme.muted_text(value)));
+                    });
+                    ui.add_space(4.0);
+                }
+                ui.horizontal(|ui| {
+                    ui.add_sized(
+                        [100.0, 14.0],
+                        egui::Label::new(theme.body_text("Queue depth")),
+                    );
+                    ui.add(
+                        LinearGauge::new(186.0 / 850.0)
+                            .zones(GaugeZones::new(0.4, 0.75))
+                            .threshold_label(0.4, "340")
+                            .threshold_label(0.75, "638")
+                            .desired_width(420.0),
+                    );
+                    ui.add_sized(
+                        [60.0, 14.0],
+                        egui::Label::new(theme.muted_text("186 / 850")),
+                    );
                 });
             });
         });

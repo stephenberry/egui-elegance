@@ -15,10 +15,10 @@ use eframe::egui;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone,
-    Card, Checkbox, CollapsingSection, Indicator, IndicatorState, Knob, KnobSize, MenuBar,
-    MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RangeSlider, Segment, SegmentDot,
-    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    Card, Checkbox, CollapsingSection, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
+    LinearGauge, MenuBar, MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RadialGauge,
+    RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
+    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -41,6 +41,7 @@ fn main() {
     render_status();
     render_feedback();
     render_progress_ring();
+    render_gauge();
     render_steps();
     render_sliders();
     render_range_sliders();
@@ -1033,6 +1034,75 @@ fn render_progress_ring() {
                 ui.add_space(20.0);
                 ui.add(ProgressRing::new(1.0).size(48.0).accent(Accent::Purple));
             });
+        });
+    });
+}
+
+fn render_gauge() {
+    render("gauge", |ui| {
+        background(ui, |ui| {
+            let zones = GaugeZones::new(0.6, 0.85);
+            ui.set_min_width(720.0);
+
+            caption(ui, "Radial");
+            ui.horizontal(|ui| {
+                ui.add(RadialGauge::new(0.42).zones(zones).size(180.0));
+                ui.add_space(20.0);
+                ui.add(RadialGauge::new(0.72).zones(zones).size(180.0));
+                ui.add_space(20.0);
+                ui.add(RadialGauge::new(0.94).zones(zones).size(180.0));
+            });
+            ui.add_space(10.0);
+
+            caption(ui, "Donut (ProgressRing in gauge mode)");
+            ui.horizontal(|ui| {
+                ui.add(
+                    ProgressRing::new(0.68)
+                        .size(160.0)
+                        .zones(zones)
+                        .text("68")
+                        .unit("GB")
+                        .caption_below("of 100"),
+                );
+                ui.add_space(20.0);
+                ui.add(
+                    ProgressRing::new(0.65)
+                        .size(160.0)
+                        .zones(zones)
+                        .text("65")
+                        .unit("%")
+                        .caption_below("of monthly budget"),
+                );
+                ui.add_space(20.0);
+                ui.add(
+                    ProgressRing::new(0.8)
+                        .size(160.0)
+                        .text("32")
+                        .unit("/ 40")
+                        .caption_below("widgets complete"),
+                );
+            });
+            ui.add_space(10.0);
+
+            caption(ui, "Linear");
+            let theme = Theme::current(ui.ctx());
+            for (label, frac, value) in [
+                ("CPU", 0.42_f32, "42%"),
+                ("Memory", 0.72, "72%"),
+                ("Disk", 0.94, "94%"),
+            ] {
+                ui.horizontal(|ui| {
+                    ui.add_sized([100.0, 14.0], egui::Label::new(theme.body_text(label)));
+                    ui.add(
+                        LinearGauge::new(frac)
+                            .zones(zones)
+                            .show_zone_labels()
+                            .desired_width(420.0),
+                    );
+                    ui.add_sized([60.0, 14.0], egui::Label::new(theme.muted_text(value)));
+                });
+                ui.add_space(2.0);
+            }
         });
     });
 }

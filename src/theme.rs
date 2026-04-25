@@ -665,6 +665,14 @@ pub(crate) fn with_alpha(c: Color32, alpha: u8) -> Color32 {
     Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha)
 }
 
+/// Baseline position within an egui galley as a fraction of the row
+/// height. egui's default proportional fonts place the baseline at
+/// roughly this fraction; aligning two galleys' baselines (rather than
+/// their bottoms) is what HTML's `align-items: baseline` does and reads
+/// noticeably more natural when one glyph run is much smaller than the
+/// other.
+pub(crate) const BASELINE_FRAC: f32 = 0.78;
+
 /// Run `f` with the `Ui`'s visuals temporarily mutable. Any changes made
 /// inside the closure are reverted when it returns, so widgets can paint
 /// nested egui primitives with themed visuals without leaking those

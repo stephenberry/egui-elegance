@@ -403,10 +403,10 @@ ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 
 ![ProgressRing](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/progress_ring.png)
 
-A determinate circular progress indicator — a ring-shaped cousin of `ProgressBar`. A faint track plus an accent-coloured arc that sweeps clockwise from 12 o'clock as the fraction grows. Centre text defaults to the rounded percent; override with `.text(...)` and add a small muted sub-caption with `.caption(...)`. For indeterminate "still working" loaders, use `Spinner` instead.
+A determinate circular progress indicator — a ring-shaped cousin of `ProgressBar`. A faint track plus an accent-coloured arc that sweeps clockwise from 12 o'clock as the fraction grows. Centre text defaults to the rounded percent; override with `.text(...)` and add a small muted sub-caption with `.caption(...)`. Doubles as a circular gauge: pass `.zones(GaugeZones::new(warn, crit))` to colour the arc by which threshold band the fraction falls in (`success`/`warning`/`danger`), `.unit("...")` to render a baseline-aligned suffix next to the value, and `.caption_below("...")` to anchor a descriptive caption beneath the ring instead of inside. For indeterminate "still working" loaders, use `Spinner` instead.
 
 ```rust
-use elegance::{Accent, ProgressRing};
+use elegance::{Accent, GaugeZones, ProgressRing};
 
 ui.add(ProgressRing::new(0.42));
 
@@ -418,8 +418,45 @@ ui.add(
         .caption("files"),
 );
 
+// Donut-style gauge: zones colour the arc, the unit suffix is
+// baseline-aligned next to the value, and the caption sits below.
+ui.add(
+    ProgressRing::new(0.68)
+        .size(160.0)
+        .zones(GaugeZones::new(0.6, 0.85))
+        .text("68")
+        .unit("GB")
+        .caption_below("of 100"),
+);
+
 // Hide the centre text entirely.
 ui.add(ProgressRing::new(0.3).size(32.0).text(""));
+```
+
+### RadialGauge · LinearGauge
+
+![Gauges — radial and linear](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/gauge.png)
+
+Two widgets for displaying a value (as a `0..1` fraction) against optional threshold zones. `RadialGauge` is a half-circle dashboard speedometer with a needle and a value readout in the bowl; `LinearGauge` is a horizontal meter with optional faded threshold bands behind the fill plus tick-and-label markers above. For the donut form (a circular gauge with no needle), use `ProgressRing` with `.zones(...)`. Pass `GaugeZones::new(warn, crit)` to drive the fill colour automatically (success/warning/danger based on which band the value falls into). Without zones, the fill defaults to the theme's sky accent.
+
+```rust
+use elegance::{GaugeZones, LinearGauge, RadialGauge};
+
+let zones = GaugeZones::new(0.6, 0.85);
+
+// Half-circle speedometer.
+ui.add(RadialGauge::new(0.42).zones(zones));
+
+// Linear meter with auto-labelled zone thresholds.
+ui.add(LinearGauge::new(0.72).zones(zones).show_zone_labels());
+
+// Custom thresholds for non-percentage scales.
+ui.add(
+    LinearGauge::new(186.0 / 850.0)
+        .zones(GaugeZones::new(0.4, 0.75))
+        .threshold_label(0.4, "340")
+        .threshold_label(0.75, "638"),
+);
 ```
 
 ### Steps

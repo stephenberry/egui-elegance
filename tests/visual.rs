@@ -15,11 +15,12 @@ use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout,
-    CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, Indicator,
-    IndicatorState, Knob, KnobSize, LogBar, MenuBar, MenuItem, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RangeSlider, Segment, SegmentDot, SegmentedButton,
-    SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatCard, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones,
+    Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, PairItem,
+    Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment,
+    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
+    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
+    TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -697,6 +698,91 @@ fn progress_rings_ui(ui: &mut egui::Ui) {
     });
 }
 
+fn gauge_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    let zones = GaugeZones::new(0.6, 0.85);
+    ui.set_min_width(720.0);
+
+    ui.label(theme.muted_text("Radial — half-circle with threshold zones"));
+    ui.horizontal(|ui| {
+        ui.add(RadialGauge::new(0.42).zones(zones).size(180.0));
+        ui.add_space(20.0);
+        ui.add(RadialGauge::new(0.72).zones(zones).size(180.0));
+        ui.add_space(20.0);
+        ui.add(RadialGauge::new(0.94).zones(zones).size(180.0));
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Donut — ProgressRing in gauge mode"));
+    ui.horizontal(|ui| {
+        ui.add(
+            ProgressRing::new(0.68)
+                .size(160.0)
+                .zones(zones)
+                .text("68")
+                .unit("GB")
+                .caption_below("of 100"),
+        );
+        ui.add_space(20.0);
+        ui.add(
+            ProgressRing::new(0.65)
+                .size(160.0)
+                .zones(zones)
+                .text("65")
+                .unit("%")
+                .caption_below("of monthly budget"),
+        );
+        ui.add_space(20.0);
+        ui.add(
+            ProgressRing::new(0.8)
+                .size(160.0)
+                .text("32")
+                .unit("/ 40")
+                .caption_below("widgets complete"),
+        );
+    });
+    ui.add_space(14.0);
+
+    ui.label(theme.muted_text("Linear — meter with threshold zones"));
+    Card::new().show(ui, |ui| {
+        ui.set_min_width(640.0);
+        for (label, frac, value) in [
+            ("CPU", 0.42_f32, "42%"),
+            ("Memory", 0.72, "72%"),
+            ("Disk", 0.94, "94%"),
+        ] {
+            ui.horizontal(|ui| {
+                ui.add_sized([100.0, 14.0], egui::Label::new(theme.body_text(label)));
+                ui.add(
+                    LinearGauge::new(frac)
+                        .zones(zones)
+                        .show_zone_labels()
+                        .desired_width(420.0),
+                );
+                ui.add_sized([60.0, 14.0], egui::Label::new(theme.muted_text(value)));
+            });
+            ui.add_space(4.0);
+        }
+        ui.horizontal(|ui| {
+            ui.add_sized(
+                [100.0, 14.0],
+                egui::Label::new(theme.body_text("Queue depth")),
+            );
+            ui.add(
+                LinearGauge::new(186.0 / 850.0)
+                    .zones(GaugeZones::new(0.4, 0.75))
+                    .threshold_label(0.4, "340")
+                    .threshold_label(0.75, "638")
+                    .desired_width(420.0),
+            );
+            ui.add_sized(
+                [60.0, 14.0],
+                egui::Label::new(theme.muted_text("186 / 850")),
+            );
+        });
+    });
+}
+
 fn steps_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
     ui.set_max_width(520.0);
@@ -1193,6 +1279,7 @@ theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(knobs, knobs_ui);
 theme_tests!(feedback, feedback_ui);
 theme_tests!(progress_rings, progress_rings_ui);
+theme_tests!(gauge, gauge_ui);
 theme_tests!(steps, steps_ui);
 theme_tests!(containers, containers_ui);
 theme_tests!(accordion, accordion_ui);
