@@ -476,6 +476,11 @@ impl Theme {
         sp.menu_margin = Margin::same(6);
         sp.indent = 16.0;
 
+        // Interaction. Override after install via
+        // `ctx.style_mut(|s| s.interaction.tooltip_delay = ...)` to taste.
+        style.interaction.tooltip_delay = 0.35;
+        style.interaction.tooltip_grace_time = 0.2;
+
         // Visuals.
         let v = &mut style.visuals;
         *v = if p.is_dark {

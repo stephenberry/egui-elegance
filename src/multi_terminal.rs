@@ -1957,12 +1957,7 @@ fn draw_pane_body(ui: &mut Ui, rect: Rect, ctx: &PaneCtx<'_>) -> bool {
 /// Returns `true` if the rendered label was clicked or dragged (used by
 /// the caller to focus the pane on any text interaction, since selectable
 /// labels consume clicks that would otherwise reach the body).
-fn paint_line(
-    ui: &mut Ui,
-    line: &TerminalLine,
-    palette: &Palette,
-    typo: &Typography,
-) -> bool {
+fn paint_line(ui: &mut Ui, line: &TerminalLine, palette: &Palette, typo: &Typography) -> bool {
     let size = typo.small + 0.5;
     let font = FontId::monospace(size);
     let wrap_width = ui.available_width();

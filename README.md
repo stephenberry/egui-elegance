@@ -444,6 +444,20 @@ Popover::new("delete_branch")
     });
 ```
 
+### Tooltip
+
+Hover-triggered, themed callout that explains a trigger widget. One-line label by default; opt into a bold heading and a keyboard-shortcut row (label + small key chips) for richer hints. Visibility is driven by egui's tooltip system, so the standard delay, grace-window chaining between siblings, and dismiss-on-click behaviour come for free. For a click-anchored panel the user can interact with, reach for [`Popover`](#popover) instead.
+
+```rust
+use elegance::{Button, Tooltip};
+
+let trigger = ui.add(Button::new("Save"));
+Tooltip::new("Write the working tree to disk. Remote sync runs in the background.")
+    .heading("Save changes")
+    .shortcut("\u{2318} S")
+    .show(&trigger);
+```
+
 ### Callout
 
 ![Callouts — info, warning, success](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/callout.png)

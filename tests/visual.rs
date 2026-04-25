@@ -17,7 +17,8 @@ use elegance::{
     Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, Indicator, IndicatorState, LogBar, MenuBar, MenuItem, PairItem, Pairing,
     Popover, PopoverSide, ProgressBar, ProgressRing, SegmentedButton, Select, Slider, Spinner,
-    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
+    TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -707,6 +708,52 @@ fn popover_right_ui(ui: &mut egui::Ui) {
     });
 }
 
+// Tooltips piggy-back on egui's hover-driven tooltip system; force them
+// open via memory().set_everything_is_visible(true) so the snapshot
+// captures the rendered card without needing a pointer-hover fixture.
+fn tooltip_label_ui(ui: &mut egui::Ui) {
+    ui.ctx().memory_mut(|m| m.set_everything_is_visible(true));
+    ui.set_min_size(egui::vec2(280.0, 120.0));
+    ui.add_space(80.0);
+    ui.horizontal(|ui| {
+        ui.add_space(80.0);
+        let trigger = ui.add(Button::new("Share").outline().size(ButtonSize::Small));
+        Tooltip::new("Copy share link").show(&trigger);
+    });
+}
+
+fn tooltip_rich_ui(ui: &mut egui::Ui) {
+    ui.ctx().memory_mut(|m| m.set_everything_is_visible(true));
+    ui.set_min_size(egui::vec2(360.0, 180.0));
+    ui.add_space(120.0);
+    ui.horizontal(|ui| {
+        ui.add_space(80.0);
+        let trigger = ui.add(Button::new("Save").outline());
+        Tooltip::new("Write the working tree to disk. Remote sync runs in the background.")
+            .heading("Save changes")
+            .shortcut("\u{2318} S")
+            .show(&trigger);
+    });
+}
+
+fn tooltip_below_ui(ui: &mut egui::Ui) {
+    ui.ctx().memory_mut(|m| m.set_everything_is_visible(true));
+    ui.set_min_size(egui::vec2(360.0, 180.0));
+    ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.add_space(80.0);
+        let trigger = ui.add(
+            Button::new("degraded")
+                .accent(Accent::Amber)
+                .size(ButtonSize::Small),
+        );
+        Tooltip::new("api-west-01 is returning elevated 5xx. Other regions healthy.")
+            .heading("Partial outage")
+            .side(TooltipSide::Bottom)
+            .show(&trigger);
+    });
+}
+
 theme_tests!(buttons, buttons_ui);
 theme_tests!(text_inputs, text_inputs_ui);
 theme_tests!(text_areas, text_areas_ui);
@@ -727,6 +774,9 @@ theme_tests!(popover_top, popover_top_ui);
 theme_tests!(popover_left, popover_left_ui);
 theme_tests!(popover_right, popover_right_ui);
 theme_tests!(menu_bar, menu_bar_ui);
+theme_tests!(tooltip_label, tooltip_label_ui);
+theme_tests!(tooltip_rich, tooltip_rich_ui);
+theme_tests!(tooltip_below, tooltip_below_ui);
 
 // ---------------------------------------------------------------------------
 // Interaction-state tests. Each renders a single widget, injects a mouse /

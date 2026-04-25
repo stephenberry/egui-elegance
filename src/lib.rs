@@ -76,6 +76,7 @@ mod text_area;
 mod theme;
 mod theme_switcher;
 mod toast;
+mod tooltip;
 
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize};
@@ -110,6 +111,7 @@ pub use text_area::TextArea;
 pub use theme::{Accent, BuiltInTheme, Palette, Theme, Typography};
 pub use theme_switcher::ThemeSwitcher;
 pub use toast::{Toast, Toasts};
+pub use tooltip::{Tooltip, TooltipSide};
 
 /// Re-export of [`egui`] for convenience.
 pub use egui;

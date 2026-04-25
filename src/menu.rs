@@ -269,7 +269,11 @@ impl Widget for MenuItem {
         let trailing_w = shortcut_galley
             .as_ref()
             .map_or(0.0, |g| g.size().x + gap_x)
-            .max(submenu_arrow_galley.as_ref().map_or(0.0, |g| g.size().x + gap_x));
+            .max(
+                submenu_arrow_galley
+                    .as_ref()
+                    .map_or(0.0, |g| g.size().x + gap_x),
+            );
         let content_w = leading_offset + label_galley.size().x + trailing_w;
         // Width is the natural content size: the parent menu's
         // `top_down_justified` layout stretches each row to match the
