@@ -11,9 +11,10 @@ use elegance::{
     Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
     Drawer, DrawerSide, FileDropZone, Indicator, IndicatorState, Knob, KnobSize, LogBar, Menu,
     MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover, PopoverSide, ProgressBar,
-    ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner, StatCard, StatusPill,
-    Steps, StepsStyle, SubMenuItem, Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane,
-    TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    ProgressRing, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
+    SegmentedSize, Select, Slider, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem,
+    Switch, TabBar, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput,
+    Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -125,6 +126,11 @@ struct App {
 
     browser_tabs: BrowserTabs,
     browser_tabs_untitled: u32,
+
+    seg_ctrl_size: usize,
+    seg_ctrl_density: usize,
+    seg_ctrl_lang: usize,
+    seg_ctrl_filter: usize,
 
     stat_deploys: StatTick,
     stat_error: StatTick,
@@ -287,6 +293,10 @@ impl Default for App {
                     "cargo output \u{2014} a longer title",
                 )),
             browser_tabs_untitled: 0,
+            seg_ctrl_size: 1,
+            seg_ctrl_density: 1,
+            seg_ctrl_lang: 0,
+            seg_ctrl_filter: 0,
             stat_deploys: StatTick::new(
                 &[
                     12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0, 20.0, 19.0, 22.0, 21.0, 22.0, 22.0,
@@ -514,6 +524,7 @@ impl eframe::App for App {
                         }
                         3 => {
                             self.section_tabs(ui);
+                            self.section_segmented_control(ui);
                             self.section_browser_tabs(ui);
                             self.section_stat_cards(ui);
                         }
@@ -816,6 +827,63 @@ impl App {
                 &mut self.tab_idx,
                 ["Overview", "Settings", "Activity", "Logs"],
             ));
+        });
+    }
+
+    fn section_segmented_control(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Segmented control").show(ui, |ui| {
+            labeled(ui, "Sizes", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.add(
+                        SegmentedControl::new(&mut self.seg_ctrl_size, ["Day", "Week", "Month"])
+                            .size(SegmentedSize::Small),
+                    );
+                    ui.add_space(12.0);
+                    ui.add(SegmentedControl::new(
+                        &mut self.seg_ctrl_density,
+                        ["Compact", "Comfortable", "Spacious"],
+                    ));
+                    ui.add_space(12.0);
+                    ui.add(
+                        SegmentedControl::new(
+                            &mut self.seg_ctrl_size,
+                            ["Private", "Internal", "Public"],
+                        )
+                        .size(SegmentedSize::Large),
+                    );
+                });
+            });
+
+            labeled(ui, "Disabled segment", |ui| {
+                ui.add(SegmentedControl::from_segments(
+                    &mut self.seg_ctrl_lang,
+                    [
+                        Segment::text("EN"),
+                        Segment::text("DE"),
+                        Segment::text("JA"),
+                        Segment::text("FR").enabled(false),
+                    ],
+                ));
+            });
+
+            labeled(ui, "Filter row with status dots and counts (fill)", |ui| {
+                ui.add(
+                    SegmentedControl::from_segments(
+                        &mut self.seg_ctrl_filter,
+                        [
+                            Segment::text("Open").dot(SegmentDot::Amber).count("12"),
+                            Segment::text("Triaged")
+                                .dot(SegmentDot::Neutral)
+                                .count("84"),
+                            Segment::text("Resolved")
+                                .dot(SegmentDot::Green)
+                                .count("1,204"),
+                            Segment::text("Rejected").dot(SegmentDot::Red).count("31"),
+                        ],
+                    )
+                    .fill(),
+                );
+            });
         });
     }
 

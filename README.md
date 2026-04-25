@@ -174,6 +174,45 @@ use elegance::TabBar;
 ui.add(TabBar::new(&mut tab, ["Overview", "Settings", "Activity", "Logs"]));
 ```
 
+### SegmentedControl
+
+![SegmentedControl](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/segmented_control.png)
+
+A row of mutually-exclusive segments sharing one rounded track. The selected segment lifts to the card colour with a soft drop shadow; unhovered, unactive neighbours are separated by a hairline. Use it for compact pickers where every option fits inline (timeframe, density, view mode).
+
+```rust
+use elegance::{SegmentedControl, SegmentedSize};
+
+let mut selected = 1usize;
+ui.add(SegmentedControl::new(&mut selected, ["Day", "Week", "Month"]));
+
+ui.add(
+    SegmentedControl::new(&mut selected, ["Compact", "Comfortable", "Spacious"])
+        .size(SegmentedSize::Small),
+);
+```
+
+Rich segments with a status dot, a count badge, and `.fill()` to stretch across the row:
+
+```rust
+use elegance::{Segment, SegmentDot, SegmentedControl};
+
+ui.add(
+    SegmentedControl::from_segments(
+        &mut bucket,
+        [
+            Segment::text("Open").dot(SegmentDot::Amber).count("12"),
+            Segment::text("Triaged").dot(SegmentDot::Neutral).count("84"),
+            Segment::text("Resolved").dot(SegmentDot::Green).count("1,204"),
+            Segment::text("Rejected").dot(SegmentDot::Red).count("31"),
+        ],
+    )
+    .fill(),
+);
+```
+
+`Segment::icon` and `Segment::icon_text` cover icon-only and icon+label variants; `.enabled(false)` greys out a single segment without removing it from the row.
+
 ### BrowserTabs
 
 ![BrowserTabs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/browser_tabs.png)

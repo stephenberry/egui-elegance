@@ -324,7 +324,7 @@ To add your widget:
 
 ## 8. Document the Widget in the README
 
-Add an entry to the widget catalog in [`README.md`](../README.md) following the existing format: a one-line description, a code snippet, and (if visually distinctive) a screenshot. Screenshots come from `examples/render_docs.rs` — extend that file if you want a new image.
+Add an entry to the widget catalog in [`README.md`](../README.md) following the existing format: a screenshot, a one-line description, and a code snippet. Extend [`examples/render_docs.rs`](../examples/render_docs.rs) with a `render_<widget>()` tile, register it in `main()`, run `cargo render-docs`, and commit the resulting `docs/images/<widget>.png`.
 
 ---
 
@@ -337,7 +337,8 @@ Add an entry to the widget catalog in [`README.md`](../README.md) following the 
 - [ ] Snapshot tests added to `tests/visual.rs` and baselines committed for all four themes.
 - [ ] If the widget uses `std::time::Instant`, `std::thread`, the filesystem, or other host-only APIs, verified `cargo build --target wasm32-unknown-unknown` still passes — see `LogBar` for how to gate timestamp code per target.
 - [ ] Added to the appropriate tab in `examples/widgets.rs`.
-- [ ] Documented in `README.md`.
+- [ ] Tile added to `examples/render_docs.rs` and `docs/images/<widget>.png` committed.
+- [ ] Documented in `README.md` with screenshot, description, and code snippet.
 - [ ] `cargo test`, `cargo clippy`, `cargo fmt` clean.
 - [ ] Verified visually in `cargo run --example widgets` on at least one dark and one light theme.
 

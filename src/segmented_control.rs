@@ -1,0 +1,671 @@
+//! A multi-option segmented control: a row of mutually-exclusive segments
+//! sharing a single track.
+//!
+//! Use it for compact pickers where every option fits on one line and the
+//! caller wants the choices visible at a glance: timeframes (1h / 6h / 24h),
+//! density (Compact / Comfortable / Spacious), view modes (Dashboard /
+//! Inbox / Calendar). Each segment can carry a label, an icon, a status
+//! dot, and a count badge.
+
+use std::hash::Hash;
+use std::sync::Arc;
+
+use egui::{
+    pos2, Color32, CornerRadius, FontId, FontSelection, Galley, Rect, Response, Sense, Stroke,
+    StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+};
+
+use crate::theme::{placeholder_galley, with_alpha, Theme};
+
+/// Size variants for [`SegmentedControl`].
+///
+/// Sizes scale font, padding, track inset, and corner radii together so a
+/// segmented control sits naturally next to other elegance controls of the
+/// same size class.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SegmentedSize {
+    /// Compact, for toolbars and tight headers.
+    Small,
+    /// Default size.
+    #[default]
+    Medium,
+    /// Chunkier — pairs with [`ButtonSize::Large`](crate::ButtonSize::Large)
+    /// in mixed action rows.
+    Large,
+}
+
+impl SegmentedSize {
+    fn font_size(self, theme: &Theme) -> f32 {
+        let t = &theme.typography;
+        match self {
+            Self::Small => t.small,
+            Self::Medium => t.label,
+            Self::Large => t.button,
+        }
+    }
+    fn icon_size(self, theme: &Theme) -> f32 {
+        self.font_size(theme)
+    }
+    fn pad_x(self) -> f32 {
+        match self {
+            Self::Small => 10.0,
+            Self::Medium => 12.0,
+            Self::Large => 16.0,
+        }
+    }
+    fn pad_y(self) -> f32 {
+        match self {
+            Self::Small => 3.0,
+            Self::Medium => 5.0,
+            Self::Large => 7.0,
+        }
+    }
+    fn track_pad(self) -> f32 {
+        match self {
+            Self::Small => 2.0,
+            Self::Medium => 3.0,
+            Self::Large => 4.0,
+        }
+    }
+    fn track_radius(self) -> u8 {
+        match self {
+            Self::Small => 6,
+            Self::Medium => 7,
+            Self::Large => 8,
+        }
+    }
+    fn segment_radius(self) -> u8 {
+        match self {
+            Self::Small => 4,
+            Self::Medium => 5,
+            Self::Large => 6,
+        }
+    }
+    fn count_height(self) -> f32 {
+        match self {
+            Self::Small => 16.0,
+            Self::Medium => 18.0,
+            Self::Large => 20.0,
+        }
+    }
+}
+
+/// Status colour for the optional dot indicator inside a [`Segment`].
+///
+/// Maps to the palette's status accents (`success`, `warning`, `danger`,
+/// `sky`) plus a neutral grey. Pick the variant that matches what the
+/// segment represents (open / triaged / resolved / rejected, etc.).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SegmentDot {
+    /// Neutral grey — non-status segments or "all" buckets.
+    Neutral,
+    /// Sky — informational / in-progress.
+    Sky,
+    /// Amber — warning / open.
+    Amber,
+    /// Red — error / rejected.
+    Red,
+    /// Green — success / resolved.
+    Green,
+}
+
+/// A single segment inside a [`SegmentedControl`].
+///
+/// Build with [`Segment::text`], [`Segment::icon`], or
+/// [`Segment::icon_text`], then layer optional decorations with
+/// [`Segment::dot`] and [`Segment::count`]. Mark unavailable segments
+/// with [`Segment::enabled`].
+///
+/// ```no_run
+/// # use elegance::{Segment, SegmentDot};
+/// let seg = Segment::text("Open").dot(SegmentDot::Amber).count("12");
+/// # let _ = seg;
+/// ```
+#[must_use = "Use with SegmentedControl::from_segments(...)"]
+pub struct Segment {
+    label: Option<WidgetText>,
+    icon: Option<WidgetText>,
+    count: Option<WidgetText>,
+    dot: Option<SegmentDot>,
+    enabled: bool,
+}
+
+impl std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Segment")
+            .field("label", &self.label.as_ref().map(|l| l.text().to_string()))
+            .field("icon", &self.icon.as_ref().map(|i| i.text().to_string()))
+            .field("count", &self.count.as_ref().map(|c| c.text().to_string()))
+            .field("dot", &self.dot)
+            .field("enabled", &self.enabled)
+            .finish()
+    }
+}
+
+impl Default for Segment {
+    fn default() -> Self {
+        Self {
+            label: None,
+            icon: None,
+            count: None,
+            dot: None,
+            enabled: true,
+        }
+    }
+}
+
+impl Segment {
+    /// Text-only segment.
+    pub fn text(label: impl Into<WidgetText>) -> Self {
+        Self {
+            label: Some(label.into()),
+            ..Self::default()
+        }
+    }
+
+    /// Icon-only segment. The icon is any [`WidgetText`] — typically a
+    /// glyph from [`elegance::glyphs`](crate::glyphs) wrapped in
+    /// [`egui::RichText`].
+    pub fn icon(icon: impl Into<WidgetText>) -> Self {
+        Self {
+            icon: Some(icon.into()),
+            ..Self::default()
+        }
+    }
+
+    /// Icon + label segment. The icon precedes the label.
+    pub fn icon_text(icon: impl Into<WidgetText>, label: impl Into<WidgetText>) -> Self {
+        Self {
+            icon: Some(icon.into()),
+            label: Some(label.into()),
+            ..Self::default()
+        }
+    }
+
+    /// Add a count badge that follows the label.
+    #[inline]
+    pub fn count(mut self, count: impl Into<WidgetText>) -> Self {
+        self.count = Some(count.into());
+        self
+    }
+
+    /// Add a leading status dot.
+    #[inline]
+    pub fn dot(mut self, dot: SegmentDot) -> Self {
+        self.dot = Some(dot);
+        self
+    }
+
+    /// Disable the segment. Disabled segments render dimmed and don't
+    /// respond to clicks. Default: enabled.
+    #[inline]
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    fn debug_label(&self) -> String {
+        if let Some(l) = &self.label {
+            l.text().to_string()
+        } else if let Some(i) = &self.icon {
+            i.text().to_string()
+        } else {
+            String::new()
+        }
+    }
+}
+
+/// A row of mutually-exclusive segments sharing a single rounded track.
+///
+/// Bind to a `&mut usize` index. Click selects; the selected index is
+/// updated in place and the response is marked changed. Use
+/// [`SegmentedControl::new`] for plain text segments and
+/// [`SegmentedControl::from_segments`] when you need icons, dots, counts,
+/// or per-segment disabled state.
+///
+/// ```no_run
+/// # use elegance::{SegmentedControl, SegmentedSize};
+/// # egui::__run_test_ui(|ui| {
+/// let mut selected = 1usize;
+/// ui.add(SegmentedControl::new(&mut selected, ["Day", "Week", "Month"]));
+/// ui.add(
+///     SegmentedControl::new(&mut selected, ["Compact", "Comfortable", "Spacious"])
+///         .size(SegmentedSize::Small),
+/// );
+/// # });
+/// ```
+///
+/// Rich segments with status dots and counts:
+///
+/// ```no_run
+/// # use elegance::{Segment, SegmentDot, SegmentedControl};
+/// # egui::__run_test_ui(|ui| {
+/// let mut selected = 0usize;
+/// ui.add(
+///     SegmentedControl::from_segments(
+///         &mut selected,
+///         [
+///             Segment::text("Open").dot(SegmentDot::Amber).count("12"),
+///             Segment::text("Triaged").dot(SegmentDot::Neutral).count("84"),
+///             Segment::text("Resolved").dot(SegmentDot::Green).count("1,204"),
+///             Segment::text("Rejected").dot(SegmentDot::Red).count("31"),
+///         ],
+///     )
+///     .fill(),
+/// );
+/// # });
+/// ```
+#[must_use = "Add with `ui.add(...)`."]
+pub struct SegmentedControl<'a> {
+    selected: &'a mut usize,
+    segments: Vec<Segment>,
+    size: SegmentedSize,
+    fill: bool,
+}
+
+impl<'a> std::fmt::Debug for SegmentedControl<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SegmentedControl")
+            .field("selected", &*self.selected)
+            .field("segments", &self.segments)
+            .field("size", &self.size)
+            .field("fill", &self.fill)
+            .finish()
+    }
+}
+
+impl<'a> SegmentedControl<'a> {
+    /// Build a text-only segmented control. Each item is converted into a
+    /// plain-label [`Segment`].
+    pub fn new<I, S>(selected: &'a mut usize, items: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<WidgetText>,
+    {
+        Self {
+            selected,
+            segments: items.into_iter().map(Segment::text).collect(),
+            size: SegmentedSize::default(),
+            fill: false,
+        }
+    }
+
+    /// Build a segmented control from explicit [`Segment`]s. Use this when
+    /// you need icons, dots, counts, or disabled states.
+    pub fn from_segments(
+        selected: &'a mut usize,
+        segments: impl IntoIterator<Item = Segment>,
+    ) -> Self {
+        Self {
+            selected,
+            segments: segments.into_iter().collect(),
+            size: SegmentedSize::default(),
+            fill: false,
+        }
+    }
+
+    /// Pick a size preset. Default: [`SegmentedSize::Medium`].
+    #[inline]
+    pub fn size(mut self, size: SegmentedSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Force every segment to the same width and stretch the control to
+    /// fill the available horizontal space. Useful as a row affordance.
+    #[inline]
+    pub fn fill(mut self) -> Self {
+        self.fill = true;
+        self
+    }
+}
+
+struct Prepared {
+    icon: Option<Arc<Galley>>,
+    label: Option<Arc<Galley>>,
+    count: Option<Arc<Galley>>,
+    dot: Option<SegmentDot>,
+    enabled: bool,
+    a11y: String,
+    natural_w: f32,
+    natural_h: f32,
+}
+
+const INNER_GAP: f32 = 6.0;
+const DOT_SIZE: f32 = 6.0;
+
+fn count_galley(ui: &Ui, text: &str, size: f32) -> Arc<Galley> {
+    let rt = egui::RichText::new(text)
+        .color(Color32::PLACEHOLDER)
+        .size(size)
+        .strong();
+    egui::WidgetText::from(rt).into_galley(
+        ui,
+        Some(TextWrapMode::Extend),
+        f32::INFINITY,
+        FontSelection::FontId(FontId::monospace(size)),
+    )
+}
+
+fn dot_color(dot: SegmentDot, theme: &Theme, active: bool) -> Color32 {
+    let p = &theme.palette;
+    match dot {
+        SegmentDot::Neutral => {
+            if active {
+                p.sky
+            } else {
+                p.text_faint
+            }
+        }
+        SegmentDot::Sky => p.sky,
+        SegmentDot::Amber => p.warning,
+        SegmentDot::Red => p.danger,
+        SegmentDot::Green => p.success,
+    }
+}
+
+impl<'a> Widget for SegmentedControl<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let theme = Theme::current(ui.ctx());
+        let p = &theme.palette;
+
+        let size = self.size;
+        let track_pad = size.track_pad();
+        let pad_x = size.pad_x();
+        let pad_y = size.pad_y();
+        let font_size = size.font_size(&theme);
+        let icon_size = size.icon_size(&theme);
+        let count_size = (font_size - 1.5).max(10.0);
+        let count_h = size.count_height();
+
+        // 1. Lay out each segment's content.
+        let mut prepared: Vec<Prepared> = Vec::with_capacity(self.segments.len());
+        for seg in &self.segments {
+            let icon = seg
+                .icon
+                .as_ref()
+                .map(|t| placeholder_galley(ui, t.text(), icon_size, false, f32::INFINITY));
+            let label = seg
+                .label
+                .as_ref()
+                .map(|t| placeholder_galley(ui, t.text(), font_size, true, f32::INFINITY));
+            let count = seg
+                .count
+                .as_ref()
+                .map(|t| count_galley(ui, t.text(), count_size));
+
+            let mut content_w = 0.0_f32;
+            let mut content_h = font_size;
+            if seg.dot.is_some() {
+                content_w += DOT_SIZE;
+                content_h = content_h.max(DOT_SIZE);
+            }
+            if let Some(g) = &icon {
+                if content_w > 0.0 {
+                    content_w += INNER_GAP;
+                }
+                content_w += g.size().x;
+                content_h = content_h.max(g.size().y);
+            }
+            if let Some(g) = &label {
+                if content_w > 0.0 {
+                    content_w += INNER_GAP;
+                }
+                content_w += g.size().x;
+                content_h = content_h.max(g.size().y);
+            }
+            if let Some(g) = &count {
+                if content_w > 0.0 {
+                    content_w += INNER_GAP;
+                }
+                let pill_w = (g.size().x + 10.0).max(count_h);
+                content_w += pill_w;
+                content_h = content_h.max(count_h);
+            }
+
+            prepared.push(Prepared {
+                icon,
+                label,
+                count,
+                dot: seg.dot,
+                enabled: seg.enabled,
+                a11y: seg.debug_label(),
+                natural_w: pad_x * 2.0 + content_w,
+                natural_h: pad_y * 2.0 + content_h,
+            });
+        }
+
+        // 2. Resolve cell widths.
+        let segment_h = prepared
+            .iter()
+            .map(|s| s.natural_h)
+            .fold(font_size + pad_y * 2.0, f32::max);
+
+        let cell_widths: Vec<f32> = if self.fill && !prepared.is_empty() {
+            let avail = (ui.available_width() - track_pad * 2.0).max(0.0);
+            let max_natural = prepared.iter().map(|s| s.natural_w).fold(0.0_f32, f32::max);
+            let cell_w = (avail / prepared.len() as f32).max(max_natural);
+            prepared.iter().map(|_| cell_w).collect()
+        } else {
+            prepared.iter().map(|s| s.natural_w).collect()
+        };
+
+        let total_w = track_pad * 2.0 + cell_widths.iter().sum::<f32>();
+        let total_h = track_pad * 2.0 + segment_h;
+
+        // 3. Allocate the outer track rect. We use its auto-allocated id as the
+        //    base for per-segment interact ids, so multiple SegmentedControls
+        //    within the same parent never collide.
+        let (track_rect, response) =
+            ui.allocate_exact_size(Vec2::new(total_w, total_h), Sense::hover());
+        let base_id = response.id;
+
+        // 4. Allocate per-segment interact rects (each is its own focus target).
+        let mut x = track_rect.min.x + track_pad;
+        let segment_y = track_rect.min.y + track_pad;
+        let mut cell_rects: Vec<Rect> = Vec::with_capacity(prepared.len());
+        let mut cell_responses: Vec<Response> = Vec::with_capacity(prepared.len());
+        for (i, prep) in prepared.iter().enumerate() {
+            let cell_rect =
+                Rect::from_min_size(pos2(x, segment_y), Vec2::new(cell_widths[i], segment_h));
+            x += cell_widths[i];
+            let sense = if prep.enabled {
+                Sense::click()
+            } else {
+                Sense::hover()
+            };
+            let cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
+            if prep.enabled && cell_resp.clicked() && *self.selected != i {
+                *self.selected = i;
+            }
+            cell_rects.push(cell_rect);
+            cell_responses.push(cell_resp);
+        }
+
+        let active_idx = if *self.selected < prepared.len() && prepared[*self.selected].enabled {
+            Some(*self.selected)
+        } else {
+            None
+        };
+        let hovered_idx = cell_responses
+            .iter()
+            .zip(prepared.iter())
+            .position(|(r, prep)| prep.enabled && r.hovered());
+
+        // 5. Paint.
+        if ui.is_rect_visible(track_rect) {
+            let track_radius = CornerRadius::same(size.track_radius());
+            ui.painter().rect(
+                track_rect,
+                track_radius,
+                p.input_bg,
+                Stroke::new(1.0, p.border),
+                StrokeKind::Inside,
+            );
+
+            // Dividers between adjacent inactive, non-hovered segments.
+            for (i, cell) in cell_rects.iter().enumerate().skip(1) {
+                let left_busy = active_idx == Some(i - 1) || hovered_idx == Some(i - 1);
+                let right_busy = active_idx == Some(i) || hovered_idx == Some(i);
+                if left_busy || right_busy {
+                    continue;
+                }
+                let div_x = cell.min.x.round() - 0.5;
+                let dy = (segment_h * 0.30).min(8.0);
+                ui.painter().line_segment(
+                    [pos2(div_x, cell.min.y + dy), pos2(div_x, cell.max.y - dy)],
+                    Stroke::new(1.0, with_alpha(p.border, 200)),
+                );
+            }
+
+            let segment_radius = CornerRadius::same(size.segment_radius());
+
+            // Hovered fill (drawn before active, so an active+hover doesn't double-stack).
+            if let Some(h) = hovered_idx {
+                if active_idx != Some(h) {
+                    let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                    ui.painter().rect(
+                        cell_rects[h].shrink(0.5),
+                        segment_radius,
+                        hover_fill,
+                        Stroke::NONE,
+                        StrokeKind::Inside,
+                    );
+                }
+            }
+
+            // Active fill: a soft drop-shadow then a card-coloured raised pill.
+            if let Some(a) = active_idx {
+                let cell = cell_rects[a].shrink(0.5);
+                let shadow = cell.translate(Vec2::new(0.0, 1.0));
+                ui.painter().rect(
+                    shadow,
+                    segment_radius,
+                    with_alpha(Color32::BLACK, if p.is_dark { 70 } else { 28 }),
+                    Stroke::NONE,
+                    StrokeKind::Inside,
+                );
+                ui.painter().rect(
+                    cell,
+                    segment_radius,
+                    p.card,
+                    Stroke::new(1.0, p.border),
+                    StrokeKind::Inside,
+                );
+            }
+
+            // Per-segment content.
+            for (i, prep) in prepared.iter().enumerate() {
+                let cell_rect = cell_rects[i];
+                let is_active = active_idx == Some(i);
+                let is_hovered = hovered_idx == Some(i) && !is_active;
+
+                let text_color = if !prep.enabled {
+                    with_alpha(p.text_faint, 160)
+                } else if is_active || is_hovered {
+                    p.text
+                } else {
+                    p.text_muted
+                };
+
+                // Recompute content width to centre.
+                let count_pill_w = prep
+                    .count
+                    .as_ref()
+                    .map(|g| (g.size().x + 10.0).max(count_h));
+                let mut content_w = 0.0_f32;
+                if prep.dot.is_some() {
+                    content_w += DOT_SIZE;
+                }
+                if let Some(g) = &prep.icon {
+                    if content_w > 0.0 {
+                        content_w += INNER_GAP;
+                    }
+                    content_w += g.size().x;
+                }
+                if let Some(g) = &prep.label {
+                    if content_w > 0.0 {
+                        content_w += INNER_GAP;
+                    }
+                    content_w += g.size().x;
+                }
+                if let Some(w) = count_pill_w {
+                    if content_w > 0.0 {
+                        content_w += INNER_GAP;
+                    }
+                    content_w += w;
+                }
+
+                let mut cx = cell_rect.center().x - content_w * 0.5;
+                let cy = cell_rect.center().y;
+
+                if let Some(dot) = prep.dot {
+                    let mut col = dot_color(dot, &theme, is_active);
+                    if !prep.enabled {
+                        col = with_alpha(col, 120);
+                    }
+                    ui.painter()
+                        .circle_filled(pos2(cx + DOT_SIZE * 0.5, cy), DOT_SIZE * 0.5, col);
+                    cx += DOT_SIZE;
+                }
+                if let Some(icon) = &prep.icon {
+                    if cx > cell_rect.center().x - content_w * 0.5 {
+                        cx += INNER_GAP;
+                    }
+                    let pos = pos2(cx, cy - icon.size().y * 0.5);
+                    ui.painter().galley(pos, icon.clone(), text_color);
+                    cx += icon.size().x;
+                }
+                if let Some(label) = &prep.label {
+                    if cx > cell_rect.center().x - content_w * 0.5 {
+                        cx += INNER_GAP;
+                    }
+                    let pos = pos2(cx, cy - label.size().y * 0.5);
+                    ui.painter().galley(pos, label.clone(), text_color);
+                    cx += label.size().x;
+                }
+                if let (Some(g), Some(pill_w)) = (&prep.count, count_pill_w) {
+                    if cx > cell_rect.center().x - content_w * 0.5 {
+                        cx += INNER_GAP;
+                    }
+                    let pill_rect = Rect::from_min_size(
+                        pos2(cx, cy - count_h * 0.5),
+                        Vec2::new(pill_w, count_h),
+                    );
+                    let (pill_bg, pill_fg) = if is_active {
+                        (with_alpha(p.sky, 50), p.sky)
+                    } else if !prep.enabled {
+                        (with_alpha(p.text_faint, 35), with_alpha(p.text_faint, 200))
+                    } else {
+                        (with_alpha(p.text_muted, 45), p.text_muted)
+                    };
+                    ui.painter().rect(
+                        pill_rect,
+                        CornerRadius::same(99),
+                        pill_bg,
+                        Stroke::NONE,
+                        StrokeKind::Inside,
+                    );
+                    let text_pos = pos2(
+                        pill_rect.center().x - g.size().x * 0.5,
+                        pill_rect.center().y - g.size().y * 0.5,
+                    );
+                    ui.painter().galley(text_pos, g.clone(), pill_fg);
+                }
+            }
+        }
+
+        // 6. Per-segment a11y info.
+        for (i, (cell_resp, prep)) in cell_responses.iter().zip(prepared.iter()).enumerate() {
+            let label = prep.a11y.clone();
+            let enabled = prep.enabled;
+            let selected = active_idx == Some(i);
+            cell_resp.widget_info(|| {
+                WidgetInfo::selected(WidgetType::RadioButton, enabled, selected, &label)
+            });
+        }
+        response
+            .widget_info(|| WidgetInfo::labeled(WidgetType::RadioGroup, true, "segmented control"));
+        response
+    }
+}

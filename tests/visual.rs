@@ -17,9 +17,9 @@ use elegance::{
     Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout,
     CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, Indicator,
     IndicatorState, Knob, KnobSize, LogBar, MenuBar, MenuItem, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select, Slider, Spinner,
-    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip,
-    TooltipSide,
+    PopoverSide, ProgressBar, ProgressRing, RangeSlider, Segment, SegmentDot, SegmentedButton,
+    SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatCard, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -289,6 +289,63 @@ fn tabs_ui(ui: &mut egui::Ui) {
         &mut tab,
         ["Overview", "Settings", "Activity", "Logs"],
     ));
+}
+
+fn segmented_control_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+
+    ui.set_min_width(640.0);
+
+    ui.label(theme.muted_text("Sizes"));
+    ui.horizontal(|ui| {
+        let mut sm = 1usize;
+        ui.add(SegmentedControl::new(&mut sm, ["Day", "Week", "Month"]).size(SegmentedSize::Small));
+        ui.add_space(12.0);
+        let mut md = 1usize;
+        ui.add(SegmentedControl::new(
+            &mut md,
+            ["Day", "Week", "Month", "Year"],
+        ));
+        ui.add_space(12.0);
+        let mut lg = 1usize;
+        ui.add(
+            SegmentedControl::new(&mut lg, ["Private", "Internal", "Public"])
+                .size(SegmentedSize::Large),
+        );
+    });
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Disabled segment"));
+    let mut lang = 0usize;
+    ui.add(SegmentedControl::from_segments(
+        &mut lang,
+        [
+            Segment::text("EN"),
+            Segment::text("DE"),
+            Segment::text("JA"),
+            Segment::text("FR").enabled(false),
+        ],
+    ));
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Filter row with status dots and counts"));
+    let mut bucket = 0usize;
+    ui.add(
+        SegmentedControl::from_segments(
+            &mut bucket,
+            [
+                Segment::text("Open").dot(SegmentDot::Amber).count("12"),
+                Segment::text("Triaged")
+                    .dot(SegmentDot::Neutral)
+                    .count("84"),
+                Segment::text("Resolved")
+                    .dot(SegmentDot::Green)
+                    .count("1,204"),
+                Segment::text("Rejected").dot(SegmentDot::Red).count("31"),
+            ],
+        )
+        .fill(),
+    );
 }
 
 fn browser_tabs_ui(ui: &mut egui::Ui) {
@@ -1127,6 +1184,7 @@ theme_tests!(text_areas, text_areas_ui);
 theme_tests!(selects, selects_ui);
 theme_tests!(toggles, toggles_ui);
 theme_tests!(tabs, tabs_ui);
+theme_tests!(segmented_control, segmented_control_ui);
 theme_tests!(browser_tabs, browser_tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(stat_cards, stat_cards_ui);

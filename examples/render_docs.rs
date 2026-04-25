@@ -16,8 +16,9 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone,
     Card, Checkbox, CollapsingSection, Indicator, IndicatorState, Knob, KnobSize, MenuBar,
-    MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RangeSlider, SegmentedButton, Select,
-    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
+    MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RangeSlider, Segment, SegmentDot,
+    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -35,6 +36,7 @@ fn main() {
     render_selects();
     render_toggles();
     render_tabs();
+    render_segmented_control();
     render_browser_tabs();
     render_status();
     render_feedback();
@@ -473,6 +475,68 @@ fn render_tabs() {
                 &mut tab,
                 ["Overview", "Settings", "Activity", "Logs"],
             ));
+        });
+    });
+}
+
+fn render_segmented_control() {
+    let mut size_idx = 1usize;
+    let mut density_idx = 1usize;
+    let mut lang_idx = 0usize;
+    let mut filter_idx = 0usize;
+
+    render("segmented_control", move |ui| {
+        background(ui, |ui| {
+            ui.set_min_width(720.0);
+
+            caption(ui, "Sizes");
+            ui.horizontal(|ui| {
+                ui.add(
+                    SegmentedControl::new(&mut size_idx, ["Day", "Week", "Month"])
+                        .size(SegmentedSize::Small),
+                );
+                ui.add_space(12.0);
+                ui.add(SegmentedControl::new(
+                    &mut density_idx,
+                    ["Compact", "Comfortable", "Spacious"],
+                ));
+                ui.add_space(12.0);
+                ui.add(
+                    SegmentedControl::new(&mut size_idx, ["Private", "Internal", "Public"])
+                        .size(SegmentedSize::Large),
+                );
+            });
+            ui.add_space(10.0);
+
+            caption(ui, "Disabled segment");
+            ui.add(SegmentedControl::from_segments(
+                &mut lang_idx,
+                [
+                    Segment::text("EN"),
+                    Segment::text("DE"),
+                    Segment::text("JA"),
+                    Segment::text("FR").enabled(false),
+                ],
+            ));
+            ui.add_space(10.0);
+
+            caption(ui, "Filter row with status dots and counts");
+            ui.add(
+                SegmentedControl::from_segments(
+                    &mut filter_idx,
+                    [
+                        Segment::text("Open").dot(SegmentDot::Amber).count("12"),
+                        Segment::text("Triaged")
+                            .dot(SegmentDot::Neutral)
+                            .count("84"),
+                        Segment::text("Resolved")
+                            .dot(SegmentDot::Green)
+                            .count("1,204"),
+                        Segment::text("Rejected").dot(SegmentDot::Red).count("31"),
+                    ],
+                )
+                .fill(),
+            );
         });
     });
 }
