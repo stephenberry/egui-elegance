@@ -228,6 +228,8 @@ ui.add(ProgressBar::new(1.0).accent(Accent::Amber).text("Complete"));
 
 ### ProgressRing
 
+![ProgressRing](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/progress_ring.png)
+
 A determinate circular progress indicator — a ring-shaped cousin of `ProgressBar`. A faint track plus an accent-coloured arc that sweeps clockwise from 12 o'clock as the fraction grows. Centre text defaults to the rounded percent; override with `.text(...)` and add a small muted sub-caption with `.caption(...)`. For indeterminate "still working" loaders, use `Spinner` instead.
 
 ```rust
@@ -248,6 +250,8 @@ ui.add(ProgressRing::new(0.3).size(32.0).text(""));
 ```
 
 ### Steps
+
+![Steps — cells, numbered, labeled](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/steps.png)
 
 A stepped progress indicator for discrete, countable stages. Three visual styles share the same state model (`total`, `current`, `errored`): `StepsStyle::Cells` paints a segmented bar of uniform rounded cells, suited to compact "N of M" progress. `StepsStyle::Numbered` paints numbered circles connected by thin lines, with a checkmark on completed dots and a glow on the active one. `StepsStyle::Labeled` (via `Steps::labeled`) paints taller pills containing text labels — horizontal by default (a progress bar with readable stage names), or call `.vertical()` for a wizard-sidebar layout. Done cells use the theme's success green, the active one uses sky, and errors use danger red.
 
@@ -328,6 +332,8 @@ Modal::new("stats", &mut open)
 
 ### Popover
 
+![Popover](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/popover.png)
+
 Click-anchored floating panel that points at a trigger. Lighter than `Modal`: no backdrop, no focus trap. Pick a side with `PopoverSide` (top, bottom, left, right), optionally set a `title`, and fill the body closure with whatever you like. `Esc`, outside-click, or a second trigger-click dismiss.
 
 ```rust
@@ -347,6 +353,8 @@ Popover::new("delete_branch")
 ```
 
 ### Callout
+
+![Callouts — info, warning, success](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/callout.png)
 
 Full-width inline banner for persistent context: experimental features, unsaved changes, failed builds, maintenance windows. `CalloutTone` picks the accent (`Info`, `Success`, `Warning`, `Danger`, `Neutral`). The closure slot is a right-to-left action area — add primary button first. Opt into a trailing × with `.dismissable(&mut open)`.
 
@@ -450,6 +458,8 @@ The tint fades out over `FLASH_DURATION` (~0.8 s). `resp.clear_flash()` dismisse
 
 ## Bundled glyphs
 
+![Bundled glyphs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/glyphs.png)
+
 `Theme::install` registers a ~13 KB subset of DejaVu Sans (renamed `Elegance Symbols`) as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⌫`, `↩`, `▾` render out of the box without egui's default font missing them.
 
 Covered blocks: arrows, math ellipsis, modifier keys (`⌘ ⌥ ⌃`), delete keys (`⌫ ⌦`), disclosure triangles, check / cross. See [`assets/README.md`](assets/README.md) for the full list and regeneration instructions.
@@ -470,6 +480,8 @@ ctx.set_fonts(fonts);
 ```
 
 ## Theming
+
+![Built-in themes — Slate, Frost, Charcoal, Paper](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/theming.png)
 
 A `Theme` bundles a `Palette` of colours, a `Typography` of font sizes, and a few shape parameters (corner radius, padding). Calling `.install(ctx)` both stores the theme in `ctx` memory so elegance widgets can read it, and updates `egui::Style` so built-in widgets (labels, sliders, scroll bars) inherit the palette.
 

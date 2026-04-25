@@ -14,9 +14,10 @@
 use eframe::egui;
 use egui_kittest::Harness;
 use elegance::{
-    Accent, Badge, BadgeTone, Button, ButtonSize, Card, Checkbox, CollapsingSection, Indicator,
-    IndicatorState, MenuItem, PairItem, Pairing, ProgressBar, SegmentedButton, Select, Slider,
-    Spinner, StatusPill, Switch, TabBar, TextArea, TextInput, Theme,
+    Accent, Badge, BadgeTone, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
+    CollapsingSection, Indicator, IndicatorState, MenuItem, PairItem, Pairing, ProgressBar,
+    ProgressRing, SegmentedButton, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch,
+    TabBar, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -35,12 +36,18 @@ fn main() {
     render_tabs();
     render_status();
     render_feedback();
+    render_progress_ring();
+    render_steps();
     render_sliders();
     render_containers();
     render_menu();
     render_modal();
+    render_popover();
+    render_callout();
     render_toast();
     render_pairing();
+    render_glyphs();
+    render_theming();
 
     println!("\nDone. PNGs in {OUTPUT_DIR}/");
 }
@@ -513,6 +520,249 @@ fn render_pairing() {
                 .right_label("Servers")
                 .show(ui);
         });
+    });
+}
+
+fn render_progress_ring() {
+    render("progress_ring", |ui| {
+        background(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(ProgressRing::new(0.42));
+                ui.add_space(20.0);
+                ui.add(
+                    ProgressRing::new(0.6)
+                        .size(88.0)
+                        .accent(Accent::Green)
+                        .text("12 / 20")
+                        .caption("files"),
+                );
+                ui.add_space(20.0);
+                ui.add(ProgressRing::new(0.75).size(48.0).accent(Accent::Amber));
+                ui.add_space(20.0);
+                ui.add(ProgressRing::new(1.0).size(48.0).accent(Accent::Purple));
+            });
+        });
+    });
+}
+
+fn render_steps() {
+    render("steps", |ui| {
+        background(ui, |ui| {
+            ui.set_min_width(440.0);
+
+            caption(ui, "Cells");
+            ui.add(Steps::new(6).current(4).desired_width(420.0));
+            ui.add_space(10.0);
+
+            caption(ui, "Numbered");
+            ui.add(
+                Steps::new(5)
+                    .current(2)
+                    .style(StepsStyle::Numbered)
+                    .desired_width(420.0),
+            );
+            ui.add_space(10.0);
+
+            caption(ui, "Labeled");
+            ui.add(
+                Steps::labeled(["Plan", "Build", "Test", "Deploy"])
+                    .current(2)
+                    .desired_width(420.0),
+            );
+        });
+    });
+}
+
+fn render_popover() {
+    render("popover", |ui| {
+        background(ui, |ui| {
+            ui.set_max_width(380.0);
+            // The real `Popover` widget paints into a top-level `Popup` Area
+            // anchored at a trigger Response, which the Harness can't compose
+            // into a tile. Re-paint the trigger button + popover panel + arrow
+            // inline so the tile reads as the open state.
+            let trigger = ui.add(Button::new("Delete branch").outline());
+            ui.add_space(10.0);
+
+            let theme = Theme::current(ui.ctx());
+            let p = &theme.palette;
+
+            let frame_response = egui::Frame::new()
+                .fill(p.card)
+                .stroke(egui::Stroke::new(1.0, p.border))
+                .corner_radius(egui::CornerRadius::same(theme.card_radius as u8))
+                .inner_margin(egui::Margin::same(12))
+                .show(ui, |ui| {
+                    ui.set_min_width(320.0);
+                    ui.add(egui::Label::new(
+                        egui::RichText::new("Delete feature/snap-baseline?")
+                            .color(p.text)
+                            .strong()
+                            .size(theme.typography.body),
+                    ));
+                    ui.add_space(4.0);
+                    ui.add(egui::Label::new(theme.muted_text(
+                        "This removes the branch from origin too.",
+                    )));
+                    ui.add_space(10.0);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let _ = ui.add(
+                            Button::new("Delete")
+                                .accent(Accent::Red)
+                                .size(ButtonSize::Small),
+                        );
+                        let _ = ui.add(Button::new("Cancel").outline().size(ButtonSize::Small));
+                    });
+                });
+
+            // Upward arrow centered on the trigger.
+            let panel = frame_response.response.rect;
+            let cx = trigger
+                .rect
+                .center()
+                .x
+                .clamp(panel.left() + 14.0, panel.right() - 14.0);
+            let painter = ui.painter();
+            let half_base = 6.0;
+            let depth = 6.0;
+            let base_y = panel.top();
+            let tip = egui::pos2(cx, base_y - depth);
+            painter.add(egui::Shape::convex_polygon(
+                vec![
+                    egui::pos2(cx - half_base, base_y),
+                    tip,
+                    egui::pos2(cx + half_base, base_y),
+                ],
+                p.card,
+                egui::Stroke::NONE,
+            ));
+            let stroke = egui::Stroke::new(1.0, p.border);
+            painter.line_segment([egui::pos2(cx - half_base, base_y), tip], stroke);
+            painter.line_segment([tip, egui::pos2(cx + half_base, base_y)], stroke);
+            // Hide the panel's top border under the arrow base.
+            painter.line_segment(
+                [
+                    egui::pos2(cx - half_base + 0.5, base_y),
+                    egui::pos2(cx + half_base - 0.5, base_y),
+                ],
+                egui::Stroke::new(1.0, p.card),
+            );
+        });
+    });
+}
+
+fn render_callout() {
+    render("callout", |ui| {
+        background(ui, |ui| {
+            ui.set_min_width(720.0);
+            ui.set_max_width(720.0);
+
+            Callout::new(CalloutTone::Info)
+                .title("Node editing is in preview.")
+                .body("The wire format may change before 1.0.")
+                .show(ui, |_| {});
+            ui.add_space(8.0);
+
+            Callout::new(CalloutTone::Warning)
+                .title("Unsaved changes.")
+                .body("You have 3 edits that haven't been written to disk.")
+                .show(ui, |ui| {
+                    let _ = ui.add(Button::new("Save now").accent(Accent::Amber));
+                    let _ = ui.add(Button::new("Discard").outline());
+                });
+            ui.add_space(8.0);
+
+            Callout::new(CalloutTone::Success)
+                .title("Deploy complete.")
+                .body("Rolled out to us-east-1.")
+                .show(ui, |_| {});
+        });
+    });
+}
+
+fn render_glyphs() {
+    render("glyphs", |ui| {
+        background(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            let p = &theme.palette;
+            egui::Grid::new("r_glyphs")
+                .spacing([20.0, 6.0])
+                .show(ui, |ui| {
+                    for (label, glyphs) in [
+                        ("Arrows", "← ↑ → ↓ ↩ ↲ ↵"),
+                        ("Ellipsis", "⋮ ⋯"),
+                        ("Modifier keys", "⌃ ⌘ ⌥"),
+                        ("Delete keys", "⌫ ⌦"),
+                        ("Triangles", "▴ ▸ ▾ ◂"),
+                        ("Status", "✓ ✗"),
+                    ] {
+                        ui.add(egui::Label::new(theme.muted_text(label)));
+                        ui.add(egui::Label::new(
+                            egui::RichText::new(glyphs)
+                                .color(p.text)
+                                .size(theme.typography.body + 4.0)
+                                .monospace(),
+                        ));
+                        ui.end_row();
+                    }
+                });
+        });
+    });
+}
+
+fn render_theming() {
+    render("theming", |ui| {
+        // Skip the standard `background()` helper — it installs Slate, but we
+        // want each cell to render against its own theme's palette.
+        Theme::slate().install(ui.ctx());
+        let outer = Theme::current(ui.ctx());
+        egui::Frame::new()
+            .fill(outer.palette.bg)
+            .inner_margin(egui::Margin::same(TILE_PADDING))
+            .show(ui, |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(10.0, 8.0);
+                ui.horizontal(|ui| {
+                    for (name, theme) in [
+                        ("Slate", Theme::slate()),
+                        ("Frost", Theme::frost()),
+                        ("Charcoal", Theme::charcoal()),
+                        ("Paper", Theme::paper()),
+                    ] {
+                        theme.clone().install(ui.ctx());
+                        let p = theme.palette;
+                        egui::Frame::new()
+                            .fill(p.bg)
+                            .stroke(egui::Stroke::new(1.0, p.border))
+                            .corner_radius(egui::CornerRadius::same(theme.card_radius as u8))
+                            .inner_margin(egui::Margin::same(14))
+                            .show(ui, |ui| {
+                                // Frame.show inherits the parent's horizontal
+                                // layout — wrap in vertical so widgets stack.
+                                ui.vertical(|ui| {
+                                    ui.set_min_width(170.0);
+                                    ui.set_max_width(170.0);
+                                    ui.spacing_mut().item_spacing.y = 8.0;
+                                    ui.add(egui::Label::new(
+                                        egui::RichText::new(name)
+                                            .color(p.text)
+                                            .strong()
+                                            .size(theme.typography.heading),
+                                    ));
+                                    ui.horizontal(|ui| {
+                                        let _ = ui.add(Button::new("Save").accent(Accent::Blue));
+                                        let _ = ui.add(Button::new("Cancel").outline());
+                                    });
+                                    ui.add(
+                                        StatusPill::new()
+                                            .item("UI", IndicatorState::On)
+                                            .item("API", IndicatorState::Connecting),
+                                    );
+                                    ui.add(Badge::new("v1.0", BadgeTone::Info));
+                                });
+                            });
+                    }
+                });
+            });
     });
 }
 
