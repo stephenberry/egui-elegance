@@ -2093,11 +2093,15 @@ impl App {
         Card::new().heading("ContextMenu").show(ui, |ui| {
             let theme = Theme::current(ui.ctx());
             ui.add(egui::Label::new(theme.faint_text(
-                "Right-click a target to open a popup menu at the pointer. Hosts the same \
-                 MenuItem / MenuSection / SubMenuItem widgets as the rest of the menu family.",
+                "Right-click a target to open a popup menu at the pointer. Works on any \
+                 Response with a click sense — text labels, buttons, custom regions.",
             )));
-            ui.add_space(8.0);
+            ui.add_space(10.0);
 
+            // 1. Text label — file row with per-file actions.
+            ui.add(egui::Label::new(
+                theme.faint_text("Right-click the file name:"),
+            ));
             let row = ui.add(
                 egui::Label::new(
                     egui::RichText::new("theme.rs   11.4 KB \u{00b7} 34 min ago")
@@ -2128,6 +2132,78 @@ impl App {
                 );
                 ui.separator();
                 let _ = ui.add(MenuItem::new("Delete").danger().shortcut("\u{232B}"));
+            });
+
+            ui.add_space(14.0);
+
+            // 2. Button — same pattern, attached to a clickable widget.
+            // Buttons already have Sense::click(), so no extra wiring is needed.
+            ui.add(egui::Label::new(theme.faint_text(
+                "Right-click the button (left-click still triggers it normally):",
+            )));
+            let deploy = ui.add(Button::new("Deploy").accent(Accent::Sky));
+            if deploy.clicked() {
+                Toast::new("Deploy started")
+                    .description("orbit:v2.14.3 \u{2192} staging")
+                    .tone(BadgeTone::Info)
+                    .show(ui.ctx());
+            }
+            ContextMenu::new("ref_ctx_deploy_btn")
+                .min_width(220.0)
+                .show(&deploy, |ui| {
+                    ui.add(MenuSection::new("Deploy"));
+                    let _ = ui.add(MenuItem::new("Deploy now").shortcut("\u{2318}\u{21B5}"));
+                    let _ =
+                        ui.add(MenuItem::new("Deploy with options\u{2026}").shortcut("\u{2318}."));
+                    let _ = ui.add(MenuItem::new("Dry run").shortcut("\u{2318}\u{21E7}D"));
+                    ui.separator();
+                    ui.add(MenuSection::new("History"));
+                    let _ = ui.add(MenuItem::new("Re-deploy last release"));
+                    let _ = ui.add(
+                        MenuItem::new("Roll back\u{2026}")
+                            .danger()
+                            .shortcut("\u{2318}\u{232B}"),
+                    );
+                });
+
+            ui.add_space(14.0);
+
+            // 3. Custom region — a card-like swatch sensed for clicks.
+            ui.add(egui::Label::new(
+                theme.faint_text("Right-click anywhere on the card:"),
+            ));
+            let p = &theme.palette;
+            let (rect, card_resp) = ui.allocate_exact_size(
+                egui::vec2(ui.available_width().min(280.0), 56.0),
+                egui::Sense::click(),
+            );
+            ui.painter().rect(
+                rect,
+                egui::CornerRadius::same(theme.card_radius as u8),
+                p.card,
+                egui::Stroke::new(1.0, p.border),
+                egui::StrokeKind::Inside,
+            );
+            ui.painter().text(
+                rect.left_center() + egui::vec2(12.0, 0.0),
+                egui::Align2::LEFT_CENTER,
+                "ELG-218 \u{00b7} Ship dialog widget",
+                egui::FontId::proportional(theme.typography.body),
+                p.text,
+            );
+            ContextMenu::new("ref_ctx_card").show(&card_resp, |ui| {
+                let _ = ui.add(MenuItem::new("Rename\u{2026}"));
+                SubMenuItem::new("Label color").show(ui, |ui| {
+                    let _ = ui.add(MenuItem::new("Sky").radio(false));
+                    let _ = ui.add(MenuItem::new("Amber").radio(true));
+                    let _ = ui.add(MenuItem::new("Green").radio(false));
+                    let _ = ui.add(MenuItem::new("Red").radio(false));
+                    ui.separator();
+                    let _ = ui.add(MenuItem::new("Clear label"));
+                });
+                let _ = ui.add(MenuItem::new("Add to sprint\u{2026}"));
+                ui.separator();
+                let _ = ui.add(MenuItem::new("Archive card").danger());
             });
         });
     }
