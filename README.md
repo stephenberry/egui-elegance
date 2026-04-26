@@ -783,7 +783,7 @@ Tooltip::new("Write the working tree to disk. Remote sync runs in the background
 
 ![Callouts — info, warning, success](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/callout.png)
 
-Full-width inline banner for persistent context: experimental features, unsaved changes, failed builds, maintenance windows. `CalloutTone` picks the accent (`Info`, `Success`, `Warning`, `Danger`, `Neutral`). The closure slot is a right-to-left action area — add primary button first. Opt into a trailing × with `.dismissable(&mut open)`.
+Full-width inline banner for persistent context: experimental features, unsaved changes, failed builds, maintenance windows. `CalloutTone` picks the accent (`Info`, `Success`, `Warning`, `Danger`, `Neutral`). The closure slot is a right-to-left action area — add primary button first. Opt into a trailing × with `.dismissable(&mut open)`. The default treatment is a card-colored banner with a leading accent stripe; call `.tinted()` for a louder severity-tinted background with a matching tinted border, when the banner needs to read as a discrete alert rather than inline page chrome.
 
 ```rust
 use elegance::{Accent, Button, Callout, CalloutTone};

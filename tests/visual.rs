@@ -1042,6 +1042,47 @@ fn callouts_ui(ui: &mut egui::Ui) {
         .show(ui, |_| {});
 }
 
+fn callouts_tinted_ui(ui: &mut egui::Ui) {
+    ui.set_min_width(640.0);
+
+    Callout::new(CalloutTone::Info)
+        .tinted()
+        .title("Node editing is in preview.")
+        .body("The wire format may change before 1.0.")
+        .show(ui, |_| {});
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Warning)
+        .tinted()
+        .title("Unsaved changes.")
+        .body("You have 3 edits that haven't been written to disk.")
+        .show(ui, |ui| {
+            ui.add(Button::new("Save now").accent(Accent::Amber));
+            ui.add(Button::new("Discard").outline());
+        });
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Danger)
+        .tinted()
+        .title("Build failed.")
+        .body("cargo returned 2 errors in src/node_editor.rs.")
+        .show(ui, |_| {});
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Success)
+        .tinted()
+        .title("Deploy complete.")
+        .body("Rolled out to us-east-1.")
+        .show(ui, |_| {});
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Neutral)
+        .tinted()
+        .title("Read-only mode.")
+        .body("Database upgrade in progress.")
+        .show(ui, |_| {});
+}
+
 fn file_drop_zone_ui(ui: &mut egui::Ui) {
     ui.set_max_width(560.0);
     let _ = FileDropZone::new()
@@ -1363,6 +1404,7 @@ theme_tests!(steps, steps_ui);
 theme_tests!(containers, containers_ui);
 theme_tests!(accordion, accordion_ui);
 theme_tests!(callouts, callouts_ui);
+theme_tests!(callouts_tinted, callouts_tinted_ui);
 theme_tests!(file_drop_zone, file_drop_zone_ui);
 theme_tests!(log_bar, log_bar_ui);
 theme_tests!(pairing, pairing_ui);

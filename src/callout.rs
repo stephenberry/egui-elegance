@@ -6,10 +6,12 @@
 //! not auto-dismiss, and unlike [`FlashKind`](crate::FlashKind) it's a whole
 //! surface rather than a pulse on another widget.
 //!
-//! The visual treatment: a `card`-colored banner with a 3px accent stripe on
-//! the leading edge, a tone-tinted icon, a bold title inline with muted body
-//! text, and optional action buttons plus a dismiss button pinned to the
-//! right.
+//! Two visual treatments are available. The default is a `card`-colored
+//! banner with a 3px accent stripe on the leading edge — quiet enough to
+//! read as inline page chrome. Calling [`Callout::tinted`] swaps that for a
+//! severity-tinted background with a matching tinted border and rounded
+//! corners; this reads louder and works well when the banner needs to feel
+//! like a discrete alert rather than part of the surrounding card.
 
 use egui::{
     Align, Color32, CornerRadius, InnerResponse, Layout, Margin, Rect, Response, Sense, Stroke,
@@ -81,6 +83,7 @@ impl CalloutTone {
 #[must_use = "Call `.show(ui, ...)` to render the callout."]
 pub struct Callout<'a> {
     tone: CalloutTone,
+    tinted: bool,
     title: Option<WidgetText>,
     body: Option<WidgetText>,
     icon: Option<WidgetText>,
@@ -91,6 +94,7 @@ impl std::fmt::Debug for Callout<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Callout")
             .field("tone", &self.tone)
+            .field("tinted", &self.tinted)
             .field("title", &self.title.as_ref().map(|t| t.text()))
             .field("body", &self.body.as_ref().map(|b| b.text()))
             .field("icon", &self.icon.as_ref().map(|i| i.text()))
@@ -104,6 +108,7 @@ impl<'a> Callout<'a> {
     pub fn new(tone: CalloutTone) -> Self {
         Self {
             tone,
+            tinted: false,
             title: None,
             body: None,
             icon: None,
@@ -129,6 +134,19 @@ impl<'a> Callout<'a> {
     #[inline]
     pub fn icon(mut self, icon: impl Into<WidgetText>) -> Self {
         self.icon = Some(icon.into());
+        self
+    }
+
+    /// Swap the default stripe-on-card treatment for a severity-tinted
+    /// background with a matching tinted border and rounded corners.
+    ///
+    /// The fill is the tone color at low alpha and the border is the same
+    /// color at moderate alpha; the leading accent stripe is dropped. Use
+    /// this when the banner should read as a discrete alert rather than as
+    /// inline page chrome.
+    #[inline]
+    pub fn tinted(mut self) -> Self {
+        self.tinted = true;
         self
     }
 
@@ -164,6 +182,11 @@ impl<'a> Callout<'a> {
     /// Pass `|_| {}` when no actions are needed.
     pub fn show<R>(self, ui: &mut Ui, add_actions: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
         const STRIPE_WIDTH: f32 = 3.0;
+        const TINT_RADIUS: u8 = 8;
+        // ~10% / ~28% — matches the bordered-tinted variant in
+        // mockups/banner/banner.html.
+        const TINT_BG_ALPHA: u8 = 26;
+        const TINT_BORDER_ALPHA: u8 = 71;
 
         let theme = Theme::current(ui.ctx());
         let p = &theme.palette;
@@ -181,20 +204,42 @@ impl<'a> Callout<'a> {
 
         let Self {
             tone: _,
+            tinted,
             title,
             body,
             icon,
             open,
         } = self;
 
-        // Left inner margin accounts for the 3px stripe (24 pt from stripe
-        // to content, matching the HTML mockups).
-        let frame = egui::Frame::new().fill(p.card).inner_margin(Margin {
-            left: (STRIPE_WIDTH as i8) + 18,
-            right: 16,
-            top: 10,
-            bottom: 10,
-        });
+        let frame = if tinted {
+            let bg =
+                Color32::from_rgba_unmultiplied(stripe.r(), stripe.g(), stripe.b(), TINT_BG_ALPHA);
+            let border = Color32::from_rgba_unmultiplied(
+                stripe.r(),
+                stripe.g(),
+                stripe.b(),
+                TINT_BORDER_ALPHA,
+            );
+            egui::Frame::new()
+                .fill(bg)
+                .stroke(Stroke::new(1.0, border))
+                .corner_radius(CornerRadius::same(TINT_RADIUS))
+                .inner_margin(Margin {
+                    left: 14,
+                    right: 14,
+                    top: 10,
+                    bottom: 10,
+                })
+        } else {
+            // Left inner margin accounts for the 3px stripe (24 pt from
+            // stripe to content, matching the HTML mockups).
+            egui::Frame::new().fill(p.card).inner_margin(Margin {
+                left: (STRIPE_WIDTH as i8) + 18,
+                right: 16,
+                top: 10,
+                bottom: 10,
+            })
+        };
 
         let frame_response: InnerResponse<R> = frame.show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -253,20 +298,23 @@ impl<'a> Callout<'a> {
             .inner
         });
 
-        // Paint the accent stripe and bottom border on top of the frame.
-        let rect = frame_response.response.rect;
-        let painter = ui.painter();
-        painter.rect(
-            Rect::from_min_max(
-                rect.left_top(),
-                egui::pos2(rect.left() + STRIPE_WIDTH, rect.bottom()),
-            ),
-            CornerRadius::ZERO,
-            stripe,
-            Stroke::NONE,
-            StrokeKind::Inside,
-        );
-        painter.hline(rect.x_range(), rect.bottom(), Stroke::new(1.0, p.border));
+        // Stripe + bottom hairline are only for the default treatment;
+        // tinted draws its own border via the frame stroke.
+        if !tinted {
+            let rect = frame_response.response.rect;
+            let painter = ui.painter();
+            painter.rect(
+                Rect::from_min_max(
+                    rect.left_top(),
+                    egui::pos2(rect.left() + STRIPE_WIDTH, rect.bottom()),
+                ),
+                CornerRadius::ZERO,
+                stripe,
+                Stroke::NONE,
+                StrokeKind::Inside,
+            );
+            painter.hline(rect.x_range(), rect.bottom(), Stroke::new(1.0, p.border));
+        }
 
         frame_response
             .response

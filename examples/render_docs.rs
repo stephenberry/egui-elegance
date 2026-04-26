@@ -1714,6 +1714,20 @@ fn render_callout() {
                 .title("Deploy complete.")
                 .body("Rolled out to us-east-1.")
                 .show(ui, |_| {});
+            ui.add_space(8.0);
+
+            Callout::new(CalloutTone::Danger)
+                .tinted()
+                .title("Build failed.")
+                .body("cargo returned 2 errors in src/node_editor.rs.")
+                .show(ui, |_| {});
+            ui.add_space(8.0);
+
+            Callout::new(CalloutTone::Info)
+                .tinted()
+                .title("Node editing is in preview.")
+                .body("The wire format may change before 1.0.")
+                .show(ui, |_| {});
         });
     });
 }

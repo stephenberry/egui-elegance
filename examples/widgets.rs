@@ -1083,6 +1083,47 @@ impl App {
                     .body("Database upgrade in progress.")
                     .show(ui, |_| {});
             });
+
+            ui.add_space(6.0);
+            ui.add(egui::Label::new(Theme::current(ui.ctx()).muted_text(
+                "Tinted — severity-tinted background and border, no leading stripe.",
+            )));
+            ui.add_space(6.0);
+
+            labeled(ui, "Tinted info", |ui| {
+                Callout::new(CalloutTone::Info)
+                    .tinted()
+                    .title("Node editing is in preview.")
+                    .body("The wire format may change before 1.0.")
+                    .show(ui, |_| {});
+            });
+
+            labeled(ui, "Tinted warning with actions", |ui| {
+                Callout::new(CalloutTone::Warning)
+                    .tinted()
+                    .title("Unsaved changes.")
+                    .body("You have 3 edits that haven't been written to disk.")
+                    .show(ui, |ui| {
+                        let _ = ui.add(Button::new("Save now").accent(Accent::Amber));
+                        let _ = ui.add(Button::new("Discard").outline());
+                    });
+            });
+
+            labeled(ui, "Tinted danger", |ui| {
+                Callout::new(CalloutTone::Danger)
+                    .tinted()
+                    .title("Build failed.")
+                    .body("cargo returned 2 errors in src/node_editor.rs.")
+                    .show(ui, |_| {});
+            });
+
+            labeled(ui, "Tinted success", |ui| {
+                Callout::new(CalloutTone::Success)
+                    .tinted()
+                    .title("Deploy complete.")
+                    .body("Rolled out to us-east-1.")
+                    .show(ui, |_| {});
+            });
         });
     }
 
