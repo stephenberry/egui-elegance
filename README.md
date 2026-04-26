@@ -625,6 +625,33 @@ MenuBar::new("app").show(ui, |bar| {
 });
 ```
 
+`MenuSection::new("Edit")` adds a small uppercase muted header for grouping items within any menu body.
+
+### ContextMenu
+
+![ContextMenu](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/context_menu.png)
+
+Right-click popup anchored to the cursor. Hosts the same `MenuItem`, `MenuSection`, and `SubMenuItem` widgets as the rest of the menu family, so the styling is consistent. The target `Response` needs a click sense for egui to register the secondary click — most interactive widgets already do; for plain labels add `.sense(egui::Sense::click())`.
+
+```rust
+use elegance::{ContextMenu, MenuItem, MenuSection, SubMenuItem};
+
+let row = ui.add(egui::Label::new("theme.rs").sense(egui::Sense::click()));
+ContextMenu::new("file_row").show(&row, |ui| {
+    if ui.add(MenuItem::new("Open").shortcut("⏎")).clicked() { /* … */ }
+    SubMenuItem::new("Open with").show(ui, |ui| {
+        ui.add(MenuItem::new("Source editor"));
+        ui.add(MenuItem::new("Preview"));
+    });
+    ui.separator();
+    ui.add(MenuSection::new("Edit"));
+    if ui.add(MenuItem::new("Copy").shortcut("⌘C")).clicked() { /* … */ }
+    if ui.add(MenuItem::new("Rename…").shortcut("F2")).clicked() { /* … */ }
+    ui.separator();
+    if ui.add(MenuItem::new("Delete").danger().shortcut("⌫")).clicked() { /* … */ }
+});
+```
+
 ### MenuBar
 
 ![MenuBar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/menu_bar.png)

@@ -9,11 +9,11 @@ use eframe::egui;
 use elegance::{
     Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme,
     Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
-    Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
-    LinearGauge, LogBar, Menu, MenuBar, MenuItem, Modal, MultiTerminal, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
-    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatCard,
-    StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TerminalEvent,
+    ContextMenu, Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
+    KnobSize, LinearGauge, LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, MultiTerminal,
+    PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
+    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
+    StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TerminalEvent,
     TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
     Toasts, Tooltip, TooltipSide,
 };
@@ -549,6 +549,7 @@ impl eframe::App for App {
                             self.section_modal(ui);
                             self.section_drawer(ui);
                             self.section_menu(ui);
+                            self.section_context_menu(ui);
                             self.section_toast(ui);
                             self.section_popover(ui);
                             self.section_tooltip(ui);
@@ -2084,6 +2085,49 @@ impl App {
                 let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
                 ui.separator();
                 let _ = ui.add(MenuItem::new("Delete").danger());
+            });
+        });
+    }
+
+    fn section_context_menu(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("ContextMenu").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(theme.faint_text(
+                "Right-click a target to open a popup menu at the pointer. Hosts the same \
+                 MenuItem / MenuSection / SubMenuItem widgets as the rest of the menu family.",
+            )));
+            ui.add_space(8.0);
+
+            let row = ui.add(
+                egui::Label::new(
+                    egui::RichText::new("theme.rs   11.4 KB \u{00b7} 34 min ago")
+                        .color(theme.palette.text),
+                )
+                .sense(egui::Sense::click()),
+            );
+            ContextMenu::new("ref_ctx_file_row").show(&row, |ui| {
+                let _ = ui.add(MenuItem::new("Open").shortcut("\u{21B5}"));
+                let _ =
+                    ui.add(MenuItem::new("Open in new split").shortcut("\u{2318}\u{21E7}\u{21B5}"));
+                SubMenuItem::new("Open with").show(ui, |ui| {
+                    let _ = ui.add(MenuItem::new("Source editor").shortcut("default"));
+                    let _ = ui.add(MenuItem::new("Preview"));
+                    let _ = ui.add(MenuItem::new("Hex viewer"));
+                    ui.separator();
+                    let _ = ui.add(MenuItem::new("Configure defaults\u{2026}"));
+                });
+                ui.separator();
+                ui.add(MenuSection::new("Edit"));
+                let _ = ui.add(MenuItem::new("Copy").shortcut("\u{2318}C"));
+                let _ = ui.add(MenuItem::new("Duplicate").shortcut("\u{2318}D"));
+                let _ = ui.add(MenuItem::new("Rename\u{2026}").shortcut("F2"));
+                let _ = ui.add(
+                    MenuItem::new("Move to workspace\u{2026}")
+                        .shortcut("read-only")
+                        .enabled(false),
+                );
+                ui.separator();
+                let _ = ui.add(MenuItem::new("Delete").danger().shortcut("\u{232B}"));
             });
         });
     }

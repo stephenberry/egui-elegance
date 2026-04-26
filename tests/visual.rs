@@ -16,9 +16,9 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout,
     CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones,
-    Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, PairItem,
-    Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment,
-    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
+    Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection,
+    PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
+    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
     StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
     Tooltip, TooltipSide,
 };
@@ -1167,6 +1167,55 @@ fn menu_bar_ui(ui: &mut egui::Ui) {
         });
 }
 
+fn context_menu_panel_ui(ui: &mut egui::Ui) {
+    // The live ContextMenu popup paints into a top-level Area (anchored to
+    // the right-click pointer position), which the kittest harness can't
+    // place deterministically. Render a panel inline using the same Frame
+    // styling so the visual treatment of MenuItem/MenuSection variants —
+    // sections, separators, shortcuts, danger, disabled, checked, radio,
+    // and the submenu arrow — is pinned across themes.
+    let theme = Theme::current(ui.ctx());
+    let p = &theme.palette;
+    let r = theme.card_radius as u8;
+    let frame = egui::Frame::new()
+        .fill(p.card)
+        .stroke(egui::Stroke::new(1.0, p.border))
+        .corner_radius(egui::CornerRadius::same(r))
+        .inner_margin(egui::Margin::same(4));
+    ui.set_min_width(260.0);
+    frame.show(ui, |ui| {
+        ui.set_min_width(232.0);
+        ui.spacing_mut().item_spacing.y = 2.0;
+        ui.add(MenuItem::new("Open").shortcut("\u{21B5}"));
+        ui.add(MenuItem::new("Open in new split").shortcut("\u{2318}\u{21E7}\u{21B5}"));
+        ui.separator();
+        ui.add(MenuSection::new("Edit"));
+        ui.add(MenuItem::new("Copy").shortcut("\u{2318}C"));
+        ui.add(MenuItem::new("Duplicate").shortcut("\u{2318}D"));
+        ui.add(MenuItem::new("Rename\u{2026}").shortcut("F2"));
+        ui.add(
+            MenuItem::new("Move to workspace\u{2026}")
+                .shortcut("read-only")
+                .enabled(false),
+        );
+        ui.separator();
+        ui.add(MenuSection::new("Selection"));
+        ui.add(
+            MenuItem::new("Highlight matches")
+                .checked(true)
+                .shortcut("\u{2318}\u{21E7}L"),
+        );
+        ui.add(MenuItem::new("Show whitespace").checked(false));
+        ui.separator();
+        ui.add(MenuSection::new("Font size"));
+        ui.add(MenuItem::new("Small").radio(false));
+        ui.add(MenuItem::new("Medium").radio(true));
+        ui.add(MenuItem::new("Large").radio(false));
+        ui.separator();
+        ui.add(MenuItem::new("Delete").shortcut("\u{232B}").danger());
+    });
+}
+
 fn popover_bottom_ui(ui: &mut egui::Ui) {
     let theme = Theme::current(ui.ctx());
     egui::Popup::open_id(&ui.ctx().clone(), Popover::popup_id("pop_bottom"));
@@ -1322,6 +1371,7 @@ theme_tests!(popover_top, popover_top_ui);
 theme_tests!(popover_left, popover_left_ui);
 theme_tests!(popover_right, popover_right_ui);
 theme_tests!(menu_bar, menu_bar_ui);
+theme_tests!(context_menu_panel, context_menu_panel_ui);
 theme_tests!(tooltip_label, tooltip_label_ui);
 theme_tests!(tooltip_rich, tooltip_rich_ui);
 theme_tests!(tooltip_below, tooltip_below_ui);

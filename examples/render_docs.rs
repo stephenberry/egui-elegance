@@ -16,10 +16,10 @@ use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone,
     Card, Checkbox, CollapsingSection, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
-    LinearGauge, MenuBar, MenuItem, PairItem, Pairing, ProgressBar, ProgressRing, RadialGauge,
-    RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput,
-    Theme,
+    LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing, ProgressBar, ProgressRing,
+    RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
+    SegmentedSize, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
+    TagInput, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -50,6 +50,7 @@ fn main() {
     render_knobs();
     render_containers();
     render_menu();
+    render_context_menu();
     render_menu_bar();
     render_modal();
     render_drawer();
@@ -860,6 +861,49 @@ fn render_menu() {
                     let _ = ui.add(MenuItem::new("Duplicate").shortcut("⌘ D"));
                     ui.separator();
                     let _ = ui.add(MenuItem::new("Delete").danger());
+                });
+        });
+    });
+}
+
+fn render_context_menu() {
+    render("context_menu", |ui| {
+        background(ui, |ui| {
+            ui.set_max_width(280.0);
+            // Like `render_menu`, paint the popup chrome inline so the tile
+            // matches what the user sees when right-clicking. Shows the
+            // full vocabulary: section header, shortcut hint, disabled,
+            // toggle (radio), and danger.
+            let theme = Theme::current(ui.ctx());
+            let p = &theme.palette;
+            egui::Frame::new()
+                .fill(p.card)
+                .stroke(egui::Stroke::new(1.0, p.border))
+                .corner_radius(egui::CornerRadius::same(theme.card_radius as u8))
+                .inner_margin(egui::Margin::symmetric(4, 4))
+                .show(ui, |ui| {
+                    ui.set_min_width(232.0);
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    let _ = ui.add(MenuItem::new("Open").shortcut("\u{21B5}"));
+                    let _ = ui.add(
+                        MenuItem::new("Open in new split").shortcut("\u{2318}\u{21E7}\u{21B5}"),
+                    );
+                    ui.separator();
+                    ui.add(MenuSection::new("Edit"));
+                    let _ = ui.add(MenuItem::new("Copy").shortcut("\u{2318}C"));
+                    let _ = ui.add(MenuItem::new("Rename\u{2026}").shortcut("F2"));
+                    let _ = ui.add(
+                        MenuItem::new("Move to workspace\u{2026}")
+                            .shortcut("read-only")
+                            .enabled(false),
+                    );
+                    ui.separator();
+                    ui.add(MenuSection::new("Font size"));
+                    let _ = ui.add(MenuItem::new("Small").radio(false));
+                    let _ = ui.add(MenuItem::new("Medium").radio(true));
+                    let _ = ui.add(MenuItem::new("Large").radio(false));
+                    ui.separator();
+                    let _ = ui.add(MenuItem::new("Delete").danger().shortcut("\u{232B}"));
                 });
         });
     });
