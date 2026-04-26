@@ -373,6 +373,8 @@ ui.add(
 
 ### ColorPicker
 
+![ColorPicker](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/color_picker.png)
+
 Bound to a `Color32`. Renders as a compact swatch-and-hex trigger; clicking opens a popover containing any combination of a curated palette grid, an auto-tracked recents row, a continuous saturation/value plane plus hue slider, an alpha slider, and a hex input. Builder toggles let you mix-and-match: a palette-only picker for status colors, a continuous picker for free-form brand colors, or both stacked. Recent picks are persisted in egui context memory keyed by `id_salt`. Hex parsing accepts `#RGB`, `#RRGGBB`, `#RRGGBBAA` (with or without `#`).
 
 ```rust
@@ -391,7 +393,9 @@ ui.add(
 
 ### FileDropZone
 
-A click-and-drop file target: dashed border, cloud icon, and prompt. The widget renders the visual treatment and drag-over state; the caller handles the dropped files reported on `FileDropResponse.dropped_files` and opens a native picker on click (use a crate like `rfd`).
+![FileDropZone](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/file_drop_zone.png)
+
+A click-and-drop file target: dashed border, upload icon, and prompt. The widget renders the visual treatment and drag-over state; the caller handles the dropped files reported on `FileDropResponse.dropped_files` and opens a native picker on click (use a crate like `rfd`).
 
 ```rust
 use elegance::FileDropZone;

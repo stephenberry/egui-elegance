@@ -15,11 +15,11 @@ use eframe::egui;
 use egui_kittest::Harness;
 use elegance::{
     Accent, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone,
-    Card, Checkbox, CollapsingSection, GaugeZones, Indicator, IndicatorState, Knob, KnobSize,
-    LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing, ProgressBar, ProgressRing,
-    RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
-    SegmentedSize, Select, Slider, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar,
-    TagInput, TextArea, TextInput, Theme,
+    Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator,
+    IndicatorState, Knob, KnobSize, LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing,
+    ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton,
+    SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatusPill, Steps, StepsStyle,
+    Switch, TabBar, TagInput, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -37,6 +37,8 @@ fn main() {
     render_tag_input();
     render_selects();
     render_toggles();
+    render_color_picker();
+    render_file_drop_zone();
     render_tabs();
     render_segmented_control();
     render_browser_tabs();
@@ -494,6 +496,45 @@ fn render_toggles() {
                         .min_width(140.0),
                 );
             });
+        });
+    });
+}
+
+fn render_color_picker() {
+    // Show three closed triggers so the tile reads cleanly. Forcing the
+    // popover open works for snapshot tests but leaves the popover floating
+    // in its own Area, which fit_contents captures alongside the trigger
+    // — producing a tall narrow tile with white space around the popover.
+    // The README copy describes what's inside the popover; the image just
+    // needs to convey the swatch-and-hex trigger style.
+    let mut brand = egui::Color32::from_rgb(0x38, 0xbd, 0xf8);
+    let mut status = egui::Color32::from_rgb(0x4a, 0xde, 0x80);
+    let mut overlay = egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6);
+
+    render("color_picker", move |ui| {
+        background(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add(ColorPicker::new("doc_cp_brand", &mut brand).label("Brand"));
+                ui.add_space(16.0);
+                ui.add(ColorPicker::new("doc_cp_status", &mut status).label("Status"));
+                ui.add_space(16.0);
+                ui.add(
+                    ColorPicker::new("doc_cp_overlay", &mut overlay)
+                        .label("Overlay")
+                        .alpha(true),
+                );
+            });
+        });
+    });
+}
+
+fn render_file_drop_zone() {
+    render("file_drop_zone", |ui| {
+        background(ui, |ui| {
+            ui.set_min_width(420.0);
+            let _ = FileDropZone::new()
+                .hint("up to 10 MB \u{00b7} PNG, JPG, CSV, PDF")
+                .show(ui);
         });
     });
 }
