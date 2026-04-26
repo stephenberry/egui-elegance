@@ -528,7 +528,14 @@ impl eframe::App for App {
             ui.add(TabBar::new(
                 &mut self.category,
                 [
-                    "Buttons", "Inputs", "Numeric", "Display", "Status", "Layout", "Overlays",
+                    "Buttons",
+                    "Inputs",
+                    "Numeric",
+                    "Display",
+                    "Status",
+                    "Feedback",
+                    "Layout",
+                    "Overlays",
                     "Tools",
                 ],
             ));
@@ -562,16 +569,18 @@ impl eframe::App for App {
                         4 => {
                             self.section_status(ui);
                             self.section_avatar(ui);
+                        }
+                        5 => {
                             self.section_gauge(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
                         }
-                        5 => {
+                        6 => {
                             self.section_containers(ui);
                             self.section_accordion(ui);
                             self.section_menu_bar(ui);
                         }
-                        6 => {
+                        7 => {
                             self.section_modal(ui);
                             self.section_drawer(ui);
                             self.section_menu(ui);
