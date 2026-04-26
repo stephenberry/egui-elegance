@@ -281,6 +281,31 @@ ui.add(Indicator::new(IndicatorState::On));
 ui.add(Badge::new("Dev build", BadgeTone::Info));
 ```
 
+### Avatar · AvatarGroup
+
+![Avatars — sizes, auto-tone, presence dots, stacked group](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/avatar.png)
+
+Circular profile tile in five sizes with deterministic colour from the initials, an optional presence dot (`Online`, `Busy`, `Away`, `Offline`), and an `AvatarGroup` for stacked rows with a `+N` overflow tile. Pass `surface(theme.palette.card)` when placing an avatar inside a card so the presence-dot border punches cleanly out of the card surface.
+
+```rust
+use elegance::{Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone};
+
+ui.add(
+    Avatar::new("AL")
+        .size(AvatarSize::Large)
+        .presence(AvatarPresence::Online),
+);
+
+ui.add(
+    AvatarGroup::new()
+        .size(AvatarSize::Medium)
+        .item(Avatar::new("AL").tone(AvatarTone::Sky))
+        .item(Avatar::new("MR").tone(AvatarTone::Green))
+        .item(Avatar::new("JK").tone(AvatarTone::Amber))
+        .overflow(7),
+);
+```
+
 ### Slider
 
 ![Sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/sliders.png)

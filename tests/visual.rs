@@ -14,13 +14,14 @@ use eframe::egui;
 use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
 use elegance::{
-    Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout,
-    CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones,
-    Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection,
-    PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider,
-    SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar,
-    TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
+    BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
+    CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
+    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, PairItem, Pairing, Popover,
+    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
+    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
+    Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea,
+    TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -425,6 +426,106 @@ fn status_ui(ui: &mut egui::Ui) {
         ui.add(Badge::new("Error", BadgeTone::Danger));
         ui.add(Badge::new("Info", BadgeTone::Info));
         ui.add(Badge::new("Neutral", BadgeTone::Neutral));
+    });
+}
+
+fn avatars_ui(ui: &mut egui::Ui) {
+    let theme = Theme::current(ui.ctx());
+    ui.set_min_width(620.0);
+
+    ui.label(theme.muted_text("Sizes"));
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 14.0;
+        for size in [
+            AvatarSize::XSmall,
+            AvatarSize::Small,
+            AvatarSize::Medium,
+            AvatarSize::Large,
+            AvatarSize::XLarge,
+        ] {
+            ui.add(Avatar::new("EL").size(size).tone(AvatarTone::Sky));
+        }
+    });
+    ui.add_space(12.0);
+
+    ui.label(theme.muted_text("Auto-tone from name"));
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 14.0;
+        for initials in ["AL", "MR", "JK", "DP", "NV", "??"] {
+            ui.add(Avatar::new(initials));
+        }
+    });
+    ui.add_space(12.0);
+
+    ui.label(theme.muted_text("Presence dots"));
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 14.0;
+        ui.add(
+            Avatar::new("MR")
+                .size(AvatarSize::Large)
+                .tone(AvatarTone::Green)
+                .presence(AvatarPresence::Online),
+        );
+        ui.add(
+            Avatar::new("JK")
+                .size(AvatarSize::Large)
+                .tone(AvatarTone::Amber)
+                .presence(AvatarPresence::Away),
+        );
+        ui.add(
+            Avatar::new("DP")
+                .size(AvatarSize::Large)
+                .tone(AvatarTone::Red)
+                .presence(AvatarPresence::Busy),
+        );
+        ui.add(
+            Avatar::new("NV")
+                .size(AvatarSize::Large)
+                .tone(AvatarTone::Neutral)
+                .presence(AvatarPresence::Offline),
+        );
+    });
+    ui.add_space(12.0);
+
+    ui.label(theme.muted_text("Stacked groups"));
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 28.0;
+        ui.add(
+            AvatarGroup::new()
+                .size(AvatarSize::Medium)
+                .item(Avatar::new("AL").tone(AvatarTone::Sky))
+                .item(Avatar::new("MR").tone(AvatarTone::Green))
+                .item(Avatar::new("JK").tone(AvatarTone::Amber))
+                .item(Avatar::new("DP").tone(AvatarTone::Red))
+                .overflow(7),
+        );
+        ui.add(
+            AvatarGroup::new()
+                .size(AvatarSize::Small)
+                .item(Avatar::new("NV").tone(AvatarTone::Purple))
+                .item(Avatar::new("AL").tone(AvatarTone::Sky))
+                .item(Avatar::new("MR").tone(AvatarTone::Green)),
+        );
+    });
+    ui.add_space(12.0);
+
+    ui.label(theme.muted_text("On a card surface"));
+    Card::new().show(ui, |ui| {
+        ui.horizontal(|ui| {
+            let card_bg = Theme::current(ui.ctx()).palette.card;
+            ui.add(
+                Avatar::new("AL")
+                    .size(AvatarSize::Large)
+                    .tone(AvatarTone::Sky)
+                    .presence(AvatarPresence::Online)
+                    .surface(card_bg),
+            );
+            ui.add_space(12.0);
+            ui.vertical(|ui| {
+                ui.add(egui::Label::new(theme.body_text("Avery Lin")));
+                ui.add(egui::Label::new(theme.muted_text("Engineering · online")));
+            });
+        });
     });
 }
 
@@ -1423,6 +1524,7 @@ theme_tests!(segmented_control, segmented_control_ui);
 theme_tests!(browser_tabs, browser_tabs_ui);
 theme_tests!(status, status_ui);
 theme_tests!(stat_cards, stat_cards_ui);
+theme_tests!(avatars, avatars_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(knobs, knobs_ui);

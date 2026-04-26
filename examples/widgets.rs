@@ -7,15 +7,16 @@
 
 use eframe::egui;
 use elegance::{
-    Accent, Accordion, Badge, BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme,
-    Button, ButtonSize, Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker,
-    ContextMenu, Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
-    KnobSize, LinearGauge, LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, MultiTerminal,
-    PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider,
-    SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem,
-    Switch, TabBar, TagInput, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea,
-    TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
+    BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme, Button, ButtonSize,
+    Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, ContextMenu, Drawer,
+    DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize, LinearGauge,
+    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, MultiTerminal, PairItem, Pairing, Popover,
+    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
+    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
+    Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput,
+    TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
+    ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -560,6 +561,7 @@ impl eframe::App for App {
                         }
                         4 => {
                             self.section_status(ui);
+                            self.section_avatar(ui);
                             self.section_gauge(ui);
                             self.section_callouts(ui);
                             self.section_feedback(ui);
@@ -998,6 +1000,86 @@ impl App {
                     ui.add(Badge::new("Error", BadgeTone::Danger));
                     ui.add(Badge::new("Info", BadgeTone::Info));
                     ui.add(Badge::new("Neutral", BadgeTone::Neutral));
+                });
+            });
+        });
+    }
+
+    fn section_avatar(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Avatar").show(ui, |ui| {
+            labeled(ui, "Sizes", |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 14.0;
+                    for size in [
+                        AvatarSize::XSmall,
+                        AvatarSize::Small,
+                        AvatarSize::Medium,
+                        AvatarSize::Large,
+                        AvatarSize::XLarge,
+                    ] {
+                        ui.add(Avatar::new("EL").size(size).tone(AvatarTone::Sky));
+                    }
+                });
+            });
+
+            labeled(ui, "Auto tone from initials", |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 14.0;
+                    for initials in ["AL", "MR", "JK", "DP", "NV", "??"] {
+                        ui.add(Avatar::new(initials));
+                    }
+                });
+            });
+
+            labeled(ui, "Presence", |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 14.0;
+                    ui.add(
+                        Avatar::new("MR")
+                            .size(AvatarSize::Large)
+                            .tone(AvatarTone::Green)
+                            .presence(AvatarPresence::Online),
+                    );
+                    ui.add(
+                        Avatar::new("JK")
+                            .size(AvatarSize::Large)
+                            .tone(AvatarTone::Amber)
+                            .presence(AvatarPresence::Away),
+                    );
+                    ui.add(
+                        Avatar::new("DP")
+                            .size(AvatarSize::Large)
+                            .tone(AvatarTone::Red)
+                            .presence(AvatarPresence::Busy),
+                    );
+                    ui.add(
+                        Avatar::new("NV")
+                            .size(AvatarSize::Large)
+                            .tone(AvatarTone::Neutral)
+                            .presence(AvatarPresence::Offline),
+                    );
+                });
+            });
+
+            labeled(ui, "Stacked groups", |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 28.0;
+                    ui.add(
+                        AvatarGroup::new()
+                            .size(AvatarSize::Medium)
+                            .item(Avatar::new("AL").tone(AvatarTone::Sky))
+                            .item(Avatar::new("MR").tone(AvatarTone::Green))
+                            .item(Avatar::new("JK").tone(AvatarTone::Amber))
+                            .item(Avatar::new("DP").tone(AvatarTone::Red))
+                            .overflow(7),
+                    );
+                    ui.add(
+                        AvatarGroup::new()
+                            .size(AvatarSize::Small)
+                            .item(Avatar::new("NV").tone(AvatarTone::Purple))
+                            .item(Avatar::new("AL").tone(AvatarTone::Sky))
+                            .item(Avatar::new("MR").tone(AvatarTone::Green)),
+                    );
                 });
             });
         });

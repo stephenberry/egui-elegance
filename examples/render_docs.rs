@@ -14,12 +14,13 @@
 use eframe::egui;
 use egui_kittest::Harness;
 use elegance::{
-    Accent, Badge, BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone,
-    Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator,
-    IndicatorState, Knob, KnobSize, LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing,
-    ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton,
-    SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner,
-    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
+    Accent, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge, BadgeTone,
+    BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
+    CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
+    KnobSize, LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing, ProgressBar,
+    ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
+    SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -43,6 +44,7 @@ fn main() {
     render_segmented_control();
     render_browser_tabs();
     render_status();
+    render_avatar();
     render_feedback();
     render_progress_ring();
     render_gauge();
@@ -670,6 +672,77 @@ fn render_status() {
                 ui.add(Badge::new("Info", BadgeTone::Info));
                 ui.add(Badge::new("Neutral", BadgeTone::Neutral));
             });
+        });
+    });
+}
+
+fn render_avatar() {
+    render("avatar", |ui| {
+        background(ui, |ui| {
+            caption(ui, "Sizes");
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 14.0;
+                for size in [
+                    AvatarSize::XSmall,
+                    AvatarSize::Small,
+                    AvatarSize::Medium,
+                    AvatarSize::Large,
+                    AvatarSize::XLarge,
+                ] {
+                    ui.add(Avatar::new("EL").size(size).tone(AvatarTone::Sky));
+                }
+            });
+            ui.add_space(12.0);
+
+            caption(ui, "Auto-tone from initials");
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 14.0;
+                for initials in ["AL", "MR", "JK", "DP", "NV", "??"] {
+                    ui.add(Avatar::new(initials));
+                }
+            });
+            ui.add_space(12.0);
+
+            caption(ui, "Presence");
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 14.0;
+                ui.add(
+                    Avatar::new("MR")
+                        .size(AvatarSize::Large)
+                        .tone(AvatarTone::Green)
+                        .presence(AvatarPresence::Online),
+                );
+                ui.add(
+                    Avatar::new("JK")
+                        .size(AvatarSize::Large)
+                        .tone(AvatarTone::Amber)
+                        .presence(AvatarPresence::Away),
+                );
+                ui.add(
+                    Avatar::new("DP")
+                        .size(AvatarSize::Large)
+                        .tone(AvatarTone::Red)
+                        .presence(AvatarPresence::Busy),
+                );
+                ui.add(
+                    Avatar::new("NV")
+                        .size(AvatarSize::Large)
+                        .tone(AvatarTone::Neutral)
+                        .presence(AvatarPresence::Offline),
+                );
+            });
+            ui.add_space(12.0);
+
+            caption(ui, "Stacked group");
+            ui.add(
+                AvatarGroup::new()
+                    .size(AvatarSize::Medium)
+                    .item(Avatar::new("AL").tone(AvatarTone::Sky))
+                    .item(Avatar::new("MR").tone(AvatarTone::Green))
+                    .item(Avatar::new("JK").tone(AvatarTone::Amber))
+                    .item(Avatar::new("DP").tone(AvatarTone::Red))
+                    .overflow(7),
+            );
         });
     });
 }

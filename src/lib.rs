@@ -46,6 +46,7 @@
 #![deny(missing_docs)]
 
 mod accordion;
+mod avatar;
 mod badge;
 mod browser_tabs;
 mod button;
@@ -91,6 +92,7 @@ mod toast;
 mod tooltip;
 
 pub use accordion::{Accordion, AccordionItem, AccordionUi};
+pub use avatar::{Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone};
 pub use badge::{Badge, BadgeTone};
 pub use browser_tabs::{BrowserTab, BrowserTabs, BrowserTabsEvent};
 pub use button::{Button, ButtonSize};
