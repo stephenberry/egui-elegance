@@ -18,8 +18,8 @@ use elegance::{
     Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator,
     IndicatorState, Knob, KnobSize, LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing,
     ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton,
-    SegmentedControl, SegmentedSize, Select, Slider, Spinner, StatusPill, Steps, StepsStyle,
-    Switch, TabBar, TagInput, TextArea, TextInput, Theme,
+    SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -60,6 +60,7 @@ fn main() {
     render_callout();
     render_toast();
     render_pairing();
+    render_sortable_list();
     render_glyphs();
     render_theming();
 
@@ -1128,6 +1129,40 @@ fn render_pairing() {
                 .left_label("Clients")
                 .right_label("Servers")
                 .show(ui);
+        });
+    });
+}
+
+fn render_sortable_list() {
+    let mut items = vec![
+        SortableItem::new("api", "api-east-01")
+            .subtitle("10.0.1.5 · us-east-1")
+            .icon("◔")
+            .status("live", BadgeTone::Ok),
+        SortableItem::new("worker", "worker-pool-a")
+            .subtitle("24 instances · autoscale")
+            .icon("◑")
+            .status("idle", BadgeTone::Neutral),
+        SortableItem::new("edge", "edge-proxy-01")
+            .subtitle("8 instances · global")
+            .icon("◒")
+            .status("degraded", BadgeTone::Warning),
+        SortableItem::new("etl", "warehouse-etl")
+            .subtitle("nightly batch · 02:00 UTC")
+            .icon("◓")
+            .status("offline", BadgeTone::Danger),
+        SortableItem::new("logs", "log-ingestor")
+            .subtitle("12 instances · kafka")
+            .icon("◕")
+            .status("live", BadgeTone::Ok),
+    ];
+
+    render("sortable_list", move |ui| {
+        background(ui, |ui| {
+            ui.set_max_width(560.0);
+            Card::new().heading("Deployment targets").show(ui, |ui| {
+                SortableList::new("r_sortable_list", &mut items).show(ui);
+            });
         });
     });
 }

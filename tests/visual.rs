@@ -18,9 +18,9 @@ use elegance::{
     CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, FileDropZone, GaugeZones,
     Indicator, IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection,
     PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
-    StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
-    Tooltip, TooltipSide,
+    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider,
+    SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar,
+    TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -994,6 +994,35 @@ fn accordion_ui(ui: &mut egui::Ui) {
     });
 }
 
+fn sortable_list_ui(ui: &mut egui::Ui) {
+    let mut items = vec![
+        SortableItem::new("api", "api-east-01")
+            .subtitle("10.0.1.5 · us-east-1")
+            .icon("◔")
+            .status("live", BadgeTone::Ok),
+        SortableItem::new("worker", "worker-pool-a")
+            .subtitle("24 instances · autoscale")
+            .icon("◑")
+            .status("idle", BadgeTone::Neutral),
+        SortableItem::new("edge", "edge-proxy-01")
+            .subtitle("8 instances · global")
+            .icon("◒")
+            .status("degraded", BadgeTone::Warning),
+        SortableItem::new("etl", "warehouse-etl")
+            .subtitle("nightly batch · 02:00 UTC")
+            .icon("◓")
+            .status("offline", BadgeTone::Danger),
+        SortableItem::new("logs", "log-ingestor")
+            .subtitle("12 instances · kafka")
+            .icon("◕")
+            .status("live", BadgeTone::Ok),
+    ];
+    Card::new().heading("Deployment targets").show(ui, |ui| {
+        ui.set_min_width(480.0);
+        SortableList::new("snap_sortable_list", &mut items).show(ui);
+    });
+}
+
 fn log_bar_ui(ui: &mut egui::Ui) {
     let mut log = LogBar::new();
     log.sys("Ready");
@@ -1407,6 +1436,7 @@ theme_tests!(callouts, callouts_ui);
 theme_tests!(callouts_tinted, callouts_tinted_ui);
 theme_tests!(file_drop_zone, file_drop_zone_ui);
 theme_tests!(log_bar, log_bar_ui);
+theme_tests!(sortable_list, sortable_list_ui);
 theme_tests!(pairing, pairing_ui);
 theme_tests!(popover_bottom, popover_bottom_ui);
 theme_tests!(popover_top, popover_top_ui);

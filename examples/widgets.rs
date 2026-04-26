@@ -12,10 +12,10 @@ use elegance::{
     ContextMenu, Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
     KnobSize, LinearGauge, LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, MultiTerminal,
     PairItem, Pairing, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, Spinner,
-    StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TerminalEvent,
-    TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
-    Toasts, Tooltip, TooltipSide,
+    Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider,
+    SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem,
+    Switch, TabBar, TagInput, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea,
+    TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -123,6 +123,8 @@ struct App {
     pairing_servers: Vec<PairItem>,
     pairing_pairs: Vec<(String, String)>,
     pairing_align: bool,
+
+    sortable_targets: Vec<SortableItem>,
 
     multi_term: MultiTerminal,
     term_pane_count: usize,
@@ -287,6 +289,28 @@ impl Default for App {
                 ("c4".into(), "s2".into()),
             ],
             pairing_align: false,
+            sortable_targets: vec![
+                SortableItem::new("api", "api-east-01")
+                    .subtitle("10.0.1.5 · us-east-1")
+                    .icon("◔")
+                    .status("live", BadgeTone::Ok),
+                SortableItem::new("worker", "worker-pool-a")
+                    .subtitle("24 instances · autoscale")
+                    .icon("◑")
+                    .status("idle", BadgeTone::Neutral),
+                SortableItem::new("edge", "edge-proxy-01")
+                    .subtitle("8 instances · global")
+                    .icon("◒")
+                    .status("degraded", BadgeTone::Warning),
+                SortableItem::new("etl", "warehouse-etl")
+                    .subtitle("nightly batch · 02:00 UTC")
+                    .icon("◓")
+                    .status("offline", BadgeTone::Danger),
+                SortableItem::new("logs", "log-ingestor")
+                    .subtitle("12 instances · kafka")
+                    .icon("◕")
+                    .status("live", BadgeTone::Ok),
+            ],
             multi_term: build_multi_term(),
             term_pane_count: 4,
             browser_tabs: BrowserTabs::new("ref_browser_tabs")
@@ -556,6 +580,7 @@ impl eframe::App for App {
                         }
                         _ => {
                             self.section_pairing(ui);
+                            self.section_sortable_list(ui);
                             self.section_multi_terminal(ui);
                         }
                     }
@@ -1982,6 +2007,18 @@ impl App {
                 pairing = pairing.align_right();
             }
             pairing.show(ui);
+        });
+    }
+
+    fn section_sortable_list(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Sortable list").show(ui, |ui| {
+            let theme = Theme::current(ui.ctx());
+            ui.add(egui::Label::new(
+                theme.faint_text("Drag a row by its grip to reorder. Esc cancels."),
+            ));
+            ui.add_space(8.0);
+            ui.set_max_width(540.0);
+            SortableList::new("ref_sortable_list", &mut self.sortable_targets).show(ui);
         });
     }
 

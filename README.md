@@ -865,6 +865,32 @@ Pairing::new("client-server", &clients, &servers, &mut pairs)
     .show(ui);
 ```
 
+### SortableList
+
+![Sortable list](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/sortable_list.png)
+
+Drag-and-drop list of rows: press a row's grip handle, drag to a new position, release. The source row collapses out of layout and a ghost copy floats under the cursor; a sky-tinted slot opens at the predicted drop position so the user sees where the row will land. Releasing on the source's own slot is a no-op; pressing Escape mid-drag cancels.
+
+Each row supports an optional leading icon glyph, a title, an optional subtitle line, and an optional trailing status pill toned via `BadgeTone`. Items are reordered in place in the caller-owned `Vec<SortableItem>`; transient drag state lives in egui memory keyed by the widget's id salt.
+
+```rust
+use elegance::{BadgeTone, SortableItem, SortableList};
+
+let mut items = vec![
+    SortableItem::new("api", "api-east-01")
+        .subtitle("10.0.1.5 · us-east-1")
+        .status("live", BadgeTone::Ok),
+    SortableItem::new("worker", "worker-pool-a")
+        .subtitle("24 instances · autoscale")
+        .status("idle", BadgeTone::Neutral),
+    SortableItem::new("edge", "edge-proxy-01")
+        .subtitle("8 instances · global")
+        .status("degraded", BadgeTone::Warning),
+];
+
+SortableList::new("deployment-targets", &mut items).show(ui);
+```
+
 ## Submit-flash feedback
 
 `TextInput` can play a short green or red background flash to confirm the outcome of a submit:
