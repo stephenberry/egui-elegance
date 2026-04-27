@@ -11,12 +11,11 @@ use elegance::{
     BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme, Button, ButtonSize,
     Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, ContextMenu, Drawer,
     DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize, LinearGauge,
-    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, MultiTerminal, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
-    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
-    Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput,
-    TerminalEvent, TerminalLine, TerminalPane, TerminalStatus, TextArea, TextInput, Theme,
-    ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, PairItem, Pairing, Popover, PopoverSide,
+    ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton,
+    SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner,
+    StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TextArea,
+    TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -126,9 +125,6 @@ struct App {
     pairing_align: bool,
 
     sortable_targets: Vec<SortableItem>,
-
-    multi_term: MultiTerminal,
-    term_pane_count: usize,
 
     browser_tabs: BrowserTabs,
     browser_tabs_untitled: u32,
@@ -312,8 +308,6 @@ impl Default for App {
                     .icon("◕")
                     .status("live", BadgeTone::Ok),
             ],
-            multi_term: build_multi_term(),
-            term_pane_count: 4,
             browser_tabs: BrowserTabs::new("ref_browser_tabs")
                 .with_tab(BrowserTab::new("readme", "README.md"))
                 .with_tab(BrowserTab::new("theme", "theme.rs").dirty(true))
@@ -359,138 +353,6 @@ impl Default for App {
             stat_rng: 0x9E37_79B9_7F4A_7C15,
             log,
         }
-    }
-}
-
-/// A pool of up to 16 pre-configured panes the demo draws from when the
-/// user adjusts the pane-count slider. Ordering matches typical ops
-/// deployment: api first, then workers, edge, caches, a batch host, and
-/// a log ingestor.
-#[rustfmt::skip]
-fn pane_presets() -> Vec<(
-    &'static str,
-    &'static str,
-    &'static str,
-    &'static str,
-    TerminalStatus,
-)> {
-    vec![
-        ("api-east-01",   "api-east-01",    "root",   "/var/log", TerminalStatus::Connected),
-        ("api-west-01",   "api-west-01",    "root",   "/var/log", TerminalStatus::Connected),
-        ("worker-a",      "worker-pool-a",  "deploy", "~",        TerminalStatus::Reconnecting),
-        ("edge-01",       "edge-proxy-01",  "root",   "~",        TerminalStatus::Connected),
-        ("api-east-02",   "api-east-02",    "root",   "/var/log", TerminalStatus::Connected),
-        ("api-west-02",   "api-west-02",    "root",   "/var/log", TerminalStatus::Connected),
-        ("worker-b",      "worker-pool-b",  "deploy", "~",        TerminalStatus::Connected),
-        ("edge-02",       "edge-proxy-02",  "root",   "~",        TerminalStatus::Connected),
-        ("worker-c",      "worker-pool-c",  "deploy", "~",        TerminalStatus::Offline),
-        ("worker-d",      "worker-pool-d",  "deploy", "~",        TerminalStatus::Connected),
-        ("edge-03",       "edge-proxy-03",  "root",   "~",        TerminalStatus::Reconnecting),
-        ("edge-04",       "edge-proxy-04",  "root",   "~",        TerminalStatus::Connected),
-        ("cache-01",      "cache-redis-01", "root",   "/data",    TerminalStatus::Connected),
-        ("cache-02",      "cache-redis-02", "root",   "/data",    TerminalStatus::Connected),
-        ("warehouse-etl", "warehouse-etl",  "batch",  "/opt/etl", TerminalStatus::Offline),
-        ("log-ingest",    "log-ingestor",   "logs",   "/var/kafka", TerminalStatus::Connected),
-    ]
-}
-
-fn build_preset_pane(idx: usize) -> TerminalPane {
-    let (id, host, user, cwd, status) = pane_presets()[idx];
-    let mut pane = TerminalPane::new(id, host)
-        .user(user)
-        .cwd(cwd)
-        .status(status)
-        .push(TerminalLine::info(format!(
-            "Connected via ssh \u{00b7} {host}"
-        )));
-
-    // Seed a bit of flavour per pane so the initial view isn't a wall of
-    // empty prompts.
-    match status {
-        TerminalStatus::Connected => {
-            pane.push_line(TerminalLine::command(user, host, cwd, "uptime"));
-            pane.push_line(TerminalLine::out(
-                " 15:54:12 up 18 days, load avg: 0.14 0.22 0.19".to_string(),
-            ));
-        }
-        TerminalStatus::Reconnecting => {
-            pane.push_line(TerminalLine::warn(
-                "connection degraded, reconnecting\u{2026}".to_string(),
-            ));
-        }
-        TerminalStatus::Offline => {
-            pane.push_line(TerminalLine::err(
-                "ssh: connect to host — connection refused".to_string(),
-            ));
-        }
-    }
-    pane
-}
-
-fn build_multi_term() -> MultiTerminal {
-    let mut term = MultiTerminal::new("ref_multi_term")
-        // Responsive columns. 400 pt keeps each pane wide enough to fit
-        // the header row (chevron + hostname + solo + broadcast pill +
-        // status indicator) plus a reasonable amount of monospace output
-        // before wrapping. Narrower values pack more columns but leave
-        // individual panes cramped.
-        .columns_auto(400.0)
-        .pane_min_height(210.0);
-    for i in 0..4 {
-        term.add_pane(build_preset_pane(i));
-    }
-    term
-}
-
-/// Add or remove panes so `term` has exactly `target` of them, drawing
-/// new ones from the preset pool.
-fn sync_pane_count(term: &mut MultiTerminal, target: usize) {
-    let target = target.clamp(1, pane_presets().len());
-    let current = term.panes().len();
-    if current < target {
-        for i in current..target {
-            term.add_pane(build_preset_pane(i));
-        }
-    } else if current > target {
-        let to_remove: Vec<String> = term.panes()[target..]
-            .iter()
-            .map(|p| p.id.clone())
-            .collect();
-        for id in to_remove {
-            term.remove_pane(&id);
-        }
-    }
-}
-
-fn simulate_response(pane: &TerminalPane, cmd: &str) -> Vec<TerminalLine> {
-    let head = cmd.split_whitespace().next().unwrap_or("");
-    match head {
-        "uptime" => vec![TerminalLine::out(
-            " 15:54:39 up 18 days, 6:12, 1 user, load average: 0.14 0.22 0.19".to_string(),
-        )],
-        "hostname" => vec![TerminalLine::out(pane.host.clone())],
-        "whoami" => vec![TerminalLine::out(pane.user.clone())],
-        "pwd" => vec![TerminalLine::out(if pane.cwd == "~" {
-            format!("/home/{}", pane.user)
-        } else {
-            pane.cwd.clone()
-        })],
-        "date" => vec![TerminalLine::out(
-            "Fri Apr 24 15:54:41 UTC 2026".to_string(),
-        )],
-        "ls" => vec![TerminalLine::out(
-            if pane.cwd == "/var/log" {
-                "app.log  app.log.1  app.log.2.gz  kernel.log  nginx/"
-            } else {
-                "deploy.sh  notes.md  scripts/  tmp/"
-            }
-            .to_string(),
-        )],
-        "clear" => Vec::new(),
-        "" => Vec::new(),
-        _ => vec![TerminalLine::err(format!(
-            "-bash: {head}: command not found"
-        ))],
     }
 }
 
@@ -592,7 +454,6 @@ impl eframe::App for App {
                         _ => {
                             self.section_pairing(ui);
                             self.section_sortable_list(ui);
-                            self.section_multi_terminal(ui);
                         }
                     }
                     ui.add_space(12.0);
@@ -2110,74 +1971,6 @@ impl App {
             ui.add_space(8.0);
             ui.set_max_width(540.0);
             SortableList::new("ref_sortable_list", &mut self.sortable_targets).show(ui);
-        });
-    }
-
-    fn section_multi_terminal(&mut self, ui: &mut egui::Ui) {
-        Card::new().heading("Multi-terminal").show(ui, |ui| {
-            let theme = Theme::current(ui.ctx());
-            ui.add(egui::Label::new(theme.faint_text(
-                "Click a broadcast pill to include a pane. Type anywhere; Enter runs on every pane with broadcast on.",
-            )));
-            ui.add_space(8.0);
-
-            // Demo controls: adjust pane count and bulk-toggle collapse.
-            ui.horizontal(|ui| {
-                ui.add(
-                    Slider::new(&mut self.term_pane_count, 1..=16)
-                        .label("Terminals")
-                        .desired_width(220.0),
-                );
-                ui.add_space(12.0);
-                if ui
-                    .add(
-                        Button::new("Collapse all")
-                            .outline()
-                            .size(ButtonSize::Small),
-                    )
-                    .clicked()
-                {
-                    self.multi_term.collapse_all();
-                }
-                if ui
-                    .add(
-                        Button::new("Expand all")
-                            .outline()
-                            .size(ButtonSize::Small),
-                    )
-                    .clicked()
-                {
-                    self.multi_term.expand_all();
-                }
-            });
-            ui.add_space(6.0);
-
-            // Apply the slider value by adding or removing panes.
-            sync_pane_count(&mut self.multi_term, self.term_pane_count);
-
-            let _ = self.multi_term.show(ui);
-            for event in self.multi_term.take_events() {
-                match event {
-                    TerminalEvent::Command { targets, command } => {
-                        for id in &targets {
-                            let reply = match self.multi_term.pane(id) {
-                                Some(pane) => simulate_response(pane, &command),
-                                None => continue,
-                            };
-                            if command.trim() == "clear" {
-                                if let Some(pane) = self.multi_term.pane_mut(id) {
-                                    pane.lines.clear();
-                                    pane.push_line(TerminalLine::info("screen cleared"));
-                                }
-                            } else {
-                                for line in reply {
-                                    self.multi_term.push_line(id, line);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         });
     }
 

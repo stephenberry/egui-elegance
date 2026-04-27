@@ -67,7 +67,6 @@ mod log_bar;
 mod menu;
 mod menu_bar;
 mod modal;
-mod multi_terminal;
 mod pairing;
 mod pill;
 mod popover;
@@ -113,9 +112,6 @@ pub use log_bar::{LogBar, LogEntry, LogKind};
 pub use menu::{Menu, MenuItem, MenuSection, SubMenuItem};
 pub use menu_bar::{MenuBar, MenuBarUi};
 pub use modal::Modal;
-pub use multi_terminal::{
-    LineKind, MultiTerminal, TerminalEvent, TerminalLine, TerminalPane, TerminalStatus,
-};
 pub use pairing::{PairItem, Pairing};
 pub use pill::StatusPill;
 pub use popover::{Popover, PopoverSide};
