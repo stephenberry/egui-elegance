@@ -45,6 +45,7 @@ pub struct TextInput<'a> {
     password: bool,
     desired_width: Option<f32>,
     id_salt: Option<egui::Id>,
+    compact: bool,
 }
 
 impl<'a> std::fmt::Debug for TextInput<'a> {
@@ -53,6 +54,7 @@ impl<'a> std::fmt::Debug for TextInput<'a> {
             .field("dirty", &self.dirty)
             .field("password", &self.password)
             .field("desired_width", &self.desired_width)
+            .field("compact", &self.compact)
             .finish()
     }
 }
@@ -68,6 +70,7 @@ impl<'a> TextInput<'a> {
             password: false,
             desired_width: None,
             id_salt: None,
+            compact: false,
         }
     }
 
@@ -107,6 +110,15 @@ impl<'a> TextInput<'a> {
         self.id_salt = Some(egui::Id::new(id));
         self
     }
+
+    /// Render with reduced vertical padding so the input matches the
+    /// height of [`RemovableChip`](crate::RemovableChip) and small-size
+    /// controls. Useful for inline path / chip rows where a full-height
+    /// input would dominate. Default: `false` (standard control height).
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.compact = compact;
+        self
+    }
 }
 
 impl<'a> Widget for TextInput<'a> {
@@ -138,7 +150,16 @@ impl<'a> Widget for TextInput<'a> {
             let bg_fill = flash::background_fill(&theme, p.input_bg, flash);
 
             let desired_width = self.desired_width.unwrap_or_else(|| ui.available_width());
-            let margin = Vec2::new(theme.control_padding_x * 0.5, theme.control_padding_y);
+            // Compact mode shrinks the vertical padding to match
+            // RemovableChip's editor and Button::size(Small) at ~22 pt
+            // total. Horizontal padding is unchanged so the caret has
+            // room either way.
+            let margin_y = if self.compact {
+                3.0
+            } else {
+                theme.control_padding_y
+            };
+            let margin = Vec2::new(theme.control_padding_x * 0.5, margin_y);
 
             // Swap visuals so the TextEdit picks up our look, then restore.
             let response = crate::theme::with_themed_visuals(ui, |ui| {

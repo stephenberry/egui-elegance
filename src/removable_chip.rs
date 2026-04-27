@@ -49,6 +49,8 @@ pub struct RemovableChip<'a> {
     min_width: f32,
     max_width: f32,
     id_salt: Option<Id>,
+    focus_on_render: bool,
+    close_on_empty_blur: bool,
 }
 
 impl<'a> std::fmt::Debug for RemovableChip<'a> {
@@ -60,6 +62,8 @@ impl<'a> std::fmt::Debug for RemovableChip<'a> {
             .field("enabled", &self.enabled)
             .field("min_width", &self.min_width)
             .field("max_width", &self.max_width)
+            .field("focus_on_render", &self.focus_on_render)
+            .field("close_on_empty_blur", &self.close_on_empty_blur)
             .finish()
     }
 }
@@ -76,6 +80,8 @@ impl<'a> RemovableChip<'a> {
             min_width: 50.0,
             max_width: 240.0,
             id_salt: None,
+            focus_on_render: false,
+            close_on_empty_blur: false,
         }
     }
 
@@ -122,6 +128,30 @@ impl<'a> RemovableChip<'a> {
         self
     }
 
+    /// Request focus for the chip's TextEdit on this render. Pass `true`
+    /// on the frame the chip first appears (e.g. just after the user
+    /// clicked an "+ add" button to surface it) so the input is focused
+    /// the moment it shows up; pass `false` on subsequent frames so the
+    /// user can click out and the focus request doesn't keep stealing it
+    /// back. The chip calls `request_focus` on its TextEdit's id before
+    /// the widget is added, so focus lands on the very first frame the
+    /// chip is visible.
+    pub fn focus(mut self, request: bool) -> Self {
+        self.focus_on_render = request;
+        self
+    }
+
+    /// Auto-fire `removed` when the editor loses focus while empty. Use
+    /// this for "+ add" affordances where leaving the chip empty is
+    /// equivalent to deciding not to add the field at all: the caller
+    /// then drops the binding and the affordance reverts to its
+    /// pre-click state. Pairs naturally with [`focus`](Self::focus).
+    /// Default: `false`.
+    pub fn close_on_empty_blur(mut self, on: bool) -> Self {
+        self.close_on_empty_blur = on;
+        self
+    }
+
     /// Render the chip and return its response.
     pub fn show(self, ui: &mut Ui) -> RemovableChipResponse {
         let theme = Theme::current(ui.ctx());
@@ -131,8 +161,19 @@ impl<'a> RemovableChip<'a> {
         let id_salt = self.id_salt.unwrap_or_else(|| Id::new(ui.next_auto_id()));
         let edit_id = ui.make_persistent_id(id_salt);
 
+        // Honour `focus(true)` before the TextEdit is added so the
+        // widget picks up focus the same frame it appears (request_focus
+        // applied after add only takes effect the following frame).
+        if self.focus_on_render && self.enabled {
+            ui.memory_mut(|m| m.request_focus(edit_id));
+        }
+
         let pad_x = 6.0;
-        let pad_y = 2.0;
+        // Vertical padding chosen so the chip renders at the same total
+        // height as `Button::size(ButtonSize::Small)` (≈22 pt). Anything
+        // smaller and the chip sits 2 px shorter than its row neighbours,
+        // which reads as a layout bug rather than a stylistic choice.
+        let pad_y = 3.0;
         let close_diam = 16.0;
         let gap = 4.0;
 
@@ -201,9 +242,12 @@ impl<'a> RemovableChip<'a> {
                 ui.add_enabled(self.enabled, te)
             });
 
-            // Close (×) button: a small interact area with a hand-drawn
-            // cross. Hovered state tints the bg with the danger colour to
-            // signal "click to remove."
+            // Reserve the (×) button's footprint now so the chip's
+            // overall layout is stable whether the cross is currently
+            // painted or hidden. Defer the paint + click handling until
+            // after we know the chip's outer rect (and therefore
+            // hover-on-chip), so the cross can be hidden when the chip
+            // is at rest and revealed on hover or focus.
             let close_size = Vec2::splat(close_diam);
             let sense = if self.enabled {
                 Sense::click()
@@ -212,17 +256,28 @@ impl<'a> RemovableChip<'a> {
             };
             let (close_rect, close_resp) = ui.allocate_exact_size(close_size, sense);
 
-            let close_bg = if close_resp.hovered() && self.enabled {
+            ui.add_space((pad_x - gap).max(0.0));
+
+            (edit_response, close_rect, close_resp)
+        });
+
+        let (edit_response, close_rect, close_resp) = inner.inner;
+        let frame_rect = inner.response.rect;
+
+        // The cross only renders when the chip is "active": editor has
+        // focus, or the pointer is anywhere over the chip's frame. At
+        // rest the chip is just a value pill with no affordance noise.
+        let frame_hovered = ui.rect_contains_pointer(frame_rect);
+        let chip_active = edit_response.has_focus() || frame_hovered;
+        if self.enabled && chip_active {
+            let close_bg = if close_resp.hovered() {
                 with_alpha(p.danger, 32)
             } else {
                 Color32::TRANSPARENT
             };
             ui.painter()
                 .rect_filled(close_rect, CornerRadius::same(3), close_bg);
-
-            let cross_color = if !self.enabled {
-                p.text_faint
-            } else if close_resp.hovered() {
+            let cross_color = if close_resp.hovered() {
                 p.danger
             } else {
                 p.text_muted
@@ -232,14 +287,7 @@ impl<'a> RemovableChip<'a> {
             if close_resp.clicked() {
                 removed = true;
             }
-
-            ui.add_space((pad_x - gap).max(0.0));
-
-            edit_response
-        });
-
-        let edit_response = inner.inner;
-        let frame_rect = inner.response.rect;
+        }
 
         // Escape on an empty editor signals "remove" to the caller.
         if self.enabled
@@ -250,9 +298,21 @@ impl<'a> RemovableChip<'a> {
             removed = true;
         }
 
-        // Paint the chip's frame underneath everything.
+        // Empty editor losing focus also fires `removed` when the caller
+        // opted in. Lets a freshly-surfaced chip auto-close if the user
+        // clicks elsewhere without typing anything.
+        if self.close_on_empty_blur
+            && self.enabled
+            && edit_response.lost_focus()
+            && self.text.trim().is_empty()
+        {
+            removed = true;
+        }
+
+        // Paint the chip's frame underneath everything. Reuse the
+        // already-computed `frame_hovered` from the close-button gating
+        // above.
         let frame_focused = ui.memory(|m| m.has_focus(edit_id));
-        let frame_hovered = ui.rect_contains_pointer(frame_rect);
         let bg_fill = p.input_bg;
         let (border_w, border_color) = if !self.enabled {
             (1.0, with_alpha(p.border, 160))
