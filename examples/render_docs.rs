@@ -18,9 +18,9 @@ use elegance::{
     BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
     KnobSize, LinearGauge, MenuBar, MenuItem, MenuSection, PairItem, Pairing, ProgressBar,
-    ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton, SegmentedControl,
-    SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
+    ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton,
+    SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -36,6 +36,7 @@ fn main() {
     render_text_inputs();
     render_text_areas();
     render_tag_input();
+    render_removable_chip();
     render_selects();
     render_toggles();
     render_color_picker();
@@ -424,6 +425,36 @@ fn render_tag_input() {
                         .accent(Accent::Purple)
                         .show(ui);
                 });
+            });
+        });
+    });
+}
+
+fn render_removable_chip() {
+    let mut suffix = String::from("run-1");
+    let mut filter = String::from("error");
+
+    render("removable_chip", move |ui| {
+        background(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Path suffix:");
+                ui.add_space(4.0);
+                RemovableChip::new(&mut suffix)
+                    .prefix("_")
+                    .placeholder("run-1")
+                    .accent(Accent::Green)
+                    .id_salt("r_chip_suffix")
+                    .show(ui);
+            });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.label("Filter:");
+                ui.add_space(4.0);
+                RemovableChip::new(&mut filter)
+                    .placeholder("contains…")
+                    .accent(Accent::Sky)
+                    .id_salt("r_chip_filter")
+                    .show(ui);
             });
         });
     });

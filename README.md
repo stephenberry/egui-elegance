@@ -145,6 +145,28 @@ TagInput::new("recipients", &mut recipients)
     .show(ui);
 ```
 
+### RemovableChip
+
+![Removable chip — inline editable value with an × close button](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/removable_chip.png)
+
+A bordered inline text input bound to a single `String`, with an `×` close button and an optional non-editable prefix. Auto-sizes the editor to fit the current text within a min/max range. The `removed` flag fires when the user clicks `×` or presses Escape on an empty editor; the caller decides whether to clear or drop the binding. Use this for inline filter pills, single-tag editors, or path-segment chips. For multi-value pill lists see `TagInput`.
+
+```rust
+use elegance::{Accent, RemovableChip};
+
+let mut suffix: Option<String> = Some("run-1".into());
+if let Some(value) = suffix.as_mut() {
+    let resp = RemovableChip::new(value)
+        .prefix("_")
+        .placeholder("run-1")
+        .accent(Accent::Green)
+        .show(ui);
+    if resp.removed {
+        suffix = None;
+    }
+}
+```
+
 ### Select
 
 ![Selects](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/selects.png)

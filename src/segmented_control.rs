@@ -257,17 +257,64 @@ impl Segment {
 /// ```
 #[must_use = "Add with `ui.add(...)`."]
 pub struct SegmentedControl<'a> {
-    selected: &'a mut usize,
+    selection: Selection<'a>,
     segments: Vec<Segment>,
     size: SegmentedSize,
     fill: bool,
 }
 
+/// Selection model for [`SegmentedControl`].
+///
+/// The default constructors ([`SegmentedControl::new`],
+/// [`SegmentedControl::from_segments`]) produce a [`Selection::Single`]
+/// control where exactly one segment is active at a time. Use
+/// [`SegmentedControl::toggles`] to bind a parallel `&mut [bool]` and
+/// allow each segment to be toggled on or off independently — useful when
+/// "no selection" or "multiple selections" are valid states (e.g.,
+/// Server / Client save targets where neither, either, or both can apply).
+enum Selection<'a> {
+    Single(&'a mut usize),
+    Multi(&'a mut [bool]),
+}
+
+impl<'a> Selection<'a> {
+    fn is_active(&self, i: usize) -> bool {
+        match self {
+            Selection::Single(idx) => **idx == i,
+            Selection::Multi(states) => states.get(i).copied().unwrap_or(false),
+        }
+    }
+
+    fn click(&mut self, i: usize) {
+        match self {
+            Selection::Single(idx) => {
+                if **idx != i {
+                    **idx = i;
+                }
+            }
+            Selection::Multi(states) => {
+                if let Some(s) = states.get_mut(i) {
+                    *s = !*s;
+                }
+            }
+        }
+    }
+}
+
 impl<'a> std::fmt::Debug for SegmentedControl<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SegmentedControl")
-            .field("selected", &*self.selected)
-            .field("segments", &self.segments)
+        let mut d = f.debug_struct("SegmentedControl");
+        match &self.selection {
+            Selection::Single(idx) => {
+                d.field("mode", &"single");
+                d.field("selected", &**idx);
+            }
+            Selection::Multi(states) => {
+                d.field("mode", &"multi");
+                d.field("states", states);
+            }
+        }
+        d.field("segments", &self.segments)
             .field("size", &self.size)
             .field("fill", &self.fill)
             .finish()
@@ -275,30 +322,58 @@ impl<'a> std::fmt::Debug for SegmentedControl<'a> {
 }
 
 impl<'a> SegmentedControl<'a> {
-    /// Build a text-only segmented control. Each item is converted into a
-    /// plain-label [`Segment`].
+    /// Build a text-only single-select segmented control bound to
+    /// `selected` (a `&mut usize` index). Click-selects; the index is
+    /// always within `0..items.len()` after rendering.
     pub fn new<I, S>(selected: &'a mut usize, items: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<WidgetText>,
     {
         Self {
-            selected,
+            selection: Selection::Single(selected),
             segments: items.into_iter().map(Segment::text).collect(),
             size: SegmentedSize::default(),
             fill: false,
         }
     }
 
-    /// Build a segmented control from explicit [`Segment`]s. Use this when
-    /// you need icons, dots, counts, or disabled states.
+    /// Build a single-select segmented control from explicit [`Segment`]s.
+    /// Use this when you need icons, dots, counts, or disabled states.
     pub fn from_segments(
         selected: &'a mut usize,
         segments: impl IntoIterator<Item = Segment>,
     ) -> Self {
         Self {
-            selected,
+            selection: Selection::Single(selected),
             segments: segments.into_iter().collect(),
+            size: SegmentedSize::default(),
+            fill: false,
+        }
+    }
+
+    /// Build a multi-select segmented control: each click toggles the
+    /// segment's bool independently, so any combination of segments
+    /// (including all on or all off) is a valid state. Visuals match the
+    /// single-select track. `states.len()` and `items` should have the
+    /// same length; extra labels render as always-off, extra states are
+    /// ignored.
+    ///
+    /// ```no_run
+    /// # use elegance::SegmentedControl;
+    /// # egui::__run_test_ui(|ui| {
+    /// let mut targets = [true, false]; // [server_on, client_on]
+    /// ui.add(SegmentedControl::toggles(&mut targets, ["Server", "Client"]));
+    /// # });
+    /// ```
+    pub fn toggles<I, S>(states: &'a mut [bool], items: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<WidgetText>,
+    {
+        Self {
+            selection: Selection::Multi(states),
+            segments: items.into_iter().map(Segment::text).collect(),
             size: SegmentedSize::default(),
             fill: false,
         }
@@ -365,7 +440,7 @@ fn dot_color(dot: SegmentDot, theme: &Theme, active: bool) -> Color32 {
 }
 
 impl<'a> Widget for SegmentedControl<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
+    fn ui(mut self, ui: &mut Ui) -> Response {
         let theme = Theme::current(ui.ctx());
         let p = &theme.palette;
 
@@ -475,17 +550,18 @@ impl<'a> Widget for SegmentedControl<'a> {
                 Sense::hover()
             };
             let cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
-            if prep.enabled && cell_resp.clicked() && *self.selected != i {
-                *self.selected = i;
+            if prep.enabled && cell_resp.clicked() {
+                self.selection.click(i);
             }
             cell_rects.push(cell_rect);
             cell_responses.push(cell_resp);
         }
 
-        let active_idx = if *self.selected < prepared.len() && prepared[*self.selected].enabled {
-            Some(*self.selected)
-        } else {
-            None
+        // Per-segment "is active" lookup, branched on selection model.
+        // Disabled segments never paint as active, even if the binding
+        // says they should.
+        let is_active = |i: usize| -> bool {
+            i < prepared.len() && prepared[i].enabled && self.selection.is_active(i)
         };
         let hovered_idx = cell_responses
             .iter()
@@ -505,8 +581,8 @@ impl<'a> Widget for SegmentedControl<'a> {
 
             // Dividers between adjacent inactive, non-hovered segments.
             for (i, cell) in cell_rects.iter().enumerate().skip(1) {
-                let left_busy = active_idx == Some(i - 1) || hovered_idx == Some(i - 1);
-                let right_busy = active_idx == Some(i) || hovered_idx == Some(i);
+                let left_busy = is_active(i - 1) || hovered_idx == Some(i - 1);
+                let right_busy = is_active(i) || hovered_idx == Some(i);
                 if left_busy || right_busy {
                     continue;
                 }
@@ -522,7 +598,7 @@ impl<'a> Widget for SegmentedControl<'a> {
 
             // Hovered fill (drawn before active, so an active+hover doesn't double-stack).
             if let Some(h) = hovered_idx {
-                if active_idx != Some(h) {
+                if !is_active(h) {
                     let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
                     ui.painter().rect(
                         cell_rects[h].shrink(0.5),
@@ -534,9 +610,13 @@ impl<'a> Widget for SegmentedControl<'a> {
                 }
             }
 
-            // Active fill: a soft drop-shadow then a card-coloured raised pill.
-            if let Some(a) = active_idx {
-                let cell = cell_rects[a].shrink(0.5);
+            // Active fill(s): drop-shadow + card-coloured pill on every
+            // active segment. Multi-select can have several at once.
+            for (i, cell_rect) in cell_rects.iter().enumerate().take(prepared.len()) {
+                if !is_active(i) {
+                    continue;
+                }
+                let cell = cell_rect.shrink(0.5);
                 let shadow = cell.translate(Vec2::new(0.0, 1.0));
                 ui.painter().rect(
                     shadow,
@@ -557,12 +637,12 @@ impl<'a> Widget for SegmentedControl<'a> {
             // Per-segment content.
             for (i, prep) in prepared.iter().enumerate() {
                 let cell_rect = cell_rects[i];
-                let is_active = active_idx == Some(i);
-                let is_hovered = hovered_idx == Some(i) && !is_active;
+                let active = is_active(i);
+                let hovered = hovered_idx == Some(i) && !active;
 
                 let text_color = if !prep.enabled {
                     with_alpha(p.text_faint, 160)
-                } else if is_active || is_hovered {
+                } else if active || hovered {
                     p.text
                 } else {
                     p.text_muted
@@ -600,7 +680,7 @@ impl<'a> Widget for SegmentedControl<'a> {
                 let cy = cell_rect.center().y;
 
                 if let Some(dot) = prep.dot {
-                    let mut col = dot_color(dot, &theme, is_active);
+                    let mut col = dot_color(dot, &theme, active);
                     if !prep.enabled {
                         col = with_alpha(col, 120);
                     }
@@ -632,7 +712,7 @@ impl<'a> Widget for SegmentedControl<'a> {
                         pos2(cx, cy - count_h * 0.5),
                         Vec2::new(pill_w, count_h),
                     );
-                    let (pill_bg, pill_fg) = if is_active {
+                    let (pill_bg, pill_fg) = if active {
                         (with_alpha(p.sky, 50), p.sky)
                     } else if !prep.enabled {
                         (with_alpha(p.text_faint, 35), with_alpha(p.text_faint, 200))
@@ -655,17 +735,27 @@ impl<'a> Widget for SegmentedControl<'a> {
             }
         }
 
-        // 6. Per-segment a11y info.
+        // 6. Per-segment a11y info. Single-select reads as RadioButton(s)
+        // in a RadioGroup; multi-select reads as Checkbox(es) in a Group
+        // so a screen reader announces the right semantics.
+        let multi = matches!(self.selection, Selection::Multi(_));
+        let segment_role = if multi {
+            WidgetType::Checkbox
+        } else {
+            WidgetType::RadioButton
+        };
+        let group_role = if multi {
+            WidgetType::Other
+        } else {
+            WidgetType::RadioGroup
+        };
         for (i, (cell_resp, prep)) in cell_responses.iter().zip(prepared.iter()).enumerate() {
             let label = prep.a11y.clone();
             let enabled = prep.enabled;
-            let selected = active_idx == Some(i);
-            cell_resp.widget_info(|| {
-                WidgetInfo::selected(WidgetType::RadioButton, enabled, selected, &label)
-            });
+            let selected = is_active(i);
+            cell_resp.widget_info(|| WidgetInfo::selected(segment_role, enabled, selected, &label));
         }
-        response
-            .widget_info(|| WidgetInfo::labeled(WidgetType::RadioGroup, true, "segmented control"));
+        response.widget_info(|| WidgetInfo::labeled(group_role, true, "segmented control"));
         response
     }
 }

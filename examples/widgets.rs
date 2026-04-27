@@ -12,10 +12,10 @@ use elegance::{
     Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, ContextMenu, Drawer,
     DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize, LinearGauge,
     LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, PairItem, Pairing, Popover, PopoverSide,
-    ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot, SegmentedButton,
-    SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList, Spinner,
-    StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TextArea,
-    TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment, SegmentDot,
+    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
+    Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput,
+    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -44,6 +44,8 @@ struct App {
     area_mono: String,
     tag_recipients: Vec<String>,
     tag_skills: Vec<String>,
+    chip_suffix: Option<String>,
+    chip_filter: Option<String>,
     select_unit: String,
     select_env: String,
 
@@ -185,6 +187,8 @@ impl Default for App {
             area_mono: "{\n  \"id\": 42,\n  \"ok\": true\n}".into(),
             tag_recipients: vec!["thomas@example.com".into(), "team@orbit.dev".into()],
             tag_skills: vec!["rust".into(), "egui".into(), "wgpu".into()],
+            chip_suffix: Some("run-1".into()),
+            chip_filter: None,
             select_unit: "ms".into(),
             select_env: "Production".into(),
             check_on: true,
@@ -390,15 +394,8 @@ impl eframe::App for App {
             ui.add(TabBar::new(
                 &mut self.category,
                 [
-                    "Buttons",
-                    "Inputs",
-                    "Numeric",
-                    "Display",
-                    "Status",
-                    "Feedback",
-                    "Layout",
-                    "Overlays",
-                    "Tools",
+                    "Buttons", "Inputs", "Numeric", "Display", "Status", "Feedback", "Layout",
+                    "Overlays", "Tools",
                 ],
             ));
             ui.add_space(8.0);
@@ -414,6 +411,7 @@ impl eframe::App for App {
                         1 => {
                             self.section_text(ui);
                             self.section_tag_input(ui);
+                            self.section_removable_chip(ui);
                             self.section_selects(ui);
                             self.section_color_picker(ui);
                             self.section_file_drop_zone(ui);
@@ -602,6 +600,61 @@ impl App {
                         .accent(Accent::Purple)
                         .show(ui);
                 });
+            });
+        });
+    }
+
+    fn section_removable_chip(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("Removable chip").show(ui, |ui| {
+            ui.label(
+                egui::RichText::new(
+                    "An inline editable chip with an × close button. Click + to add; \
+                     × or Escape on an empty editor signals removal.",
+                )
+                .color(Theme::current(ui.ctx()).palette.text_muted),
+            );
+            ui.add_space(8.0);
+
+            ui.horizontal(|ui| {
+                ui.label("Path suffix:");
+                ui.add_space(4.0);
+                if let Some(value) = self.chip_suffix.as_mut() {
+                    let resp = RemovableChip::new(value)
+                        .prefix("_")
+                        .placeholder("run-1")
+                        .accent(Accent::Green)
+                        .id_salt("ref_chip_suffix")
+                        .show(ui);
+                    if resp.removed {
+                        self.chip_suffix = None;
+                    }
+                } else if ui
+                    .add(Button::new("+ suffix").size(ButtonSize::Small).outline())
+                    .clicked()
+                {
+                    self.chip_suffix = Some(String::new());
+                }
+            });
+
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.label("Filter:");
+                ui.add_space(4.0);
+                if let Some(value) = self.chip_filter.as_mut() {
+                    let resp = RemovableChip::new(value)
+                        .placeholder("contains…")
+                        .accent(Accent::Sky)
+                        .id_salt("ref_chip_filter")
+                        .show(ui);
+                    if resp.removed {
+                        self.chip_filter = None;
+                    }
+                } else if ui
+                    .add(Button::new("+ filter").size(ButtonSize::Small).outline())
+                    .clicked()
+                {
+                    self.chip_filter = Some(String::new());
+                }
             });
         });
     }

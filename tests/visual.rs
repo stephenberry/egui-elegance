@@ -18,10 +18,10 @@ use elegance::{
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
     KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, Segment, SegmentDot,
-    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
-    Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea,
-    TextInput, Theme, Tooltip, TooltipSide,
+    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment,
+    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem,
+    SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput,
+    TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -166,6 +166,34 @@ fn text_inputs_ui(ui: &mut egui::Ui) {
                 .desired_width(240.0)
                 .id_salt("t_pw"),
         );
+    });
+}
+
+fn removable_chips_ui(ui: &mut egui::Ui) {
+    let mut filled = String::from("run-1");
+    let mut empty = String::new();
+    let mut disabled = String::from("locked");
+
+    ui.horizontal(|ui| {
+        RemovableChip::new(&mut filled)
+            .prefix("_")
+            .placeholder("run-1")
+            .accent(Accent::Green)
+            .id_salt("rc_filled")
+            .show(ui);
+        ui.add_space(8.0);
+        RemovableChip::new(&mut empty)
+            .placeholder("filter…")
+            .accent(Accent::Sky)
+            .id_salt("rc_empty")
+            .show(ui);
+        ui.add_space(8.0);
+        RemovableChip::new(&mut disabled)
+            .prefix("#")
+            .placeholder("tag")
+            .enabled(false)
+            .id_salt("rc_disabled")
+            .show(ui);
     });
 }
 
@@ -377,6 +405,25 @@ fn segmented_control_ui(ui: &mut egui::Ui) {
         )
         .fill(),
     );
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Multi-toggle (independent on/off per segment)"));
+    ui.horizontal(|ui| {
+        let mut both_on = [true, true];
+        ui.add(SegmentedControl::toggles(
+            &mut both_on,
+            ["Server", "Client"],
+        ));
+        ui.add_space(12.0);
+        let mut one_on = [true, false];
+        ui.add(SegmentedControl::toggles(&mut one_on, ["Server", "Client"]));
+        ui.add_space(12.0);
+        let mut none_on = [false, false];
+        ui.add(SegmentedControl::toggles(
+            &mut none_on,
+            ["Server", "Client"],
+        ));
+    });
 }
 
 fn browser_tabs_ui(ui: &mut egui::Ui) {
@@ -1516,6 +1563,7 @@ fn tooltip_below_ui(ui: &mut egui::Ui) {
 theme_tests!(buttons, buttons_ui);
 theme_tests!(text_inputs, text_inputs_ui);
 theme_tests!(tag_inputs, tag_inputs_ui);
+theme_tests!(removable_chips, removable_chips_ui);
 theme_tests!(text_areas, text_areas_ui);
 theme_tests!(selects, selects_ui);
 theme_tests!(toggles, toggles_ui);
