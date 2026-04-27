@@ -47,6 +47,14 @@ const DEFAULT_MAX_VISIBLE: usize = 5;
 const DEFAULT_WIDTH: f32 = 320.0;
 /// Vertical gap between stacked toasts, in points.
 const STACK_GAP: f32 = 8.0;
+/// Height of the optional "Clear all" pill, in points.
+const CLEAR_ALL_HEIGHT: f32 = 26.0;
+/// Gap between the "Clear all" pill and the nearest toast, in points.
+const CLEAR_ALL_GAP: f32 = 6.0;
+/// Stack size at or above which the "Clear all" pill becomes worth showing.
+/// At a single toast the per-toast × is enough; the bulk-dismiss
+/// affordance only earns its rendering cost once two or more pile up.
+const CLEAR_ALL_THRESHOLD: usize = 2;
 
 fn storage_id() -> Id {
     Id::new("elegance::toasts")
@@ -138,6 +146,7 @@ pub struct Toasts {
     offset: Vec2,
     max_visible: usize,
     width: f32,
+    clear_all_button: bool,
 }
 
 impl Default for Toasts {
@@ -155,6 +164,7 @@ impl Toasts {
             offset: Vec2::new(12.0, 12.0),
             max_visible: DEFAULT_MAX_VISIBLE,
             width: DEFAULT_WIDTH,
+            clear_all_button: false,
         }
     }
 
@@ -180,6 +190,16 @@ impl Toasts {
     /// Width of each toast card in points. Default: 320.
     pub fn width(mut self, width: f32) -> Self {
         self.width = width.max(120.0);
+        self
+    }
+
+    /// Show a "Clear all" pill at the far end of the stack (above the
+    /// topmost toast for bottom-anchored stacks, below the bottommost
+    /// for top-anchored). Appears only when at least two non-dismissing
+    /// toasts are visible; clicking it starts the fade-out animation on
+    /// every entry at once. Default: `false`.
+    pub fn clear_all_button(mut self, enabled: bool) -> Self {
+        self.clear_all_button = enabled;
         self
     }
 
@@ -287,6 +307,43 @@ impl Toasts {
                 if dismiss_ids.contains(&entry.id) && entry.dismiss_start.is_none() {
                     entry.dismiss_start = Some(now);
                 }
+            }
+        }
+
+        // Optional "Clear all" pill anchored at the far end of the stack.
+        // Counted on non-dismissing entries so the pill hides as soon as
+        // a bulk dismiss is triggered (those toasts then fade out).
+        let active_count = state
+            .queue
+            .iter()
+            .filter(|e| e.dismiss_start.is_none())
+            .count();
+        if self.clear_all_button && active_count >= CLEAR_ALL_THRESHOLD {
+            let total_h: f32 = entry_heights.iter().sum::<f32>()
+                + STACK_GAP * entry_heights.len().saturating_sub(1) as f32;
+            let pill_top = if stack_up {
+                (screen.max.y - self.offset.y) - total_h - CLEAR_ALL_GAP - CLEAR_ALL_HEIGHT
+            } else {
+                (screen.min.y + self.offset.y) + total_h + CLEAR_ALL_GAP
+            };
+            let pill_rect = Rect::from_min_size(
+                Pos2::new(x, pill_top),
+                Vec2::new(self.width, CLEAR_ALL_HEIGHT),
+            );
+
+            let area_id = Id::new("elegance::toast::clear_all");
+            let resp = Area::new(area_id)
+                .order(Order::Tooltip)
+                .fixed_pos(pill_rect.min)
+                .show(ctx, |ui| paint_clear_all(ui, &theme, pill_rect));
+
+            if resp.inner {
+                for entry in state.queue.iter_mut() {
+                    if entry.dismiss_start.is_none() {
+                        entry.dismiss_start = Some(now);
+                    }
+                }
+                any_animating = true;
             }
         }
 
@@ -536,4 +593,45 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
     }
 
     close_resp.clicked()
+}
+
+/// Paint the "Clear all" pill that sits above (or below) the toast
+/// stack when [`Toasts::clear_all_button`] is enabled and the stack has
+/// at least [`CLEAR_ALL_THRESHOLD`] non-dismissing entries. Returns
+/// `true` if it was clicked this frame.
+fn paint_clear_all(ui: &mut Ui, theme: &Theme, rect: Rect) -> bool {
+    let p = &theme.palette;
+    let t = &theme.typography;
+
+    ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+        node.set_role(accesskit::Role::Button);
+        node.set_label("Clear all notifications");
+    });
+
+    let resp = ui.allocate_rect(rect, Sense::click());
+    let painter = ui.painter();
+
+    let bg = if resp.hovered() {
+        p.depth_tint(p.card, 0.10)
+    } else {
+        p.depth_tint(p.card, 0.04)
+    };
+    let radius = CornerRadius::same((rect.height() * 0.5).round() as u8);
+    painter.rect(
+        rect,
+        radius,
+        bg,
+        Stroke::new(1.0, p.border),
+        StrokeKind::Inside,
+    );
+
+    let text_color = if resp.hovered() { p.text } else { p.text_muted };
+    let galley = crate::theme::placeholder_galley(ui, "Clear all", t.small, false, f32::INFINITY);
+    let text_pos = Pos2::new(
+        rect.center().x - galley.size().x * 0.5,
+        rect.center().y - galley.size().y * 0.5,
+    );
+    painter.galley(text_pos, galley, text_color);
+
+    resp.clicked()
 }
