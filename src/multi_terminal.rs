@@ -228,11 +228,25 @@ pub struct TerminalPane {
     pub status: TerminalStatus,
     /// Scrollback buffer. Oldest line at index 0, newest at the end.
     pub lines: Vec<TerminalLine>,
+    /// Whether [`MultiTerminal::send_command`] should push a
+    /// [`LineKind::Command`] line into this pane's scrollback before
+    /// emitting the command event. Default: `true`, which gives the
+    /// classic line-mode look (compositional `user@host:cwd$ cmd`
+    /// prompt drawn by the widget). Set to `false` for panes whose
+    /// backend emits its own command echo, e.g. a real PTY-backed
+    /// shell with kernel tty echo on, or an SSH session that lets
+    /// the remote kernel echo. With `command_echo = false` the
+    /// command bar still feeds typed bytes to the backend, but the
+    /// scrollback only contains what the backend actually writes
+    /// back, avoiding the dual-prompt overlap when the shell's own
+    /// `PS1` is the source of truth.
+    pub command_echo: bool,
 }
 
 impl TerminalPane {
     /// Create a pane with the given id and hostname. Defaults: user `"user"`,
-    /// cwd `"~"`, status [`TerminalStatus::Connected`], no lines.
+    /// cwd `"~"`, status [`TerminalStatus::Connected`], no lines,
+    /// `command_echo` enabled.
     pub fn new(id: impl Into<String>, host: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -241,6 +255,7 @@ impl TerminalPane {
             cwd: "~".into(),
             status: TerminalStatus::Connected,
             lines: Vec::new(),
+            command_echo: true,
         }
     }
 
@@ -255,6 +270,15 @@ impl TerminalPane {
     #[inline]
     pub fn cwd(mut self, cwd: impl Into<String>) -> Self {
         self.cwd = cwd.into();
+        self
+    }
+
+    /// Toggle whether `send_command` pushes a [`LineKind::Command`]
+    /// line into this pane's scrollback. See the field doc on
+    /// [`Self::command_echo`] for when to flip this.
+    #[inline]
+    pub fn command_echo(mut self, on: bool) -> Self {
+        self.command_echo = on;
         self
     }
 
@@ -855,11 +879,20 @@ impl MultiTerminal {
         if targets.is_empty() {
             return false;
         }
-        // Echo the command into each target pane before emitting the event,
-        // so the caller just appends the response.
+        // Echo the command into each target pane (subject to its
+        // per-pane `command_echo` setting) before emitting the event,
+        // so callers that opt in to the compositional prompt just
+        // need to append the response. Panes with `command_echo =
+        // false` rely on their backend to write the command line
+        // themselves (typically via kernel-side tty echo), so we
+        // skip the push and let the scrollback reflect exactly what
+        // the backend produces.
         let cap = self.scrollback_cap;
         for id in &targets {
             if let Some(pane) = self.panes.iter_mut().find(|p| p.id == *id) {
+                if !pane.command_echo {
+                    continue;
+                }
                 let line = pane.command_line(&cmd);
                 pane.lines.push(line);
                 if pane.lines.len() > cap {
