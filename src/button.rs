@@ -6,8 +6,8 @@
 //! actions, [`Button::outline`] gives a transparent, bordered treatment.
 
 use egui::{
-    vec2, Color32, CornerRadius, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo, WidgetText,
-    WidgetType,
+    pos2, vec2, Color32, CornerRadius, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
+    WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::theme::{mix, Accent, Theme};
@@ -67,6 +67,7 @@ pub struct Button {
     min_width: Option<f32>,
     full_width: bool,
     enabled: bool,
+    loading: bool,
 }
 
 impl std::fmt::Debug for Button {
@@ -78,6 +79,7 @@ impl std::fmt::Debug for Button {
             .field("min_width", &self.min_width)
             .field("full_width", &self.full_width)
             .field("enabled", &self.enabled)
+            .field("loading", &self.loading)
             .finish()
     }
 }
@@ -93,6 +95,7 @@ impl Button {
             min_width: None,
             full_width: false,
             enabled: true,
+            loading: false,
         }
     }
 
@@ -140,6 +143,15 @@ impl Button {
         self
     }
 
+    /// Show a barber-pole busy animation and suppress clicks while it runs.
+    /// Independent of [`Button::enabled`]: combine the two to get the
+    /// dimmed disabled fill *and* the moving stripes at the same time.
+    #[inline]
+    pub fn loading(mut self, loading: bool) -> Self {
+        self.loading = loading;
+        self
+    }
+
     fn padding(&self, theme: &Theme) -> Vec2 {
         self.size.padding(theme)
     }
@@ -168,7 +180,8 @@ impl Widget for Button {
             desired.x = ui.available_width().max(desired.x);
         }
 
-        let sense = if self.enabled {
+        let interactive = self.enabled && !self.loading;
+        let sense = if interactive {
             Sense::click()
         } else {
             Sense::hover()
@@ -178,12 +191,22 @@ impl Widget for Button {
         let visible = ui.is_rect_visible(rect);
         if visible {
             // Work out fill and text colour for the current state.
-            let (fill, stroke, text_color) =
-                resolve_colors(&theme, self.accent, self.outline, self.enabled, &response);
+            let (fill, stroke, text_color) = resolve_colors(
+                &theme,
+                self.accent,
+                self.outline,
+                self.enabled,
+                self.loading,
+                &response,
+            );
 
             let radius = CornerRadius::same(theme.control_radius as u8);
             ui.painter()
                 .rect(rect, radius, fill, stroke, egui::StrokeKind::Inside);
+
+            if self.loading {
+                paint_barber_pole(ui, rect, &theme, self.outline);
+            }
 
             let text_pos = rect.center();
             ui.painter()
@@ -191,10 +214,58 @@ impl Widget for Button {
             let _ = text_pos;
         }
 
-        response.widget_info(|| {
-            WidgetInfo::labeled(WidgetType::Button, self.enabled, self.text.text())
-        });
         response
+            .widget_info(|| WidgetInfo::labeled(WidgetType::Button, interactive, self.text.text()));
+        response
+    }
+}
+
+/// Overlay diagonal "barber pole" stripes drifting across the button, between
+/// the base fill and the text. Inset by a fraction of the corner radius so
+/// the stripes never bleed into the rounded corner cutouts.
+fn paint_barber_pole(ui: &Ui, rect: egui::Rect, theme: &Theme, outline: bool) {
+    crate::request_repaint_at_rate(ui.ctx(), 30.0);
+
+    // Inset enough that a square-clip never overlaps the rounded corner area.
+    // For a corner radius `r`, the corner triangle outside the arc has a
+    // diagonal depth of `r * (1 - 1/sqrt(2)) ≈ 0.293r`; round up.
+    let inset = (theme.control_radius * 0.32).max(1.0);
+    let stripe_rect = rect.shrink(inset);
+    if stripe_rect.width() <= 0.0 || stripe_rect.height() <= 0.0 {
+        return;
+    }
+
+    // White stripes read on saturated fills; for outline buttons the fill is
+    // transparent, so use the theme's text colour against the page background.
+    let stripe_color = if outline {
+        crate::theme::with_alpha(theme.palette.text, 32)
+    } else {
+        crate::theme::with_alpha(Color32::WHITE, 32)
+    };
+
+    // Stripe geometry: horizontal projection of an 8-pt-wide stripe at -45°
+    // is 8 * sqrt(2) ≈ 11.3 pt; full period (stripe + gap) is twice that.
+    let stripe_period = 22.0_f32;
+    let stripe_width = 11.0_f32;
+    let speed = 31.0_f32;
+
+    let time = ui.input(|i| i.time) as f32;
+    let offset = (time * speed).rem_euclid(stripe_period);
+
+    let h = stripe_rect.height();
+    let num_stripes = ((stripe_rect.width() + h) / stripe_period).ceil() as i32 + 2;
+    let start_x = stripe_rect.left() - h + offset;
+
+    let painter = ui.painter().with_clip_rect(stripe_rect);
+    for i in 0..num_stripes {
+        let x = start_x + (i as f32) * stripe_period;
+        let pts = vec![
+            pos2(x, stripe_rect.top()),
+            pos2(x + stripe_width, stripe_rect.top()),
+            pos2(x + stripe_width - h, stripe_rect.bottom()),
+            pos2(x - h, stripe_rect.bottom()),
+        ];
+        painter.add(Shape::convex_polygon(pts, stripe_color, Stroke::NONE));
     }
 }
 
@@ -208,6 +279,7 @@ fn resolve_colors(
     accent: Accent,
     outline: bool,
     enabled: bool,
+    loading: bool,
     response: &Response,
 ) -> (Color32, Stroke, Color32) {
     let p = &theme.palette;
@@ -225,8 +297,8 @@ fn resolve_colors(
             mix(p.text, p.card, 0.4),
         );
     }
-    let is_down = response.is_pointer_button_down_on();
-    let is_hovered = response.hovered();
+    let is_down = !loading && response.is_pointer_button_down_on();
+    let is_hovered = !loading && response.hovered();
 
     if outline {
         let text = if is_hovered { p.text } else { p.text_muted };

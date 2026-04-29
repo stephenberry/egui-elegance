@@ -511,6 +511,14 @@ impl App {
                 ui.horizontal_wrapped(|ui| {
                     ui.add(Button::new("Default").accent(Accent::Blue));
                     ui.add(Button::new("Disabled").accent(Accent::Blue).enabled(false));
+                    ui.add(Button::new("Loading").accent(Accent::Blue).loading(true));
+                    ui.add(
+                        Button::new("Loading + disabled")
+                            .accent(Accent::Blue)
+                            .loading(true)
+                            .enabled(false),
+                    );
+                    ui.add(Button::new("Loading outline").outline().loading(true));
                 });
             });
         });
@@ -728,7 +736,7 @@ impl App {
                             ui.add(Button::new("Collect").accent(Accent::Green).min_width(96.0));
                         ui.add_space(8.0);
                         ui.add(
-                            SegmentedButton::new(&mut self.seg_on, "Continuous")
+                            SegmentedButton::new(&mut self.seg_on, "Streaming")
                                 .accent(Accent::Green)
                                 .min_width(140.0),
                         );
@@ -743,7 +751,7 @@ impl App {
                         );
                         ui.add_space(8.0);
                         ui.add(
-                            SegmentedButton::new(&mut self.seg_on, "Continuous")
+                            SegmentedButton::new(&mut self.seg_on, "Streaming")
                                 .accent(Accent::Green)
                                 .size(ButtonSize::Large)
                                 .min_width(180.0),
@@ -1564,7 +1572,7 @@ impl App {
 
     fn section_color_picker(&mut self, ui: &mut egui::Ui) {
         Card::new().heading("ColorPicker").show(ui, |ui| {
-            labeled(ui, "Continuous (default) — HSV plane, alpha, hex", |ui| {
+            labeled(ui, "Spectrum (default) — HSV plane, alpha, hex", |ui| {
                 ui.add(ColorPicker::new("ex_cp_brand", &mut self.color_brand).label("Brand"));
             });
 

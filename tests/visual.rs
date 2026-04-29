@@ -127,6 +127,17 @@ fn buttons_ui(ui: &mut egui::Ui) {
         );
         ui.add(Button::new("Disabled").accent(Accent::Blue).enabled(false));
     });
+    ui.add_space(8.0);
+    ui.horizontal_wrapped(|ui| {
+        ui.add(Button::new("Loading").accent(Accent::Blue).loading(true));
+        ui.add(
+            Button::new("Loading + disabled")
+                .accent(Accent::Blue)
+                .loading(true)
+                .enabled(false),
+        );
+        ui.add(Button::new("Loading outline").outline().loading(true));
+    });
 }
 
 fn text_inputs_ui(ui: &mut egui::Ui) {
