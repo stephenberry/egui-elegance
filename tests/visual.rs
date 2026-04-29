@@ -129,14 +129,26 @@ fn buttons_ui(ui: &mut egui::Ui) {
     });
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
-        ui.add(Button::new("Loading").accent(Accent::Blue).loading(true));
         ui.add(
-            Button::new("Loading + disabled")
+            Button::new("Small")
+                .size(ButtonSize::Small)
+                .accent(Accent::Blue)
+                .loading(true),
+        );
+        ui.add(Button::new("Medium").accent(Accent::Blue).loading(true));
+        ui.add(
+            Button::new("Large")
+                .size(ButtonSize::Large)
+                .accent(Accent::Blue)
+                .loading(true),
+        );
+        ui.add(
+            Button::new("+ disabled")
                 .accent(Accent::Blue)
                 .loading(true)
                 .enabled(false),
         );
-        ui.add(Button::new("Loading outline").outline().loading(true));
+        ui.add(Button::new("Outline").outline().loading(true));
     });
 }
 

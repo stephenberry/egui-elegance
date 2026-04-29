@@ -243,11 +243,13 @@ fn paint_barber_pole(ui: &Ui, rect: egui::Rect, theme: &Theme, outline: bool) {
         crate::theme::with_alpha(Color32::WHITE, 32)
     };
 
-    // Stripe geometry: horizontal projection of an 8-pt-wide stripe at -45°
-    // is 8 * sqrt(2) ≈ 11.3 pt; full period (stripe + gap) is twice that.
-    let stripe_period = 22.0_f32;
-    let stripe_width = 11.0_f32;
-    let speed = 31.0_f32;
+    // Geometry scales with the visible height so Small / Medium / Large all
+    // read with the same striped-vs-fill ratio. The 0.85 factor lands a Medium
+    // button (~26 pt inset height) at ~22 pt period, matching the original
+    // pixel mockup. Speed is one full period per ~700 ms regardless of size.
+    let stripe_period = (stripe_rect.height() * 0.85).max(8.0);
+    let stripe_width = stripe_period * 0.5;
+    let speed = stripe_period / 0.7;
 
     let time = ui.input(|i| i.time) as f32;
     let offset = (time * speed).rem_euclid(stripe_period);
