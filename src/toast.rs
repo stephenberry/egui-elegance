@@ -308,28 +308,45 @@ impl Toasts {
         }
 
         // Record clicks into dismiss_start so next frame's alpha math picks
-        // them up.
+        // them up. Also commit any in-flight hover pause and stop tracking
+        // it: alpha is now driven by `dismiss_start`, and leaving
+        // `hover_pause_started` set would advance `current_pause` against
+        // an auto-dismiss deadline that no longer applies.
         if !dismiss_ids.is_empty() {
             for entry in state.queue.iter_mut() {
                 if dismiss_ids.contains(&entry.id) && entry.dismiss_start.is_none() {
                     entry.dismiss_start = Some(now);
+                    if let Some(t0) = entry.hover_pause_started.take() {
+                        entry.hover_pause_total += (now - t0).max(0.0);
+                    }
                 }
             }
         }
 
-        // Update each entry's hover-pause bookkeeping. Hovering the toast
-        // freezes the auto-dismiss countdown; releasing hover commits the
-        // paused interval to `hover_pause_total` and resumes the timer.
-        // No forced repaints are needed: `alpha_and_schedule` returns the
-        // (currently-shifted) deadline as `next_event`, so the existing
-        // `request_repaint_after` call sleeps until then; on each wake-up
-        // we recompute the deadline against the latest pause total. Hover
-        // start/end transitions are themselves driven by pointer events,
-        // which trigger a repaint independently.
+        // Hover-pause bookkeeping. Hovering freezes the auto-dismiss
+        // countdown; releasing commits the paused interval. If hover
+        // starts while the toast is already mid auto-fade, "rescue" it:
+        // bump `hover_pause_total` so `fade_out_start` jumps to `now`,
+        // restoring alpha to 1.0 and giving the user a fresh `duration`
+        // window after they release.
+        //
+        // Repaint scheduling: `alpha_and_schedule` returns the
+        // (pause-shifted) deadline as `next_event`, so the existing
+        // `request_repaint_after` call sleeps until then; on wake-up we
+        // recompute against the latest pause total. Hover transitions
+        // are themselves pointer events that trigger a repaint.
         for entry in state.queue.iter_mut() {
             let is_hovered = entry.dismiss_start.is_none() && hovered_ids.contains(&entry.id);
             match (is_hovered, entry.hover_pause_started) {
-                (true, None) => entry.hover_pause_started = Some(now),
+                (true, None) => {
+                    if let Some(d) = entry.duration {
+                        let fade_out_start = entry.birth + d + entry.hover_pause_total;
+                        if now > fade_out_start {
+                            entry.hover_pause_total = now - entry.birth;
+                        }
+                    }
+                    entry.hover_pause_started = Some(now);
+                }
                 (false, Some(t0)) => {
                     entry.hover_pause_total += (now - t0).max(0.0);
                     entry.hover_pause_started = None;
@@ -459,9 +476,10 @@ impl ToastEntry {
                 let progress = ((now - t0) / FADE_OUT).clamp(0.0, 1.0) as f32;
                 (1.0 - progress, progress < 1.0, None)
             }
-            // While hovered, the next transition keeps slipping forward; an
-            // already-scheduled repaint at `t0` is fine because next frame
-            // we'll recompute against the freshly-advanced pause total.
+            // While hovered, the next transition slips forward (or jumps
+            // far forward, if hover started during a fade and rescued
+            // alpha back to 1.0). An already-scheduled repaint at `t0`
+            // is fine: next frame we'll recompute against the new total.
             Some(t0) => (1.0, false, Some(t0)),
             None => (1.0, false, None),
         }
@@ -501,18 +519,18 @@ mod layout {
 
 fn measure_height(ctx: &Context, theme: &Theme, entry: &ToastEntry, width: f32) -> f32 {
     use layout::*;
+    let p = &theme.palette;
     let t = &theme.typography;
 
-    // Lay out with Color32::PLACEHOLDER so the galley cache entry is shared
-    // with paint_toast, which fills the final (alpha'd) color at paint time
-    // via painter.galley(..., fallback_color). Using a concrete color here
-    // would produce a different cache key and double the work during fades.
+    // Use the same colors here as the Label widgets in `paint_toast`, so
+    // measure + paint pre-layout + Label all hit one cached galley.
+    // Fade is applied via `ui.set_opacity`, not baked into colors.
     let text_width = text_wrap_width(width);
     let title_galley = ctx.fonts_mut(|f| {
         f.layout(
             entry.title.clone(),
             egui::FontId::proportional(t.body),
-            Color32::PLACEHOLDER,
+            p.text,
             text_width,
         )
     });
@@ -523,7 +541,7 @@ fn measure_height(ctx: &Context, theme: &Theme, entry: &ToastEntry, width: f32) 
             f.layout(
                 desc.clone(),
                 egui::FontId::proportional(t.small),
-                Color32::PLACEHOLDER,
+                p.text_muted,
                 text_width,
             )
         });
@@ -578,9 +596,10 @@ fn paint_toast(
     ui.set_opacity(alpha);
 
     // Claim the full toast rect so clicks don't pass through to widgets
-    // beneath, and so we can detect hover for the auto-dismiss freeze.
+    // beneath. `contains_pointer` (not `hovered`) so the child Labels
+    // below can't shadow it when the cursor is over the text.
     let card_resp = ui.allocate_rect(rect, Sense::hover());
-    let hovered = card_resp.hovered();
+    let hovered = card_resp.contains_pointer();
     let painter = ui.painter();
 
     // Card background.
@@ -628,14 +647,14 @@ fn paint_toast(
     let text_left = rect.min.x + PAD_X + BAR_W + BAR_GAP - TEXT_LEFT_NUDGE;
     let text_width = text_wrap_width(rect.width());
 
-    // Pre-layout to learn each line's height. Using PLACEHOLDER as the
-    // fallback color shares the galley cache entry with `measure_height`,
-    // and the Label widget below will hit the same cache when it lays out.
+    // Pre-layout to learn each line's height. Same FontId/color/wrap as
+    // `measure_height` and the Label below, so all three share one
+    // cached galley per frame.
     let title_galley = ui.ctx().fonts_mut(|f| {
         f.layout(
             entry.title.clone(),
             egui::FontId::proportional(t.body),
-            Color32::PLACEHOLDER,
+            p.text,
             text_width,
         )
     });
@@ -655,7 +674,7 @@ fn paint_toast(
             f.layout(
                 desc.clone(),
                 egui::FontId::proportional(t.small),
-                Color32::PLACEHOLDER,
+                p.text_muted,
                 text_width,
             )
         });
