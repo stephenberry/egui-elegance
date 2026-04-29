@@ -72,6 +72,14 @@ jobs:
         run: cargo test --all-targets
       - name: Run doc-tests
         run: cargo test --doc
+      # Catch two failure modes the test command alone won't surface:
+      #   1) a canonical `<name>.png` was silently rewritten (test runs that
+      #      enable an update flag, accidental commits of regenerated files);
+      #   2) a transient harness artifact (`*.old.png`, `*.new.png`,
+      #      `*.diff.png`) is tracked when it should be gitignored.
+      # Both show up as a non-empty `git diff` after a clean test run.
+      - name: Snapshot tree must be clean
+        run: git diff --exit-code -- tests/snapshots
       # When a snapshot mismatches, `egui_kittest` writes `*.new.png` and
       # `*.diff.png` next to the baseline; upload them so the diff can be
       # inspected without re-running locally.
