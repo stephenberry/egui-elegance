@@ -1,3 +1,9 @@
 /target
 Cargo.lock
 .DS_Store
+
+# egui_kittest snapshot harness artifacts. The canonical `<name>.png` is
+# tracked; the diff/previous/new variants are transient build output.
+tests/snapshots/*.old.png
+tests/snapshots/*.new.png
+tests/snapshots/*.diff.png
