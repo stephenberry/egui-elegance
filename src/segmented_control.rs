@@ -128,6 +128,7 @@ pub struct Segment {
     count: Option<WidgetText>,
     dot: Option<SegmentDot>,
     enabled: bool,
+    hover_text: Option<WidgetText>,
 }
 
 impl std::fmt::Debug for Segment {
@@ -138,6 +139,10 @@ impl std::fmt::Debug for Segment {
             .field("count", &self.count.as_ref().map(|c| c.text().to_string()))
             .field("dot", &self.dot)
             .field("enabled", &self.enabled)
+            .field(
+                "hover_text",
+                &self.hover_text.as_ref().map(|t| t.text().to_string()),
+            )
             .finish()
     }
 }
@@ -150,6 +155,7 @@ impl Default for Segment {
             count: None,
             dot: None,
             enabled: true,
+            hover_text: None,
         }
     }
 }
@@ -201,6 +207,17 @@ impl Segment {
     #[inline]
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    /// Attach a tooltip shown when the user hovers this segment. Useful
+    /// when segments are abbreviations, icons, or domain jargon (e.g.,
+    /// "DEV" / "STG" / "PROD") and the short label can't carry the full
+    /// meaning. Each segment can have its own; segments without a
+    /// `hover_text` show no tooltip.
+    #[inline]
+    pub fn hover_text(mut self, text: impl Into<WidgetText>) -> Self {
+        self.hover_text = Some(text.into());
         self
     }
 
@@ -401,6 +418,7 @@ struct Prepared {
     count: Option<Arc<Galley>>,
     dot: Option<SegmentDot>,
     enabled: bool,
+    hover_text: Option<WidgetText>,
     a11y: String,
     natural_w: f32,
     natural_h: f32,
@@ -455,7 +473,7 @@ impl<'a> Widget for SegmentedControl<'a> {
 
         // 1. Lay out each segment's content.
         let mut prepared: Vec<Prepared> = Vec::with_capacity(self.segments.len());
-        for seg in &self.segments {
+        for seg in self.segments.iter_mut() {
             let icon = seg
                 .icon
                 .as_ref()
@@ -504,6 +522,7 @@ impl<'a> Widget for SegmentedControl<'a> {
                 count,
                 dot: seg.dot,
                 enabled: seg.enabled,
+                hover_text: seg.hover_text.take(),
                 a11y: seg.debug_label(),
                 natural_w: pad_x * 2.0 + content_w,
                 natural_h: pad_y * 2.0 + content_h,
@@ -540,7 +559,7 @@ impl<'a> Widget for SegmentedControl<'a> {
         let segment_y = track_rect.min.y + track_pad;
         let mut cell_rects: Vec<Rect> = Vec::with_capacity(prepared.len());
         let mut cell_responses: Vec<Response> = Vec::with_capacity(prepared.len());
-        for (i, prep) in prepared.iter().enumerate() {
+        for (i, prep) in prepared.iter_mut().enumerate() {
             let cell_rect =
                 Rect::from_min_size(pos2(x, segment_y), Vec2::new(cell_widths[i], segment_h));
             x += cell_widths[i];
@@ -549,9 +568,12 @@ impl<'a> Widget for SegmentedControl<'a> {
             } else {
                 Sense::hover()
             };
-            let cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
+            let mut cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
             if prep.enabled && cell_resp.clicked() {
                 self.selection.click(i);
+            }
+            if let Some(text) = prep.hover_text.take() {
+                cell_resp = cell_resp.on_hover_text(text);
             }
             cell_rects.push(cell_rect);
             cell_responses.push(cell_resp);

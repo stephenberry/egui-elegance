@@ -853,6 +853,20 @@ impl App {
                 ));
             });
 
+            labeled(ui, "Per-segment tooltips (hover each)", |ui| {
+                ui.add(SegmentedControl::from_segments(
+                    &mut self.seg_ctrl_density,
+                    [
+                        Segment::text("DEV")
+                            .hover_text("Development: ephemeral, safe to break."),
+                        Segment::text("STG")
+                            .hover_text("Staging: mirrors production data shape."),
+                        Segment::text("PROD")
+                            .hover_text("Production: real users; deploy with care."),
+                    ],
+                ));
+            });
+
             labeled(ui, "Filter row with status dots and counts (fill)", |ui| {
                 ui.add(
                     SegmentedControl::from_segments(
