@@ -127,6 +127,8 @@ impl Toast {
                 duration: self.duration.map(|d| d.as_secs_f64()),
                 birth: now,
                 dismiss_start: None,
+                hover_pause_total: 0.0,
+                hover_pause_started: None,
             });
             d.insert_temp(storage_id(), state);
         });
@@ -261,6 +263,7 @@ impl Toasts {
         };
 
         let mut dismiss_ids: Vec<u64> = Vec::new();
+        let mut hovered_ids: Vec<u64> = Vec::new();
         let mut earliest_next_event: Option<f64> = None;
         let mut any_animating = false;
 
@@ -291,8 +294,12 @@ impl Toasts {
                 .fixed_pos(rect.min)
                 .show(ctx, |ui| paint_toast(ui, &theme, entry, rect, alpha));
 
-            if resp.inner {
+            let paint = resp.inner;
+            if paint.close_clicked {
                 dismiss_ids.push(entry.id);
+            }
+            if paint.hovered {
+                hovered_ids.push(entry.id);
             }
 
             // Advance the cursor for the next toast.
@@ -307,6 +314,27 @@ impl Toasts {
                 if dismiss_ids.contains(&entry.id) && entry.dismiss_start.is_none() {
                     entry.dismiss_start = Some(now);
                 }
+            }
+        }
+
+        // Update each entry's hover-pause bookkeeping. Hovering the toast
+        // freezes the auto-dismiss countdown; releasing hover commits the
+        // paused interval to `hover_pause_total` and resumes the timer.
+        // No forced repaints are needed: `alpha_and_schedule` returns the
+        // (currently-shifted) deadline as `next_event`, so the existing
+        // `request_repaint_after` call sleeps until then; on each wake-up
+        // we recompute the deadline against the latest pause total. Hover
+        // start/end transitions are themselves driven by pointer events,
+        // which trigger a repaint independently.
+        for entry in state.queue.iter_mut() {
+            let is_hovered = entry.dismiss_start.is_none() && hovered_ids.contains(&entry.id);
+            match (is_hovered, entry.hover_pause_started) {
+                (true, None) => entry.hover_pause_started = Some(now),
+                (false, Some(t0)) => {
+                    entry.hover_pause_total += (now - t0).max(0.0);
+                    entry.hover_pause_started = None;
+                }
+                (true, Some(_)) | (false, None) => {}
             }
         }
 
@@ -379,16 +407,32 @@ struct ToastEntry {
     birth: f64,
     /// Context time when the user clicked ×. Triggers an immediate fade-out.
     dismiss_start: Option<f64>,
+    /// Total seconds the auto-dismiss timer has been frozen by the pointer
+    /// hovering the toast (so the user can read or copy the text).
+    hover_pause_total: f64,
+    /// Context time when the current hover-pause started, or `None` when
+    /// the pointer is not over this toast.
+    hover_pause_started: Option<f64>,
 }
 
 impl ToastEntry {
+    /// Total seconds the auto-dismiss timer is currently frozen, including
+    /// any in-progress hover that hasn't been committed to `hover_pause_total`.
+    fn current_pause(&self, now: f64) -> f64 {
+        self.hover_pause_total
+            + self
+                .hover_pause_started
+                .map(|t| (now - t).max(0.0))
+                .unwrap_or(0.0)
+    }
+
     /// Has the fade-out animation completed?
     fn is_expired(&self, now: f64) -> bool {
         if let Some(ds) = self.dismiss_start {
             return now >= ds + FADE_OUT;
         }
         if let Some(d) = self.duration {
-            return now >= self.birth + d + FADE_OUT;
+            return now >= self.birth + d + self.current_pause(now) + FADE_OUT;
         }
         false
     }
@@ -401,10 +445,13 @@ impl ToastEntry {
     /// still at full opacity and we want a single deferred repaint at `t`
     /// to start the fade-out.
     fn alpha_and_schedule(&self, now: f64) -> (f32, bool, Option<f64>) {
-        // Fade-out: either explicit dismiss, or past the auto-dismiss instant.
+        // Fade-out: either explicit dismiss, or past the (paused-shifted)
+        // auto-dismiss instant.
         let fade_out_start = match self.dismiss_start {
             Some(ds) => Some(ds),
-            None => self.duration.map(|d| self.birth + d),
+            None => self
+                .duration
+                .map(|d| self.birth + d + self.current_pause(now)),
         };
 
         match fade_out_start {
@@ -412,6 +459,9 @@ impl ToastEntry {
                 let progress = ((now - t0) / FADE_OUT).clamp(0.0, 1.0) as f32;
                 (1.0 - progress, progress < 1.0, None)
             }
+            // While hovered, the next transition keeps slipping forward; an
+            // already-scheduled repaint at `t0` is fine because next frame
+            // we'll recompute against the freshly-advanced pause total.
             Some(t0) => (1.0, false, Some(t0)),
             None => (1.0, false, None),
         }
@@ -427,11 +477,6 @@ fn tone_accent(theme: &Theme, tone: BadgeTone) -> Color32 {
         BadgeTone::Info => p.sky,
         BadgeTone::Neutral => p.text_muted,
     }
-}
-
-fn apply_alpha(color: Color32, alpha: f32) -> Color32 {
-    let a = (color.a() as f32 * alpha.clamp(0.0, 1.0)).round() as u8;
-    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), a)
 }
 
 /// Layout constants shared between measurement and painting.
@@ -487,9 +532,23 @@ fn measure_height(ctx: &Context, theme: &Theme, entry: &ToastEntry, width: f32) 
     h.max(44.0)
 }
 
-/// Paint a single toast inside its area. Returns `true` if the close button
-/// was clicked this frame.
-fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha: f32) -> bool {
+/// Result of painting a single toast for one frame.
+struct ToastPaint {
+    /// The close button was clicked this frame.
+    close_clicked: bool,
+    /// The pointer is currently over this toast (used to freeze the
+    /// auto-dismiss timer so the user can read or copy the text).
+    hovered: bool,
+}
+
+/// Paint a single toast inside its area.
+fn paint_toast(
+    ui: &mut Ui,
+    theme: &Theme,
+    entry: &ToastEntry,
+    rect: Rect,
+    alpha: f32,
+) -> ToastPaint {
     use layout::*;
     let p = &theme.palette;
     let t = &theme.typography;
@@ -512,28 +571,37 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
         }
     });
 
-    // Claim the full toast rect so clicks don't pass through to widgets beneath.
-    ui.allocate_rect(rect, Sense::hover());
+    // Apply fade-out as a painter-level opacity multiplier instead of
+    // baking alpha into every color. This keeps the Label layout-job
+    // cache key stable across fade frames (one cached galley reused for
+    // the whole fade, instead of a fresh layout every frame).
+    ui.set_opacity(alpha);
+
+    // Claim the full toast rect so clicks don't pass through to widgets
+    // beneath, and so we can detect hover for the auto-dismiss freeze.
+    let card_resp = ui.allocate_rect(rect, Sense::hover());
+    let hovered = card_resp.hovered();
     let painter = ui.painter();
 
     // Card background.
-    let bg = apply_alpha(p.depth_tint(p.card, 0.04), alpha);
-    let border = apply_alpha(p.border, alpha);
     painter.rect(
         rect,
         CornerRadius::same(theme.card_radius as u8),
-        bg,
-        Stroke::new(1.0, border),
+        p.depth_tint(p.card, 0.04),
+        Stroke::new(1.0, p.border),
         StrokeKind::Inside,
     );
 
     // Left accent bar.
-    let accent = apply_alpha(tone_accent(theme, entry.tone), alpha);
     let bar_rect = Rect::from_min_max(
         Pos2::new(rect.min.x + 4.0, rect.min.y + 6.0),
         Pos2::new(rect.min.x + 4.0 + BAR_W, rect.max.y - 6.0),
     );
-    painter.rect_filled(bar_rect, CornerRadius::same(2), accent);
+    painter.rect_filled(
+        bar_rect,
+        CornerRadius::same(2),
+        tone_accent(theme, entry.tone),
+    );
 
     // Close × in the top-right.
     let close_rect = Rect::from_min_size(
@@ -542,9 +610,9 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
     );
     let close_resp: Response = ui.allocate_rect(close_rect, Sense::click());
     let close_color = if close_resp.hovered() {
-        apply_alpha(p.text, alpha)
+        p.text
     } else {
-        apply_alpha(p.text_muted, alpha)
+        p.text_muted
     };
     let close_galley = crate::theme::placeholder_galley(ui, "×", t.body + 2.0, true, f32::INFINITY);
     let close_text_pos = Pos2::new(
@@ -555,15 +623,14 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
         .galley(close_text_pos, close_galley, close_color);
 
     // Text block: title + optional description, to the right of the bar.
+    // Rendered as `Label::selectable(true)` so the user can drag-select
+    // and copy the contents (the dismiss timer pauses while hovered).
     let text_left = rect.min.x + PAD_X + BAR_W + BAR_GAP - TEXT_LEFT_NUDGE;
     let text_width = text_wrap_width(rect.width());
 
-    let title_color = apply_alpha(p.text, alpha);
-    let desc_color = apply_alpha(p.text_muted, alpha);
-
-    // Lay out with Color32::PLACEHOLDER and supply the real (alpha'd) color
-    // to painter.galley as fallback_color. This shares the cache entry with
-    // measure_height and avoids a fresh layout every frame during the fade.
+    // Pre-layout to learn each line's height. Using PLACEHOLDER as the
+    // fallback color shares the galley cache entry with `measure_height`,
+    // and the Label widget below will hit the same cache when it lays out.
     let title_galley = ui.ctx().fonts_mut(|f| {
         f.layout(
             entry.title.clone(),
@@ -573,8 +640,15 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
         )
     });
     let title_size_y = title_galley.size().y;
-    let title_pos = Pos2::new(text_left, rect.min.y + PAD_Y);
-    ui.painter().galley(title_pos, title_galley, title_color);
+    let title_rect = Rect::from_min_size(
+        Pos2::new(text_left, rect.min.y + PAD_Y),
+        Vec2::new(text_width, title_size_y),
+    );
+    let title_text = egui::RichText::new(&entry.title).color(p.text).size(t.body);
+    ui.put(
+        title_rect,
+        egui::Label::new(title_text).selectable(true).wrap(),
+    );
 
     if let Some(desc) = &entry.description {
         let desc_galley = ui.ctx().fonts_mut(|f| {
@@ -585,14 +659,24 @@ fn paint_toast(ui: &mut Ui, theme: &Theme, entry: &ToastEntry, rect: Rect, alpha
                 text_width,
             )
         });
-        let desc_pos = Pos2::new(
-            text_left,
-            rect.min.y + PAD_Y + title_size_y + TITLE_DESC_GAP,
+        let desc_rect = Rect::from_min_size(
+            Pos2::new(
+                text_left,
+                rect.min.y + PAD_Y + title_size_y + TITLE_DESC_GAP,
+            ),
+            Vec2::new(text_width, desc_galley.size().y),
         );
-        ui.painter().galley(desc_pos, desc_galley, desc_color);
+        let desc_text = egui::RichText::new(desc).color(p.text_muted).size(t.small);
+        ui.put(
+            desc_rect,
+            egui::Label::new(desc_text).selectable(true).wrap(),
+        );
     }
 
-    close_resp.clicked()
+    ToastPaint {
+        close_clicked: close_resp.clicked(),
+        hovered,
+    }
 }
 
 /// Paint the "Clear all" pill that sits above (or below) the toast
