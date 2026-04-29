@@ -857,10 +857,8 @@ impl App {
                 ui.add(SegmentedControl::from_segments(
                     &mut self.seg_ctrl_density,
                     [
-                        Segment::text("DEV")
-                            .hover_text("Development: ephemeral, safe to break."),
-                        Segment::text("STG")
-                            .hover_text("Staging: mirrors production data shape."),
+                        Segment::text("DEV").hover_text("Development: ephemeral, safe to break."),
+                        Segment::text("STG").hover_text("Staging: mirrors production data shape."),
                         Segment::text("PROD")
                             .hover_text("Production: real users; deploy with care."),
                     ],
