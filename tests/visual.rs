@@ -1283,6 +1283,46 @@ fn callouts_tinted_ui(ui: &mut egui::Ui) {
         .show(ui, |_| {});
 }
 
+fn callouts_multiline_ui(ui: &mut egui::Ui) {
+    let mut dismiss_open = true;
+    ui.set_min_width(560.0);
+
+    Callout::new(CalloutTone::Info)
+        .multiline()
+        .title("Node editing is in preview.")
+        .body(
+            "The wire format may change before 1.0. Saved graphs will keep \
+             loading, but rendered ports and inline expressions may shift \
+             positions when the layout engine is updated.",
+        )
+        .show(ui, |_| {});
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Warning)
+        .multiline()
+        .title("Unsaved changes.")
+        .body(
+            "You have 3 edits that haven't been written to disk. Closing \
+             the window or opening a different project will discard them.",
+        )
+        .show(ui, |ui| {
+            ui.add(Button::new("Save now").accent(Accent::Amber));
+            ui.add(Button::new("Discard").outline());
+        });
+    ui.add_space(6.0);
+
+    Callout::new(CalloutTone::Danger)
+        .tinted()
+        .multiline()
+        .title("Build failed.")
+        .body(
+            "cargo returned 2 errors in src/node_editor.rs. The first \
+             unresolved import is on line 42; the rest cascade from there.",
+        )
+        .dismissable(&mut dismiss_open)
+        .show(ui, |_| {});
+}
+
 fn file_drop_zone_ui(ui: &mut egui::Ui) {
     ui.set_max_width(560.0);
     let _ = FileDropZone::new()
@@ -1607,6 +1647,7 @@ theme_tests!(containers, containers_ui);
 theme_tests!(accordion, accordion_ui);
 theme_tests!(callouts, callouts_ui);
 theme_tests!(callouts_tinted, callouts_tinted_ui);
+theme_tests!(callouts_multiline, callouts_multiline_ui);
 theme_tests!(file_drop_zone, file_drop_zone_ui);
 theme_tests!(log_bar, log_bar_ui);
 theme_tests!(sortable_list, sortable_list_ui);

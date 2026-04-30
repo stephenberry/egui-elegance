@@ -84,6 +84,7 @@ impl CalloutTone {
 pub struct Callout<'a> {
     tone: CalloutTone,
     tinted: bool,
+    multiline: bool,
     title: Option<WidgetText>,
     body: Option<WidgetText>,
     icon: Option<WidgetText>,
@@ -95,6 +96,7 @@ impl std::fmt::Debug for Callout<'_> {
         f.debug_struct("Callout")
             .field("tone", &self.tone)
             .field("tinted", &self.tinted)
+            .field("multiline", &self.multiline)
             .field("title", &self.title.as_ref().map(|t| t.text()))
             .field("body", &self.body.as_ref().map(|b| b.text()))
             .field("icon", &self.icon.as_ref().map(|i| i.text()))
@@ -109,6 +111,7 @@ impl<'a> Callout<'a> {
         Self {
             tone,
             tinted: false,
+            multiline: false,
             title: None,
             body: None,
             icon: None,
@@ -160,6 +163,29 @@ impl<'a> Callout<'a> {
         self
     }
 
+    /// Switch from the default inline single-row layout to a stacked layout
+    /// where the body wraps to multiple lines below the title.
+    ///
+    /// Use this when the body is longer than ~one short sentence. The
+    /// default layout puts title and body on the same row and truncates the
+    /// body to fit, which keeps short banners ("Unsaved changes. You have 3
+    /// edits...") tidy alongside right-aligned action buttons but cuts off
+    /// any longer prose. In multiline mode the row reads:
+    ///
+    /// ```text
+    /// ⓘ  Title.                                       [Actions] [×]
+    ///    Body wraps to as many lines as it needs to fit
+    ///    the available width.
+    /// ```
+    ///
+    /// Combine freely with [`Callout::tinted`], [`Callout::dismissable`],
+    /// and the `add_actions` closure passed to [`Callout::show`].
+    #[inline]
+    pub fn multiline(mut self) -> Self {
+        self.multiline = true;
+        self
+    }
+
     /// Render the callout and return the closure's result.
     ///
     /// `add_actions` is invoked with a **right-to-left** layout so buttons
@@ -205,6 +231,7 @@ impl<'a> Callout<'a> {
         let Self {
             tone: _,
             tinted,
+            multiline,
             title,
             body,
             icon,
@@ -241,61 +268,128 @@ impl<'a> Callout<'a> {
             })
         };
 
+        let icon_str = icon
+            .as_ref()
+            .map(|w| w.text().to_string())
+            .unwrap_or_else(|| default_icon.to_string());
+
         let frame_response: InnerResponse<R> = frame.show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 10.0;
+            if multiline {
+                // Stacked layout: icon on the left, then a vertical column
+                // with [title + actions row] on top and [wrapped body] below.
+                ui.horizontal_top(|ui| {
+                    ui.spacing_mut().item_spacing.x = 10.0;
 
-                // Icon.
-                let icon_str = icon
-                    .as_ref()
-                    .map(|w| w.text().to_string())
-                    .unwrap_or_else(|| default_icon.to_string());
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(icon_str)
-                            .color(icon_color)
-                            .size(body_size + 1.0),
-                    )
-                    .wrap_mode(egui::TextWrapMode::Extend),
-                );
-
-                // Title (strong).
-                if let Some(title) = title {
+                    // Icon (top-aligned with the title row).
                     ui.add(
                         egui::Label::new(
-                            egui::RichText::new(title.text())
-                                .color(p.text)
-                                .size(body_size)
-                                .strong(),
+                            egui::RichText::new(&icon_str)
+                                .color(icon_color)
+                                .size(body_size + 1.0),
                         )
                         .wrap_mode(egui::TextWrapMode::Extend),
                     );
-                }
 
-                // Body (muted).
-                if let Some(body) = body {
-                    ui.add(
-                        egui::Label::new(
-                            egui::RichText::new(body.text())
-                                .color(p.text_muted)
-                                .size(body_size),
-                        )
-                        .wrap_mode(egui::TextWrapMode::Truncate),
-                    );
-                }
+                    ui.vertical(|ui| {
+                        // Claim the rest of the row so the body wraps to it.
+                        ui.set_width(ui.available_width());
 
-                // Right-aligned action slot and optional dismiss button.
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if let Some(open) = open {
-                        if dismiss_button(ui, &theme).clicked() {
-                            *open = false;
+                        let actions_inner = ui
+                            .horizontal(|ui| {
+                                if let Some(title) = title {
+                                    ui.add(
+                                        egui::Label::new(
+                                            egui::RichText::new(title.text())
+                                                .color(p.text)
+                                                .size(body_size)
+                                                .strong(),
+                                        )
+                                        .wrap(),
+                                    );
+                                }
+                                ui.with_layout(
+                                    Layout::right_to_left(Align::Center),
+                                    |ui| {
+                                        if let Some(open) = open {
+                                            if dismiss_button(ui, &theme).clicked() {
+                                                *open = false;
+                                            }
+                                        }
+                                        add_actions(ui)
+                                    },
+                                )
+                                .inner
+                            })
+                            .inner;
+
+                        if let Some(body) = body {
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(body.text())
+                                        .color(p.text_muted)
+                                        .size(body_size),
+                                )
+                                .wrap(),
+                            );
                         }
-                    }
-                    add_actions(ui)
+
+                        actions_inner
+                    })
+                    .inner
                 })
                 .inner
-            })
-            .inner
+            } else {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 10.0;
+
+                    // Icon.
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(&icon_str)
+                                .color(icon_color)
+                                .size(body_size + 1.0),
+                        )
+                        .wrap_mode(egui::TextWrapMode::Extend),
+                    );
+
+                    // Title (strong).
+                    if let Some(title) = title {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(title.text())
+                                    .color(p.text)
+                                    .size(body_size)
+                                    .strong(),
+                            )
+                            .wrap_mode(egui::TextWrapMode::Extend),
+                        );
+                    }
+
+                    // Body (muted).
+                    if let Some(body) = body {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(body.text())
+                                    .color(p.text_muted)
+                                    .size(body_size),
+                            )
+                            .wrap_mode(egui::TextWrapMode::Truncate),
+                        );
+                    }
+
+                    // Right-aligned action slot and optional dismiss button.
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if let Some(open) = open {
+                            if dismiss_button(ui, &theme).clicked() {
+                                *open = false;
+                            }
+                        }
+                        add_actions(ui)
+                    })
+                    .inner
+                })
+                .inner
+            }
         });
 
         // Stripe + bottom hairline are only for the default treatment;
