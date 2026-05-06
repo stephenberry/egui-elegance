@@ -307,17 +307,14 @@ impl<'a> Callout<'a> {
                                         .wrap(),
                                     );
                                 }
-                                ui.with_layout(
-                                    Layout::right_to_left(Align::Center),
-                                    |ui| {
-                                        if let Some(open) = open {
-                                            if dismiss_button(ui, &theme).clicked() {
-                                                *open = false;
-                                            }
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    if let Some(open) = open {
+                                        if dismiss_button(ui, &theme).clicked() {
+                                            *open = false;
                                         }
-                                        add_actions(ui)
-                                    },
-                                )
+                                    }
+                                    add_actions(ui)
+                                })
                                 .inner
                             })
                             .inner;
