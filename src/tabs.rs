@@ -67,51 +67,54 @@ impl<'a> Widget for TabBar<'a> {
         let p = &theme.palette;
         let t = &theme.typography;
 
-        let response = ui
-            .horizontal(|ui| {
-                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-                for (idx, name) in self.tabs.iter().enumerate() {
-                    let is_selected = idx == *self.selected;
-                    let galley = crate::theme::placeholder_galley(
-                        ui,
-                        name.text(),
-                        t.button,
-                        true,
-                        f32::INFINITY,
-                    );
+        let egui::InnerResponse {
+            mut response,
+            inner: changed,
+        } = ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+            let mut changed = false;
+            for (idx, name) in self.tabs.iter().enumerate() {
+                let is_selected = idx == *self.selected;
+                let galley = crate::theme::placeholder_galley(
+                    ui,
+                    name.text(),
+                    t.button,
+                    true,
+                    f32::INFINITY,
+                );
 
-                    let pad_x = theme.control_padding_x;
-                    // Intentionally taller than `theme.control_padding_y` — tabs
-                    // read as chunkier than standard controls.
-                    let pad_y = 10.0;
-                    let size =
-                        Vec2::new(galley.size().x + 2.0 * pad_x, galley.size().y + 2.0 * pad_y);
-                    let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
+                let pad_x = theme.control_padding_x;
+                // Intentionally taller than `theme.control_padding_y` — tabs
+                // read as chunkier than standard controls.
+                let pad_y = 10.0;
+                let size = Vec2::new(galley.size().x + 2.0 * pad_x, galley.size().y + 2.0 * pad_y);
+                let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
 
-                    if resp.clicked() {
-                        *self.selected = idx;
-                    }
-
-                    let text_color = if is_selected {
-                        p.sky
-                    } else if resp.hovered() {
-                        p.text
-                    } else {
-                        p.text_faint
-                    };
-                    let text_pos =
-                        egui::pos2(rect.min.x + pad_x, rect.center().y - galley.size().y * 0.5);
-                    ui.painter().galley(text_pos, galley, text_color);
-
-                    let bottom = rect.bottom();
-                    if is_selected {
-                        let a = egui::pos2(rect.min.x + 4.0, bottom - 1.0);
-                        let b = egui::pos2(rect.max.x - 4.0, bottom - 1.0);
-                        ui.painter().line_segment([a, b], Stroke::new(2.0, p.sky));
-                    }
+                if resp.clicked() && *self.selected != idx {
+                    *self.selected = idx;
+                    changed = true;
                 }
-            })
-            .response;
+
+                let text_color = if is_selected {
+                    p.sky
+                } else if resp.hovered() {
+                    p.text
+                } else {
+                    p.text_faint
+                };
+                let text_pos =
+                    egui::pos2(rect.min.x + pad_x, rect.center().y - galley.size().y * 0.5);
+                ui.painter().galley(text_pos, galley, text_color);
+
+                let bottom = rect.bottom();
+                if is_selected {
+                    let a = egui::pos2(rect.min.x + 4.0, bottom - 1.0);
+                    let b = egui::pos2(rect.max.x - 4.0, bottom - 1.0);
+                    ui.painter().line_segment([a, b], Stroke::new(2.0, p.sky));
+                }
+            }
+            changed
+        });
 
         if ui.is_rect_visible(response.rect) {
             let bottom = response.rect.bottom();
@@ -122,6 +125,9 @@ impl<'a> Widget for TabBar<'a> {
         }
 
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, "tab bar"));
+        if changed {
+            response.mark_changed();
+        }
         response
     }
 }

@@ -143,78 +143,90 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
         let p = &theme.palette;
         let t = &theme.typography;
 
-        ui.vertical(|ui| {
-            if let Some(label) = &self.label {
-                let rich = egui::RichText::new(label.text())
-                    .color(p.text_muted)
-                    .size(t.label);
-                ui.add(egui::Label::new(rich).wrap_mode(egui::TextWrapMode::Extend));
-                ui.add_space(2.0);
-            }
+        let mut changed = false;
 
-            let width = self.width.unwrap_or(160.0);
-            let chevron_color = p.text_muted;
-
-            // Resolve the displayed label for the current value. Owned so
-            // it doesn't conflict with the mutable access to `self.value`
-            // in the inner closure.
-            let selected_label: String = self
-                .options
-                .iter()
-                .find(|(v, _)| v == &*self.value)
-                .map(|(_, l)| l.as_ref().to_owned())
-                .unwrap_or_default();
-            let field_label = self.label.as_ref().map(|l| l.text().to_string());
-
-            let response = crate::theme::with_themed_visuals(ui, |ui| {
-                let v = ui.visuals_mut();
-                crate::theme::themed_input_visuals(v, &theme, p.input_bg);
-                for w in [
-                    &mut v.widgets.inactive,
-                    &mut v.widgets.hovered,
-                    &mut v.widgets.active,
-                    &mut v.widgets.open,
-                ] {
-                    w.fg_stroke = Stroke::new(1.0, p.text);
+        let mut response = ui
+            .vertical(|ui| {
+                if let Some(label) = &self.label {
+                    let rich = egui::RichText::new(label.text())
+                        .color(p.text_muted)
+                        .size(t.label);
+                    ui.add(egui::Label::new(rich).wrap_mode(egui::TextWrapMode::Extend));
+                    ui.add_space(2.0);
                 }
-                v.override_text_color = Some(p.text);
 
-                ComboBox::from_id_salt(self.id_salt)
-                    .width(width)
-                    .selected_text(
-                        egui::RichText::new(&selected_label)
-                            .color(p.text)
-                            .size(t.body),
-                    )
-                    .icon(move |ui, rect, _visuals, is_popup_open| {
-                        paint_chevron(ui, rect, chevron_color, is_popup_open);
-                    })
-                    .show_ui(ui, |ui| {
-                        ui.set_min_width(width);
-                        // Tight stacking. `select_option` handles its own padding.
-                        ui.spacing_mut().item_spacing.y = 2.0;
-                        for (opt_value, opt_label) in self.options.iter() {
-                            let selected = opt_value == &*self.value;
-                            if select_option(ui, opt_label.as_ref(), selected, &theme).clicked() {
-                                *self.value = opt_value.clone();
+                let width = self.width.unwrap_or(160.0);
+                let chevron_color = p.text_muted;
+
+                // Resolve the displayed label for the current value. Owned so
+                // it doesn't conflict with the mutable access to `self.value`
+                // in the inner closure.
+                let selected_label: String = self
+                    .options
+                    .iter()
+                    .find(|(v, _)| v == &*self.value)
+                    .map(|(_, l)| l.as_ref().to_owned())
+                    .unwrap_or_default();
+                let field_label = self.label.as_ref().map(|l| l.text().to_string());
+
+                let response = crate::theme::with_themed_visuals(ui, |ui| {
+                    let v = ui.visuals_mut();
+                    crate::theme::themed_input_visuals(v, &theme, p.input_bg);
+                    for w in [
+                        &mut v.widgets.inactive,
+                        &mut v.widgets.hovered,
+                        &mut v.widgets.active,
+                        &mut v.widgets.open,
+                    ] {
+                        w.fg_stroke = Stroke::new(1.0, p.text);
+                    }
+                    v.override_text_color = Some(p.text);
+
+                    ComboBox::from_id_salt(self.id_salt)
+                        .width(width)
+                        .selected_text(
+                            egui::RichText::new(&selected_label)
+                                .color(p.text)
+                                .size(t.body),
+                        )
+                        .icon(move |ui, rect, _visuals, is_popup_open| {
+                            paint_chevron(ui, rect, chevron_color, is_popup_open);
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.set_min_width(width);
+                            // Tight stacking. `select_option` handles its own padding.
+                            ui.spacing_mut().item_spacing.y = 2.0;
+                            for (opt_value, opt_label) in self.options.iter() {
+                                let selected = opt_value == &*self.value;
+                                if select_option(ui, opt_label.as_ref(), selected, &theme).clicked()
+                                    && opt_value != &*self.value
+                                {
+                                    *self.value = opt_value.clone();
+                                    changed = true;
+                                }
                             }
-                        }
-                    })
-                    .response
-            });
-
-            if let Some(field_label) = field_label {
-                let selected_label = selected_label.clone();
-                response.widget_info(|| {
-                    let mut info = WidgetInfo::labeled(WidgetType::ComboBox, true, &field_label);
-                    info.current_text_value = Some(selected_label.clone());
-                    info
+                        })
+                        .response
                 });
-            }
 
-            response
-        })
-        .inner
+                if let Some(field_label) = field_label {
+                    let selected_label = selected_label.clone();
+                    response.widget_info(|| {
+                        let mut info =
+                            WidgetInfo::labeled(WidgetType::ComboBox, true, &field_label);
+                        info.current_text_value = Some(selected_label.clone());
+                        info
+                    });
+                }
+
+                response
+            })
+            .inner;
+
+        if changed {
+            response.mark_changed();
+        }
+        response
     }
 }
 

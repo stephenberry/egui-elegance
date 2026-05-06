@@ -302,16 +302,22 @@ impl<'a> Selection<'a> {
         }
     }
 
-    fn click(&mut self, i: usize) {
+    fn click(&mut self, i: usize) -> bool {
         match self {
             Selection::Single(idx) => {
                 if **idx != i {
                     **idx = i;
+                    true
+                } else {
+                    false
                 }
             }
             Selection::Multi(states) => {
                 if let Some(s) = states.get_mut(i) {
                     *s = !*s;
+                    true
+                } else {
+                    false
                 }
             }
         }
@@ -550,7 +556,7 @@ impl<'a> Widget for SegmentedControl<'a> {
         // 3. Allocate the outer track rect. We use its auto-allocated id as the
         //    base for per-segment interact ids, so multiple SegmentedControls
         //    within the same parent never collide.
-        let (track_rect, response) =
+        let (track_rect, mut response) =
             ui.allocate_exact_size(Vec2::new(total_w, total_h), Sense::hover());
         let base_id = response.id;
 
@@ -559,6 +565,7 @@ impl<'a> Widget for SegmentedControl<'a> {
         let segment_y = track_rect.min.y + track_pad;
         let mut cell_rects: Vec<Rect> = Vec::with_capacity(prepared.len());
         let mut cell_responses: Vec<Response> = Vec::with_capacity(prepared.len());
+        let mut selection_changed = false;
         for (i, prep) in prepared.iter_mut().enumerate() {
             let cell_rect =
                 Rect::from_min_size(pos2(x, segment_y), Vec2::new(cell_widths[i], segment_h));
@@ -569,8 +576,8 @@ impl<'a> Widget for SegmentedControl<'a> {
                 Sense::hover()
             };
             let mut cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
-            if prep.enabled && cell_resp.clicked() {
-                self.selection.click(i);
+            if prep.enabled && cell_resp.clicked() && self.selection.click(i) {
+                selection_changed = true;
             }
             if let Some(text) = prep.hover_text.take() {
                 cell_resp = cell_resp.on_hover_text(text);
@@ -778,6 +785,9 @@ impl<'a> Widget for SegmentedControl<'a> {
             cell_resp.widget_info(|| WidgetInfo::selected(segment_role, enabled, selected, &label));
         }
         response.widget_info(|| WidgetInfo::labeled(group_role, true, "segmented control"));
+        if selection_changed {
+            response.mark_changed();
+        }
         response
     }
 }
