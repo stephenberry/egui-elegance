@@ -497,6 +497,13 @@ fn status_ui(ui: &mut egui::Ui) {
         ui.add(Badge::new("Info", BadgeTone::Info));
         ui.add(Badge::new("Neutral", BadgeTone::Neutral));
     });
+    ui.add_space(6.0);
+    ui.label(theme.muted_text("Case-preserving (identifiers)"));
+    ui.horizontal_wrapped(|ui| {
+        ui.add(Badge::new("feature/login", BadgeTone::Ok).preserve_case());
+        ui.add(Badge::new("v2.14.3", BadgeTone::Neutral).preserve_case());
+        ui.add(Badge::new("@carmela", BadgeTone::Info).preserve_case());
+    });
 }
 
 fn avatars_ui(ui: &mut egui::Ui) {

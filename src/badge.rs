@@ -38,16 +38,23 @@ impl BadgeTone {
 
 /// A compact rounded status badge.
 ///
+/// Badge text is upper-cased by default, which fits status labels like
+/// "OK" or "Warning". For identifiers (branch names, file paths, user
+/// handles) where casing carries meaning, call [`Badge::preserve_case`]
+/// to render the text exactly as supplied.
+///
 /// ```no_run
 /// # use elegance::{Badge, BadgeTone};
 /// # egui::__run_test_ui(|ui| {
 /// ui.add(Badge::new("OK", BadgeTone::Ok));
+/// ui.add(Badge::new("feature/login", BadgeTone::Info).preserve_case());
 /// # });
 /// ```
 #[must_use = "Add with `ui.add(...)`."]
 pub struct Badge {
     text: WidgetText,
     tone: BadgeTone,
+    preserve_case: bool,
 }
 
 impl std::fmt::Debug for Badge {
@@ -55,6 +62,7 @@ impl std::fmt::Debug for Badge {
         f.debug_struct("Badge")
             .field("text", &self.text.text())
             .field("tone", &self.tone)
+            .field("preserve_case", &self.preserve_case)
             .finish()
     }
 }
@@ -65,7 +73,18 @@ impl Badge {
         Self {
             text: text.into(),
             tone,
+            preserve_case: false,
         }
+    }
+
+    /// Render the label as supplied instead of upper-casing it.
+    ///
+    /// Use this when the text is an identifier rather than a status
+    /// label: branch names, file paths, user handles, version strings
+    /// where the original casing is meaningful.
+    pub fn preserve_case(mut self) -> Self {
+        self.preserve_case = true;
+        self
     }
 }
 
@@ -76,18 +95,19 @@ impl Widget for Badge {
         let (bg, fg) = self.tone.colours(&theme);
 
         let font = egui::FontId::proportional(t.small);
-        let galley = egui::WidgetText::from(
-            egui::RichText::new(self.text.text().to_uppercase())
-                .color(fg)
-                .size(t.small)
-                .strong(),
-        )
-        .into_galley(
-            ui,
-            Some(egui::TextWrapMode::Extend),
-            f32::INFINITY,
-            FontSelection::FontId(font),
-        );
+        let label = if self.preserve_case {
+            self.text.text().to_string()
+        } else {
+            self.text.text().to_uppercase()
+        };
+        let galley =
+            egui::WidgetText::from(egui::RichText::new(label).color(fg).size(t.small).strong())
+                .into_galley(
+                    ui,
+                    Some(egui::TextWrapMode::Extend),
+                    f32::INFINITY,
+                    FontSelection::FontId(font),
+                );
 
         let pad = Vec2::new(9.0, 3.0);
         let desired = galley.size() + pad * 2.0;
