@@ -592,6 +592,8 @@ fn render_segmented_control() {
     let mut density_idx = 1usize;
     let mut lang_idx = 0usize;
     let mut filter_idx = 0usize;
+    let mut channels = [true, false, true, true, false, false, true, false];
+    let mut accent_idx = 1usize;
 
     render("segmented_control", move |ui| {
         background(ui, |ui| {
@@ -644,6 +646,18 @@ fn render_segmented_control() {
                     ],
                 )
                 .fill(),
+            );
+            ui.add_space(10.0);
+
+            caption(ui, "Filled accent style (multi-toggle, drag to paint)");
+            ui.add(
+                SegmentedControl::toggles(&mut channels, ["1", "2", "3", "4", "5", "6", "7", "8"])
+                    .accent(Accent::Green),
+            );
+            ui.add_space(6.0);
+            ui.add(
+                SegmentedControl::new(&mut accent_idx, ["Day", "Week", "Month", "Year"])
+                    .accent(Accent::Blue),
             );
         });
     });

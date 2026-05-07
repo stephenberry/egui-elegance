@@ -135,6 +135,7 @@ struct App {
     seg_ctrl_density: usize,
     seg_ctrl_lang: usize,
     seg_ctrl_filter: usize,
+    seg_ctrl_channels: [bool; 8],
 
     stat_deploys: StatTick,
     stat_error: StatTick,
@@ -325,6 +326,7 @@ impl Default for App {
             seg_ctrl_density: 1,
             seg_ctrl_lang: 0,
             seg_ctrl_filter: 0,
+            seg_ctrl_channels: [true, false, true, true, false, false, true, false],
             stat_deploys: StatTick::new(
                 &[
                     12.0, 14.0, 13.0, 15.0, 17.0, 16.0, 18.0, 20.0, 19.0, 22.0, 21.0, 22.0, 22.0,
@@ -891,6 +893,20 @@ impl App {
                     .fill(),
                 );
             });
+
+            labeled(
+                ui,
+                "Multi-toggle with accent (click any segment, drag across to paint)",
+                |ui| {
+                    ui.add(
+                        SegmentedControl::toggles(
+                            &mut self.seg_ctrl_channels,
+                            ["1", "2", "3", "4", "5", "6", "7", "8"],
+                        )
+                        .accent(Accent::Green),
+                    );
+                },
+            );
         });
     }
 

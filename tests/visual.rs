@@ -447,6 +447,20 @@ fn segmented_control_ui(ui: &mut egui::Ui) {
             ["Server", "Client"],
         ));
     });
+    ui.add_space(10.0);
+
+    ui.label(theme.muted_text("Filled accent style (multi-toggle, drag to paint)"));
+    let mut channels = [true, false, true, true, false, false, true, false];
+    ui.add(
+        SegmentedControl::toggles(&mut channels, ["1", "2", "3", "4", "5", "6", "7", "8"])
+            .accent(Accent::Green),
+    );
+    ui.add_space(6.0);
+    let mut single_idx = 1usize;
+    ui.add(
+        SegmentedControl::new(&mut single_idx, ["Day", "Week", "Month", "Year"])
+            .accent(Accent::Blue),
+    );
 }
 
 fn browser_tabs_ui(ui: &mut egui::Ui) {

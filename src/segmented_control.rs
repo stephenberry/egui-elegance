@@ -15,7 +15,7 @@ use egui::{
     StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
-use crate::theme::{placeholder_galley, with_alpha, Theme};
+use crate::theme::{placeholder_galley, with_alpha, Accent, Theme};
 
 /// Size variants for [`SegmentedControl`].
 ///
@@ -278,6 +278,7 @@ pub struct SegmentedControl<'a> {
     segments: Vec<Segment>,
     size: SegmentedSize,
     fill: bool,
+    accent: Option<Accent>,
 }
 
 /// Selection model for [`SegmentedControl`].
@@ -358,6 +359,7 @@ impl<'a> SegmentedControl<'a> {
             segments: items.into_iter().map(Segment::text).collect(),
             size: SegmentedSize::default(),
             fill: false,
+            accent: None,
         }
     }
 
@@ -372,6 +374,7 @@ impl<'a> SegmentedControl<'a> {
             segments: segments.into_iter().collect(),
             size: SegmentedSize::default(),
             fill: false,
+            accent: None,
         }
     }
 
@@ -381,6 +384,13 @@ impl<'a> SegmentedControl<'a> {
     /// single-select track. `states.len()` and `items` should have the
     /// same length; extra labels render as always-off, extra states are
     /// ignored.
+    ///
+    /// Multi-select also supports click-and-drag paint: press on a
+    /// segment to set its new state, then drag across neighbours to
+    /// apply the same state to every segment the cursor crosses. Useful
+    /// when the caller wants a quick "select a range" gesture without
+    /// adding a separate range affordance. Pairs well with
+    /// [`SegmentedControl::accent`] for a denser, channel-toggle look.
     ///
     /// ```no_run
     /// # use elegance::SegmentedControl;
@@ -399,6 +409,7 @@ impl<'a> SegmentedControl<'a> {
             segments: items.into_iter().map(Segment::text).collect(),
             size: SegmentedSize::default(),
             fill: false,
+            accent: None,
         }
     }
 
@@ -414,6 +425,31 @@ impl<'a> SegmentedControl<'a> {
     #[inline]
     pub fn fill(mut self) -> Self {
         self.fill = true;
+        self
+    }
+
+    /// Switch to a filled accent style: active segments paint with the
+    /// chosen accent colour and white text, with hairline dividers between
+    /// segments. The track stays a single rounded rectangle, like a
+    /// connected button bar. Without `.accent(...)`, segments use the
+    /// default raised-pill style.
+    ///
+    /// Pairs naturally with [`SegmentedControl::toggles`]; see also the
+    /// click-and-drag paint behaviour available in multi-select mode.
+    ///
+    /// ```no_run
+    /// # use elegance::{Accent, SegmentedControl};
+    /// # egui::__run_test_ui(|ui| {
+    /// let mut channels = [true, false, true, true, false, false, true, false];
+    /// ui.add(
+    ///     SegmentedControl::toggles(&mut channels, ["1", "2", "3", "4", "5", "6", "7", "8"])
+    ///         .accent(Accent::Green),
+    /// );
+    /// # });
+    /// ```
+    #[inline]
+    pub fn accent(mut self, accent: Accent) -> Self {
+        self.accent = Some(accent);
         self
     }
 }
@@ -468,8 +504,20 @@ impl<'a> Widget for SegmentedControl<'a> {
         let theme = Theme::current(ui.ctx());
         let p = &theme.palette;
 
+        let accent = self.accent;
+        let filled_style = accent.is_some();
+        let multi = matches!(self.selection, Selection::Multi(_));
+        // Drag-paint applies the start segment's new state to every segment
+        // the cursor passes over while the primary button is held. Reserved
+        // for multi-select; single-select dragging would scrub the
+        // selection across segments which feels surprising.
+        let drag_paint = multi;
+
         let size = self.size;
-        let track_pad = size.track_pad();
+        // Filled style snaps segments to the inside of the 1 px border so
+        // the bar reads as a single connected control. The default style
+        // keeps the per-size track_pad inset for the raised-pill look.
+        let track_pad = if filled_style { 1.0 } else { size.track_pad() };
         let pad_x = size.pad_x();
         let pad_y = size.pad_y();
         let font_size = size.font_size(&theme);
@@ -566,24 +614,58 @@ impl<'a> Widget for SegmentedControl<'a> {
         let mut cell_rects: Vec<Rect> = Vec::with_capacity(prepared.len());
         let mut cell_responses: Vec<Response> = Vec::with_capacity(prepared.len());
         let mut selection_changed = false;
+        let mut paint_target: Option<bool> = None;
         for (i, prep) in prepared.iter_mut().enumerate() {
             let cell_rect =
                 Rect::from_min_size(pos2(x, segment_y), Vec2::new(cell_widths[i], segment_h));
             x += cell_widths[i];
-            let sense = if prep.enabled {
-                Sense::click()
-            } else {
+            let sense = if !prep.enabled {
                 Sense::hover()
+            } else if drag_paint {
+                Sense::click_and_drag()
+            } else {
+                Sense::click()
             };
             let mut cell_resp = ui.interact(cell_rect, base_id.with(("seg", i)), sense);
-            if prep.enabled && cell_resp.clicked() && self.selection.click(i) {
-                selection_changed = true;
+            if prep.enabled {
+                if cell_resp.clicked() && self.selection.click(i) {
+                    selection_changed = true;
+                }
+                if drag_paint && cell_resp.drag_started() && self.selection.click(i) {
+                    selection_changed = true;
+                }
+                // Anchor the paint target to the originating segment so the
+                // drag never produces mixed flips: the start segment's new
+                // state is what every subsequent segment under the cursor
+                // gets set to.
+                if drag_paint && (cell_resp.drag_started() || cell_resp.dragged()) {
+                    paint_target = Some(self.selection.is_active(i));
+                }
             }
             if let Some(text) = prep.hover_text.take() {
                 cell_resp = cell_resp.on_hover_text(text);
             }
             cell_rects.push(cell_rect);
             cell_responses.push(cell_resp);
+        }
+
+        // Apply the paint target to any segment under the cursor. We
+        // hit-test against cell_rects so the drag survives crossing the
+        // gap between segments.
+        if let (Some(target), Some(pos)) = (paint_target, ui.ctx().pointer_interact_pos()) {
+            if let Selection::Multi(states) = &mut self.selection {
+                for (i, cell_rect) in cell_rects.iter().enumerate() {
+                    if !prepared[i].enabled || !cell_rect.contains(pos) {
+                        continue;
+                    }
+                    if let Some(s) = states.get_mut(i) {
+                        if *s != target {
+                            *s = target;
+                            selection_changed = true;
+                        }
+                    }
+                }
+            }
         }
 
         // Per-segment "is active" lookup, branched on selection model.
@@ -600,70 +682,153 @@ impl<'a> Widget for SegmentedControl<'a> {
         // 5. Paint.
         if ui.is_rect_visible(track_rect) {
             let track_radius = CornerRadius::same(size.track_radius());
-            ui.painter().rect(
-                track_rect,
-                track_radius,
-                p.input_bg,
-                Stroke::new(1.0, p.border),
-                StrokeKind::Inside,
-            );
+            let n = cell_rects.len();
 
-            // Dividers between adjacent inactive, non-hovered segments.
-            for (i, cell) in cell_rects.iter().enumerate().skip(1) {
-                let left_busy = is_active(i - 1) || hovered_idx == Some(i - 1);
-                let right_busy = is_active(i) || hovered_idx == Some(i);
-                if left_busy || right_busy {
-                    continue;
+            if filled_style {
+                let acc = accent.expect("filled_style implies accent set");
+                let accent_fill = p.accent_fill(acc);
+
+                // Track background. The border is painted on top after the
+                // fills so the rounded outline always reads crisp.
+                ui.painter()
+                    .rect_filled(track_rect, track_radius, p.input_bg);
+
+                // Outer corner radius for first/last active segments. Sits
+                // one pixel inside the track border so accent fills tuck
+                // flush against the curved corner.
+                let outer = (size.track_radius() as i32 - 1).max(0) as u8;
+                let corners_for = |i: usize| -> CornerRadius {
+                    let mut r = CornerRadius::same(0);
+                    if i == 0 {
+                        r.nw = outer;
+                        r.sw = outer;
+                    }
+                    if i + 1 == n {
+                        r.ne = outer;
+                        r.se = outer;
+                    }
+                    r
+                };
+
+                // Hover overlay (non-active only).
+                if let Some(h) = hovered_idx {
+                    if !is_active(h) {
+                        let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                        ui.painter()
+                            .rect_filled(cell_rects[h], corners_for(h), hover_fill);
+                    }
                 }
-                let div_x = cell.min.x.round() - 0.5;
-                let dy = (segment_h * 0.30).min(8.0);
-                ui.painter().line_segment(
-                    [pos2(div_x, cell.min.y + dy), pos2(div_x, cell.max.y - dy)],
-                    Stroke::new(1.0, with_alpha(p.border, 200)),
+
+                // Active fills.
+                for (i, cell_rect) in cell_rects.iter().enumerate() {
+                    if !is_active(i) {
+                        continue;
+                    }
+                    ui.painter()
+                        .rect_filled(*cell_rect, corners_for(i), accent_fill);
+                }
+
+                // Hairline dividers between adjacent segments. The colour
+                // depends on what's on either side: between two inactive
+                // non-hovered cells we use the standard border tint; where
+                // two active cells meet we cut through the accent with the
+                // track fill so the bar reads as separate buttons rather
+                // than one green block. Mixed pairs (active vs inactive,
+                // or anything next to a hovered cell) need no divider
+                // because the colour change already separates them.
+                for (i, cell) in cell_rects.iter().enumerate().skip(1) {
+                    let left_active = is_active(i - 1);
+                    let right_active = is_active(i);
+                    let left_hovered = hovered_idx == Some(i - 1);
+                    let right_hovered = hovered_idx == Some(i);
+                    let color = if left_active && right_active {
+                        p.input_bg
+                    } else if left_active || right_active || left_hovered || right_hovered {
+                        continue;
+                    } else {
+                        with_alpha(p.border, 220)
+                    };
+                    let div_x = cell.min.x.round() - 0.5;
+                    ui.painter().line_segment(
+                        [pos2(div_x, cell.min.y), pos2(div_x, cell.max.y)],
+                        Stroke::new(1.0, color),
+                    );
+                }
+
+                // Track border on top of everything.
+                ui.painter().rect_stroke(
+                    track_rect,
+                    track_radius,
+                    Stroke::new(1.0, p.border),
+                    StrokeKind::Inside,
                 );
-            }
+            } else {
+                // ── Raised-pill style (default) ─────────────────────────
+                ui.painter().rect(
+                    track_rect,
+                    track_radius,
+                    p.input_bg,
+                    Stroke::new(1.0, p.border),
+                    StrokeKind::Inside,
+                );
 
-            let segment_radius = CornerRadius::same(size.segment_radius());
+                // Dividers between adjacent inactive, non-hovered segments.
+                for (i, cell) in cell_rects.iter().enumerate().skip(1) {
+                    let left_busy = is_active(i - 1) || hovered_idx == Some(i - 1);
+                    let right_busy = is_active(i) || hovered_idx == Some(i);
+                    if left_busy || right_busy {
+                        continue;
+                    }
+                    let div_x = cell.min.x.round() - 0.5;
+                    let dy = (segment_h * 0.30).min(8.0);
+                    ui.painter().line_segment(
+                        [pos2(div_x, cell.min.y + dy), pos2(div_x, cell.max.y - dy)],
+                        Stroke::new(1.0, with_alpha(p.border, 200)),
+                    );
+                }
 
-            // Hovered fill (drawn before active, so an active+hover doesn't double-stack).
-            if let Some(h) = hovered_idx {
-                if !is_active(h) {
-                    let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                let segment_radius = CornerRadius::same(size.segment_radius());
+
+                // Hovered fill (drawn before active, so an active+hover doesn't double-stack).
+                if let Some(h) = hovered_idx {
+                    if !is_active(h) {
+                        let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                        ui.painter().rect(
+                            cell_rects[h].shrink(0.5),
+                            segment_radius,
+                            hover_fill,
+                            Stroke::NONE,
+                            StrokeKind::Inside,
+                        );
+                    }
+                }
+
+                // Active fill(s): drop-shadow + card-coloured pill on every
+                // active segment. Multi-select can have several at once.
+                for (i, cell_rect) in cell_rects.iter().enumerate().take(prepared.len()) {
+                    if !is_active(i) {
+                        continue;
+                    }
+                    let cell = cell_rect.shrink(0.5);
+                    let shadow = cell.translate(Vec2::new(0.0, 1.0));
                     ui.painter().rect(
-                        cell_rects[h].shrink(0.5),
+                        shadow,
                         segment_radius,
-                        hover_fill,
+                        with_alpha(Color32::BLACK, if p.is_dark { 70 } else { 28 }),
                         Stroke::NONE,
+                        StrokeKind::Inside,
+                    );
+                    ui.painter().rect(
+                        cell,
+                        segment_radius,
+                        p.card,
+                        Stroke::new(1.0, p.border),
                         StrokeKind::Inside,
                     );
                 }
             }
 
-            // Active fill(s): drop-shadow + card-coloured pill on every
-            // active segment. Multi-select can have several at once.
-            for (i, cell_rect) in cell_rects.iter().enumerate().take(prepared.len()) {
-                if !is_active(i) {
-                    continue;
-                }
-                let cell = cell_rect.shrink(0.5);
-                let shadow = cell.translate(Vec2::new(0.0, 1.0));
-                ui.painter().rect(
-                    shadow,
-                    segment_radius,
-                    with_alpha(Color32::BLACK, if p.is_dark { 70 } else { 28 }),
-                    Stroke::NONE,
-                    StrokeKind::Inside,
-                );
-                ui.painter().rect(
-                    cell,
-                    segment_radius,
-                    p.card,
-                    Stroke::new(1.0, p.border),
-                    StrokeKind::Inside,
-                );
-            }
-
-            // Per-segment content.
+            // Per-segment content (shared between styles).
             for (i, prep) in prepared.iter().enumerate() {
                 let cell_rect = cell_rects[i];
                 let active = is_active(i);
@@ -671,6 +836,8 @@ impl<'a> Widget for SegmentedControl<'a> {
 
                 let text_color = if !prep.enabled {
                     with_alpha(p.text_faint, 160)
+                } else if filled_style && active {
+                    Color32::WHITE
                 } else if active || hovered {
                     p.text
                 } else {
@@ -767,7 +934,6 @@ impl<'a> Widget for SegmentedControl<'a> {
         // 6. Per-segment a11y info. Single-select reads as RadioButton(s)
         // in a RadioGroup; multi-select reads as Checkbox(es) in a Group
         // so a screen reader announces the right semantics.
-        let multi = matches!(self.selection, Selection::Multi(_));
         let segment_role = if multi {
             WidgetType::Checkbox
         } else {

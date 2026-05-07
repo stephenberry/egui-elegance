@@ -259,6 +259,18 @@ ui.add(
 
 `Segment::icon` and `Segment::icon_text` cover icon-only and icon+label variants; `.enabled(false)` greys out a single segment without removing it from the row.
 
+`SegmentedControl::toggles` binds a `&mut [bool]` instead of an index, so each segment toggles independently; multi-toggle controls also accept click-and-drag paint, where pressing a segment and dragging across neighbours sets all crossed segments to the start segment's new state. Pair with `.accent(...)` for a connected, channel-toggle look:
+
+```rust
+use elegance::{Accent, SegmentedControl};
+
+let mut channels = [true, false, true, true, false, false, true, false];
+ui.add(
+    SegmentedControl::toggles(&mut channels, ["1", "2", "3", "4", "5", "6", "7", "8"])
+        .accent(Accent::Green),
+);
+```
+
 ### BrowserTabs
 
 ![BrowserTabs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/browser_tabs.png)
