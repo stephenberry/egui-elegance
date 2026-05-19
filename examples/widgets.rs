@@ -71,6 +71,7 @@ struct App {
     percent_cache: f32,
     percent_retention: f32,
     percent_compact: f32,
+    percent_tier: f32,
     color_brand: egui::Color32,
     color_overlay: egui::Color32,
     color_status: egui::Color32,
@@ -215,6 +216,7 @@ impl Default for App {
             percent_cache: 45.0,
             percent_retention: 30.0,
             percent_compact: 70.0,
+            percent_tier: 25.0,
             color_brand: egui::Color32::from_rgb(0x38, 0xbd, 0xf8),
             color_overlay: egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6),
             color_status: egui::Color32::from_rgb(0xf8, 0x71, 0x71),
@@ -1517,7 +1519,7 @@ impl App {
                 ui.add(
                     PercentSlider::new(&mut self.percent_cache)
                         .label("Cache window")
-                        .total_fmt(|p| {
+                        .callout_fmt(|p| {
                             let mins = (p * 60.0 / 100.0).round() as i32;
                             format!("{mins} min")
                         })
@@ -1541,8 +1543,22 @@ impl App {
                         .label("Disk share")
                         .show_ticks(false)
                         .accent(Accent::Purple)
-                        .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0))
+                        // Callout opts in to a percent prefix; default behaviour
+                        // is just whatever the closure returns.
+                        .callout_fmt(|p| {
+                            format!("{}% \u{00B7} {:.1} GB", p.round() as i32, p * 4.0 / 100.0)
+                        })
                         .desired_width(260.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Discrete stops — non-uniform positions", |ui| {
+                ui.add(
+                    PercentSlider::new(&mut self.percent_tier)
+                        .label("Bandwidth tier")
+                        .stops([0.0, 10.0, 25.0, 75.0, 100.0])
+                        .accent(Accent::Amber)
+                        .desired_width(380.0),
                 );
             });
         });

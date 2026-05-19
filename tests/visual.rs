@@ -641,11 +641,12 @@ fn percent_sliders_ui(ui: &mut egui::Ui) {
     let mut cache: f32 = 45.0;
     let mut retention: f32 = 30.0;
     let mut compact: f32 = 70.0;
+    let mut tier: f32 = 25.0;
     ui.set_max_width(420.0);
     ui.add(
         PercentSlider::new(&mut cache)
             .label("Cache window")
-            .total_fmt(|p| {
+            .callout_fmt(|p| {
                 let mins = (p * 60.0 / 100.0).round() as i32;
                 format!("{mins} min")
             }),
@@ -663,7 +664,17 @@ fn percent_sliders_ui(ui: &mut egui::Ui) {
             .label("Disk share")
             .show_ticks(false)
             .accent(Accent::Purple)
-            .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0)),
+            // Callout opts back in to the percent prefix when the headline
+            // alone isn't enough context (e.g. the slider is small and
+            // glanceable rather than the user's focus).
+            .callout_fmt(|p| format!("{}% \u{00B7} {:.1} GB", p.round() as i32, p * 4.0 / 100.0)),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        PercentSlider::new(&mut tier)
+            .label("Bandwidth tier")
+            .stops([0.0, 10.0, 25.0, 75.0, 100.0])
+            .accent(Accent::Amber),
     );
 }
 
