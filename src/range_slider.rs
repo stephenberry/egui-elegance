@@ -8,8 +8,8 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, CornerRadius, CursorIcon, Event, Id, Key, Pos2, Rect, Response, Sense, Stroke,
-    StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    emath::Numeric, CornerRadius, CursorIcon, Event, EventFilter, Id, Key, Pos2, Rect, Response,
+    Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::theme::{mix, with_alpha, Accent, Theme};
@@ -386,12 +386,29 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                 ui.ctx().data_mut(|d| d.remove::<usize>(drag_state_id));
             }
 
-            // 3. Keyboard nudges per focused thumb.
+            // 3. Keyboard nudges per focused thumb. Left / Right adjust the
+            // value; Shift bumps to 10x; Home / End jump to the endpoints. Up
+            // / Down are intentionally left to egui's focus navigation so the
+            // user can move off the slider vertically.
+            //
+            // `set_focus_lock_filter` claims horizontal arrows for the
+            // focused thumb; without it, egui's focus system consumes Left /
+            // Right for spatial navigation before the value handler below
+            // ever sees them.
             if self.enabled {
                 for (i, resp) in thumb_resp.iter().enumerate() {
                     if !resp.has_focus() {
                         continue;
                     }
+                    ui.memory_mut(|m| {
+                        m.set_focus_lock_filter(
+                            resp.id,
+                            EventFilter {
+                                horizontal_arrows: true,
+                                ..Default::default()
+                            },
+                        );
+                    });
                     let small_step = step.unwrap_or(span * 0.01);
                     let big_step = step.map(|s| s * 10.0).unwrap_or(span * 0.1);
                     let events = ui.input(|input| input.events.clone());
@@ -404,21 +421,14 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                         } = ev
                         {
                             let cur = if i == 0 { new_low } else { new_high };
+                            let nudge = if modifiers.shift {
+                                big_step
+                            } else {
+                                small_step
+                            };
                             let next = match key {
-                                Key::ArrowLeft | Key::ArrowDown => Some(
-                                    cur - if modifiers.shift {
-                                        big_step
-                                    } else {
-                                        small_step
-                                    },
-                                ),
-                                Key::ArrowRight | Key::ArrowUp => Some(
-                                    cur + if modifiers.shift {
-                                        big_step
-                                    } else {
-                                        small_step
-                                    },
-                                ),
+                                Key::ArrowLeft => Some(cur - nudge),
+                                Key::ArrowRight => Some(cur + nudge),
                                 Key::Home => Some(range_lo),
                                 Key::End => Some(range_hi),
                                 _ => None,

@@ -358,11 +358,43 @@ ui.add(
 ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 ```
 
+### PercentSlider
+
+![Percent sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/percent_sliders.png)
+
+Opinionated 0–100% slider whose central UI element is the percentage value itself, rendered large in the top-right. Quartile ticks (`0`, `25%`, `50%`, `75%`, `100%`) sit beneath the track so "what fraction of the total am I setting?" reads at a glance, and faint 10% interior divisions add battery-style legibility without breaking the smooth-fill feel. Pair with `.total_fmt(|p| …)` when the percentage maps to a meaningful absolute quantity (a duration, a file size, a budget share) — the formatted value surfaces in a callout above the thumb while the user drags. Keyboard works on focus: `←`/`→` nudge by `step` (or 1pp), `Shift`+`←`/`→` for a 10x nudge, `Home`/`End` jump to 0 / 100. Use `.show_ticks(false)` for compact layouts.
+
+```rust
+use elegance::{Accent, PercentSlider};
+
+ui.add(
+    PercentSlider::new(&mut cache)
+        .label("Cache window")
+        .total_fmt(|p| {
+            let mins = (p * 60.0 / 100.0).round() as i32;
+            format!("{mins} min")
+        }),
+);
+ui.add(
+    PercentSlider::new(&mut retention)
+        .label("Snapshot retention")
+        .step(5.0)
+        .accent(Accent::Green),
+);
+ui.add(
+    PercentSlider::new(&mut disk_share)
+        .label("Disk share")
+        .show_ticks(false)
+        .accent(Accent::Purple)
+        .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0)),
+);
+```
+
 ### RangeSlider
 
 ![Range sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/range_sliders.png)
 
-Two-handle range slider for picking a `[low, high]` interval. Same pill track and accent fill as `Slider`; the fill spans only the selected portion. Optional evenly-spaced ticks with labels, and the keyboard works on each focused thumb (arrows nudge by `step`, `Shift`+arrow for a 10x nudge, `Home`/`End` jump to the bounds).
+Two-handle range slider for picking a `[low, high]` interval. Same pill track and accent fill as `Slider`; the fill spans only the selected portion. Optional evenly-spaced ticks with labels, and the keyboard works on each focused thumb (`←`/`→` nudge by `step`, `Shift`+`←`/`→` for a 10x nudge, `Home`/`End` jump to the bounds).
 
 ```rust
 use elegance::{Accent, RangeSlider};

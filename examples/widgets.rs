@@ -11,11 +11,11 @@ use elegance::{
     BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme, Button, ButtonSize,
     Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, ContextMenu, Drawer,
     DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize, LinearGauge,
-    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, PairItem, Pairing, Popover, PopoverSide,
-    ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment, SegmentDot,
-    SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem, SortableList,
-    Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar, TagInput,
-    TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, PairItem, Pairing, PercentSlider, Popover,
+    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment,
+    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem,
+    SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar,
+    TagInput, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -68,6 +68,9 @@ struct App {
 
     slider_int: u32,
     slider_float: f32,
+    percent_cache: f32,
+    percent_retention: f32,
+    percent_compact: f32,
     color_brand: egui::Color32,
     color_overlay: egui::Color32,
     color_status: egui::Color32,
@@ -209,6 +212,9 @@ impl Default for App {
             collapsing_open: true,
             slider_int: 48,
             slider_float: 0.62,
+            percent_cache: 45.0,
+            percent_retention: 30.0,
+            percent_compact: 70.0,
             color_brand: egui::Color32::from_rgb(0x38, 0xbd, 0xf8),
             color_overlay: egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6),
             color_status: egui::Color32::from_rgb(0xf8, 0x71, 0x71),
@@ -420,6 +426,7 @@ impl eframe::App for App {
                         }
                         2 => {
                             self.section_sliders(ui);
+                            self.section_percent_sliders(ui);
                             self.section_knobs(ui);
                         }
                         3 => {
@@ -1501,6 +1508,43 @@ impl App {
                 .accent(Accent::Green)
                 .id_salt("ex_range_volume"),
             );
+        });
+    }
+
+    fn section_percent_sliders(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("PercentSlider").show(ui, |ui| {
+            labeled(ui, "Default — duration callout while dragging", |ui| {
+                ui.add(
+                    PercentSlider::new(&mut self.percent_cache)
+                        .label("Cache window")
+                        .total_fmt(|p| {
+                            let mins = (p * 60.0 / 100.0).round() as i32;
+                            format!("{mins} min")
+                        })
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Snap to 5% steps, no callout", |ui| {
+                ui.add(
+                    PercentSlider::new(&mut self.percent_retention)
+                        .label("Snapshot retention")
+                        .step(5.0)
+                        .accent(Accent::Green)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Compact — ticks hidden, GB total", |ui| {
+                ui.add(
+                    PercentSlider::new(&mut self.percent_compact)
+                        .label("Disk share")
+                        .show_ticks(false)
+                        .accent(Accent::Purple)
+                        .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0))
+                        .desired_width(260.0),
+                );
+            });
         });
     }
 
