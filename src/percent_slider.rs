@@ -14,6 +14,15 @@
 //!    track so "what fraction of the total am I setting?" reads at a
 //!    glance. Hide them with [`PercentSlider::show_ticks`] for compact
 //!    layouts.
+//!
+//! Three snap modes are available, in order of specificity:
+//! [`step`](PercentSlider::step) snaps to multiples of a fixed size
+//! (`5.0` → 0, 5, 10, …); [`steps`](PercentSlider::steps) snaps to `n`
+//! evenly-spaced positions including both endpoints (`steps(5)` → 0, 25,
+//! 50, 75, 100); [`stops`](PercentSlider::stops) snaps to an explicit,
+//! possibly non-uniform list of positions. When `steps` or `stops` is
+//! set, the tick row renders at exactly those positions and the arrow
+//! keys jump between them.
 
 use egui::{
     Color32, CornerRadius, CursorIcon, Event, EventFilter, Key, Pos2, Rect, Response, Sense, Shape,
@@ -45,6 +54,7 @@ pub struct PercentSlider<'a> {
     accent: Accent,
     show_ticks: bool,
     step: Option<f32>,
+    stops: Option<Vec<f32>>,
     decimals: usize,
     total_fmt: Option<Box<dyn Fn(f32) -> String + 'a>>,
     desired_width: Option<f32>,
@@ -56,6 +66,7 @@ impl<'a> std::fmt::Debug for PercentSlider<'a> {
             .field("accent", &self.accent)
             .field("show_ticks", &self.show_ticks)
             .field("step", &self.step)
+            .field("stops", &self.stops)
             .field("decimals", &self.decimals)
             .field("desired_width", &self.desired_width)
             .finish()
@@ -71,6 +82,7 @@ impl<'a> PercentSlider<'a> {
             accent: Accent::Sky,
             show_ticks: true,
             step: None,
+            stops: None,
             decimals: 0,
             total_fmt: None,
             desired_width: None,
@@ -101,9 +113,55 @@ impl<'a> PercentSlider<'a> {
     /// Snap the value to multiples of `step` percentage points. Default:
     /// continuous. Common values: `5.0` for "round to 5%", `25.0` for
     /// quartile snap.
+    ///
+    /// Mutually exclusive with [`steps`](Self::steps) and
+    /// [`stops`](Self::stops); calling this clears either of them.
     #[inline]
     pub fn step(mut self, step: f32) -> Self {
         self.step = Some(step);
+        self.stops = None;
+        self
+    }
+
+    /// Snap to `n` evenly-spaced positions, including both endpoints.
+    /// `steps(2)` snaps to `{0, 100}`, `steps(5)` to `{0, 25, 50, 75, 100}`,
+    /// `steps(7)` to seven positions whose spacing the widget computes for
+    /// you (so the awkward `100 / 6` math stays out of caller code).
+    ///
+    /// When set, the tick row renders at exactly those positions and the
+    /// arrow keys jump between adjacent stops. Values below `2` are
+    /// promoted to `2`. Mutually exclusive with [`step`](Self::step) and
+    /// [`stops`](Self::stops); calling this clears either of them.
+    #[inline]
+    pub fn steps(mut self, n: usize) -> Self {
+        let n = n.max(2);
+        let last = (n - 1) as f32;
+        self.stops = Some((0..n).map(|i| (i as f32 / last) * 100.0).collect());
+        self.step = None;
+        self
+    }
+
+    /// Snap to an explicit, possibly non-uniform list of positions in
+    /// `0.0..=100.0`. Out-of-range, `NaN`, and duplicate values are filtered
+    /// out; the result is sorted ascending. If fewer than two valid
+    /// positions remain, falls back to `[0.0, 100.0]`.
+    ///
+    /// When set, the tick row renders at exactly these positions and the
+    /// arrow keys jump between adjacent stops. Mutually exclusive with
+    /// [`step`](Self::step) and [`steps`](Self::steps); calling this clears
+    /// either of them.
+    pub fn stops(mut self, positions: impl IntoIterator<Item = f32>) -> Self {
+        let mut v: Vec<f32> = positions
+            .into_iter()
+            .filter(|p| p.is_finite() && (0.0..=100.0).contains(p))
+            .collect();
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        v.dedup_by(|a, b| (*a - *b).abs() < f32::EPSILON);
+        if v.len() < 2 {
+            v = vec![0.0, 100.0];
+        }
+        self.stops = Some(v);
+        self.step = None;
         self
     }
 
@@ -177,6 +235,20 @@ impl<'a> Widget for PercentSlider<'a> {
         current = current.clamp(0.0, 100.0);
 
         let step = self.step.filter(|s| s.is_finite() && *s > 0.0);
+        let stops = self.stops.as_deref();
+
+        // Snap a raw 0..=100 percentage to whichever snap mode (if any) is
+        // configured: explicit stops > step > continuous.
+        let snap = |raw: f32| -> f32 {
+            let v = if let Some(stops) = stops {
+                nearest_stop(stops, raw)
+            } else if let Some(s) = step {
+                (raw / s).round() * s
+            } else {
+                raw
+            };
+            v.clamp(0.0, 100.0)
+        };
 
         let (rect, mut response) =
             ui.allocate_exact_size(Vec2::new(total_w, total_h), Sense::click_and_drag());
@@ -199,11 +271,7 @@ impl<'a> Widget for PercentSlider<'a> {
             if let Some(pos) = response.interact_pointer_pos() {
                 let clamped_x = pos.x.clamp(track_left, track_right);
                 let frac = ((clamped_x - track_left) / track_span).clamp(0.0, 1.0);
-                let mut next = frac * 100.0;
-                if let Some(s) = step {
-                    next = (next / s).round() * s;
-                }
-                next = next.clamp(0.0, 100.0);
+                let next = snap(frac * 100.0);
                 if (next - current).abs() > f32::EPSILON {
                     current = next;
                     *self.value = current;
@@ -248,18 +316,22 @@ impl<'a> Widget for PercentSlider<'a> {
                     } else {
                         small_step
                     };
-                    let raw = match key {
-                        Key::ArrowLeft => Some(current - nudge),
-                        Key::ArrowRight => Some(current + nudge),
-                        Key::Home => Some(0.0),
-                        Key::End => Some(100.0),
+                    // With discrete stops, arrows jump to the adjacent stop;
+                    // Home / End snap to the first / last. Without stops,
+                    // fall back to nudge-and-snap by `step` (or continuous).
+                    let raw = match (stops, key) {
+                        (Some(stops), Key::ArrowLeft) => adjacent_stop(stops, current, -1),
+                        (Some(stops), Key::ArrowRight) => adjacent_stop(stops, current, 1),
+                        (Some(stops), Key::Home) => stops.first().copied(),
+                        (Some(stops), Key::End) => stops.last().copied(),
+                        (None, Key::ArrowLeft) => Some(current - nudge),
+                        (None, Key::ArrowRight) => Some(current + nudge),
+                        (None, Key::Home) => Some(0.0),
+                        (None, Key::End) => Some(100.0),
                         _ => None,
                     };
-                    if let Some(mut next) = raw {
-                        if let Some(s) = step {
-                            next = (next / s).round() * s;
-                        }
-                        next = next.clamp(0.0, 100.0);
+                    if let Some(next) = raw {
+                        let next = snap(next);
                         if (next - current).abs() > f32::EPSILON {
                             current = next;
                             *self.value = current;
@@ -365,20 +437,37 @@ impl<'a> Widget for PercentSlider<'a> {
                 Stroke::new(2.0, accent_fill),
             );
 
-            // ---- Quartile ticks ------------------------------------------
+            // ---- Ticks ---------------------------------------------------
+            // With explicit stops: render a tick at each, all medium weight
+            // (no major/minor distinction). Without stops: the default
+            // quartile row, with 0 / 50% / 100% drawn slightly heavier than
+            // 25% / 75%.
             if self.show_ticks {
                 let tick_top_y = rect.min.y + header_h + header_gap + row_track_h + tick_gap;
-                let ticks: [(f32, &str, bool); 5] = [
-                    (0.00, "0", true),
-                    (0.25, "25%", false),
-                    (0.50, "50%", true),
-                    (0.75, "75%", false),
-                    (1.00, "100%", true),
-                ];
-                for (f, label, major) in ticks {
+                let ticks: Vec<(f32, String, bool)> = match stops {
+                    Some(stops) => stops
+                        .iter()
+                        .map(|p| {
+                            let label = if *p == 0.0 {
+                                "0".to_string()
+                            } else {
+                                format!("{}%", p.round() as i32)
+                            };
+                            (p / 100.0, label, false)
+                        })
+                        .collect(),
+                    None => vec![
+                        (0.00, "0".to_string(), true),
+                        (0.25, "25%".to_string(), false),
+                        (0.50, "50%".to_string(), true),
+                        (0.75, "75%".to_string(), false),
+                        (1.00, "100%".to_string(), true),
+                    ],
+                };
+                for (f, label, major) in &ticks {
                     let x = track_left + track_span * f;
-                    let tick_h = if major { 5.0 } else { 3.5 };
-                    let tick_color = if major { p.text_muted } else { p.border };
+                    let tick_h = if *major { 5.0 } else { 3.5 };
+                    let tick_color = if *major { p.text_muted } else { p.border };
                     painter.line_segment(
                         [Pos2::new(x, tick_top_y), Pos2::new(x, tick_top_y + tick_h)],
                         Stroke::new(1.0, tick_color),
@@ -499,4 +588,32 @@ fn paint_callout(
         g,
         p.text,
     );
+}
+
+/// Snap `raw` to the nearest entry in `stops`. `stops` is assumed sorted and
+/// non-empty; the builder maintains both invariants.
+fn nearest_stop(stops: &[f32], raw: f32) -> f32 {
+    let mut best = stops[0];
+    let mut best_d = (raw - best).abs();
+    for &s in &stops[1..] {
+        let d = (raw - s).abs();
+        if d < best_d {
+            best_d = d;
+            best = s;
+        }
+    }
+    best
+}
+
+/// Return the stop immediately above (`dir > 0`) or below (`dir < 0`) `current`,
+/// or `None` if `current` is already at the corresponding extreme. A small
+/// epsilon lets the comparison treat a value that just snapped to a stop as
+/// being "on" that stop rather than infinitesimally past it.
+fn adjacent_stop(stops: &[f32], current: f32, dir: i32) -> Option<f32> {
+    let eps = 0.001;
+    if dir > 0 {
+        stops.iter().copied().find(|&s| s > current + eps)
+    } else {
+        stops.iter().rev().copied().find(|&s| s < current - eps)
+    }
 }
