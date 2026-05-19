@@ -16,8 +16,8 @@
 //!    layouts.
 
 use egui::{
-    Color32, CornerRadius, CursorIcon, Event, Key, Pos2, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, CursorIcon, Event, EventFilter, Key, Pos2, Rect, Response, Sense, Shape,
+    Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::theme::{placeholder_galley, with_alpha, Accent, Theme, BASELINE_FRAC};
@@ -212,11 +212,26 @@ impl<'a> Widget for PercentSlider<'a> {
             }
         }
 
-        // Keyboard nudges when the slider has focus. Arrows step by `step` (or
-        // 1 percentage point); Shift bumps to 10x; Home / End jump to 0 / 100.
-        // Mirrors Slider and RangeSlider so the family feels identical from
-        // the keyboard.
+        // Keyboard nudges when the slider has focus. Left / Right step by
+        // `step` (or 1 percentage point); Shift bumps to 10x; Home / End jump
+        // to 0 / 100. Up / Down are intentionally left to egui's focus
+        // navigation so the user can move between stacked controls vertically.
+        //
+        // `set_focus_lock_filter` claims horizontal arrows for this widget
+        // while it's focused; without it, egui's focus system consumes
+        // Left / Right for spatial navigation before the value handler below
+        // ever sees them.
         if response.has_focus() {
+            ui.memory_mut(|m| {
+                m.set_focus_lock_filter(
+                    response.id,
+                    EventFilter {
+                        horizontal_arrows: true,
+                        ..Default::default()
+                    },
+                );
+            });
+
             let small_step = step.unwrap_or(1.0);
             let big_step = step.map(|s| s * 10.0).unwrap_or(10.0);
             let events = ui.input(|input| input.events.clone());
@@ -234,8 +249,8 @@ impl<'a> Widget for PercentSlider<'a> {
                         small_step
                     };
                     let raw = match key {
-                        Key::ArrowLeft | Key::ArrowDown => Some(current - nudge),
-                        Key::ArrowRight | Key::ArrowUp => Some(current + nudge),
+                        Key::ArrowLeft => Some(current - nudge),
+                        Key::ArrowRight => Some(current + nudge),
                         Key::Home => Some(0.0),
                         Key::End => Some(100.0),
                         _ => None,

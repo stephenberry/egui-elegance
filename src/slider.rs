@@ -7,8 +7,8 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, CornerRadius, CursorIcon, Event, Key, Pos2, Rect, Response, Sense, Stroke,
-    StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    emath::Numeric, CornerRadius, CursorIcon, Event, EventFilter, Key, Pos2, Rect, Response, Sense,
+    Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::theme::{with_alpha, Accent, Theme};
@@ -230,11 +230,27 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                 }
             }
 
-            // Keyboard nudges when the slider has focus. Arrow keys step by
+            // Keyboard nudges when the slider has focus. Left / Right step by
             // `step` (or 1% of the range if continuous); Shift bumps to 10x;
-            // Home / End jump to the endpoints. Mirrors RangeSlider so the
-            // two widgets feel identical from the keyboard.
+            // Home / End jump to the endpoints. Up / Down are intentionally
+            // left to egui's focus navigation so the user can move between
+            // stacked controls vertically.
+            //
+            // `set_focus_lock_filter` claims horizontal arrows for this
+            // widget while it's focused; without it, egui's focus system
+            // consumes Left / Right for spatial navigation before the value
+            // handler below ever sees them.
             if response.has_focus() {
+                ui.memory_mut(|m| {
+                    m.set_focus_lock_filter(
+                        response.id,
+                        EventFilter {
+                            horizontal_arrows: true,
+                            ..Default::default()
+                        },
+                    );
+                });
+
                 let span = hi - lo;
                 let small_step = step.unwrap_or(span * 0.01);
                 let big_step = step.map(|s| s * 10.0).unwrap_or(span * 0.1);
@@ -253,8 +269,8 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                             small_step
                         };
                         let next = match key {
-                            Key::ArrowLeft | Key::ArrowDown => Some(current - nudge),
-                            Key::ArrowRight | Key::ArrowUp => Some(current + nudge),
+                            Key::ArrowLeft => Some(current - nudge),
+                            Key::ArrowRight => Some(current + nudge),
                             Key::Home => Some(lo),
                             Key::End => Some(hi),
                             _ => None,
