@@ -26,6 +26,9 @@ exclude = [
 name = "elegance"
 path = "src/lib.rs"
 
+[lints.rust]
+warnings = "deny"
+
 [dependencies]
 egui = "0.34"
 
