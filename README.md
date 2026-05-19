@@ -362,7 +362,7 @@ ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 
 ![Percent sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/percent_sliders.png)
 
-Opinionated 0–100% slider whose central UI element is the percentage value itself, rendered large in the top-right. Quartile ticks (`0`, `25%`, `50%`, `75%`, `100%`) sit beneath the track so "what fraction of the total am I setting?" reads at a glance, and faint 10% interior divisions add battery-style legibility without breaking the smooth-fill feel. Pair with `.total_fmt(|p| …)` when the percentage maps to a meaningful absolute quantity (a duration, a file size, a budget share) — the formatted value surfaces in a callout above the thumb while the user drags. Three snap modes: `.step(s)` for multiples of `s`; `.steps(n)` for `n` evenly-spaced positions including both endpoints (cleaner than computing a step size when stops don't divide 100 evenly); `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` or step to the adjacent stop, `Shift`+`←`/`→` for a 10x nudge in continuous mode, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts.
+Opinionated 0–100% slider whose central UI element is the percentage value itself, rendered large in the top-right. Quartile ticks (`0`, `25%`, `50%`, `75%`, `100%`) sit beneath the track so "what fraction of the total am I setting?" reads at a glance, and faint 10% interior divisions add battery-style legibility without breaking the smooth-fill feel. Pair with `.callout_fmt(|p| …)` when the percentage maps to a meaningful absolute quantity (a duration, a file size, a budget share) — the closure's return value surfaces in a callout above the thumb while the user drags, with the consumer in full control of the text. Three snap modes: `.step(s)` for multiples of `s`; `.steps(n)` for `n` evenly-spaced positions including both endpoints (cleaner than computing a step size when stops don't divide 100 evenly); `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` or step to the adjacent stop, `Shift`+`←`/`→` for a 10x nudge in continuous mode, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts.
 
 ```rust
 use elegance::{Accent, PercentSlider};
@@ -370,7 +370,7 @@ use elegance::{Accent, PercentSlider};
 ui.add(
     PercentSlider::new(&mut cache)
         .label("Cache window")
-        .total_fmt(|p| {
+        .callout_fmt(|p| {
             let mins = (p * 60.0 / 100.0).round() as i32;
             format!("{mins} min")
         }),
@@ -386,7 +386,8 @@ ui.add(
         .label("Disk share")
         .show_ticks(false)
         .accent(Accent::Purple)
-        .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0)),
+        // Closure returns the entire callout text; opt in to a percent prefix when wanted.
+        .callout_fmt(|p| format!("{}% · {:.1} GB", p.round() as i32, p * 4.0 / 100.0)),
 );
 ui.add(
     PercentSlider::new(&mut bandwidth_tier)

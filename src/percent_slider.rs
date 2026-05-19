@@ -4,7 +4,7 @@
 //! [`PercentSlider`] differs from [`Slider`](crate::Slider) in three ways:
 //!
 //! 1. The value is always a 0–100 percentage (`f32`). Pair it with
-//!    [`PercentSlider::total_fmt`] when the percentage maps to a meaningful
+//!    [`PercentSlider::callout_fmt`] when the percentage maps to a meaningful
 //!    absolute quantity (a duration, a file size, a budget share) and the
 //!    absolute value will surface in a callout while the user drags.
 //! 2. The visual hierarchy puts the percentage value front and centre,
@@ -40,7 +40,7 @@ use crate::theme::{placeholder_galley, with_alpha, Accent, Theme, BASELINE_FRAC}
 /// ui.add(
 ///     PercentSlider::new(&mut share)
 ///         .label("Cache window")
-///         .total_fmt(|p| {
+///         .callout_fmt(|p| {
 ///             let mins = (p * 60.0 / 100.0).round() as i32;
 ///             format!("{mins} min")
 ///         }),
@@ -56,7 +56,7 @@ pub struct PercentSlider<'a> {
     step: Option<f32>,
     stops: Option<Vec<f32>>,
     decimals: usize,
-    total_fmt: Option<Box<dyn Fn(f32) -> String + 'a>>,
+    callout_fmt: Option<Box<dyn Fn(f32) -> String + 'a>>,
     desired_width: Option<f32>,
 }
 
@@ -84,7 +84,7 @@ impl<'a> PercentSlider<'a> {
             step: None,
             stops: None,
             decimals: 0,
-            total_fmt: None,
+            callout_fmt: None,
             desired_width: None,
         }
     }
@@ -172,14 +172,27 @@ impl<'a> PercentSlider<'a> {
         self
     }
 
-    /// Supply a callback to format the percentage as an *absolute* quantity,
-    /// shown in a callout above the thumb while the user drags. The callback
-    /// receives the current percentage in `0.0..=100.0` and returns a display
-    /// string such as `"27 min"` or `"3.2 GB"`. When unset, no callout is
-    /// shown.
+    /// Supply a callback to format the *entire* drag-callout text. The
+    /// callback receives the current percentage in `0.0..=100.0` and returns
+    /// the string to render in the callout above the thumb while the user
+    /// drags. When unset, no callout is shown.
+    ///
+    /// The callback has full control over the text — the widget does not
+    /// prepend the percentage. Common patterns:
+    ///
+    /// ```ignore
+    /// // Just the absolute quantity (the headline already shows the percent):
+    /// .callout_fmt(|p| format!("{} min", (p * 60.0 / 100.0).round() as i32))
+    ///
+    /// // Percent and absolute together:
+    /// .callout_fmt(|p| {
+    ///     let mins = (p * 60.0 / 100.0).round() as i32;
+    ///     format!("{}% \u{00B7} {} min", p.round() as i32, mins)
+    /// })
+    /// ```
     #[inline]
-    pub fn total_fmt(mut self, fmt: impl Fn(f32) -> String + 'a) -> Self {
-        self.total_fmt = Some(Box::new(fmt));
+    pub fn callout_fmt(mut self, fmt: impl Fn(f32) -> String + 'a) -> Self {
+        self.callout_fmt = Some(Box::new(fmt));
         self
     }
 
@@ -481,11 +494,12 @@ impl<'a> Widget for PercentSlider<'a> {
             }
 
             // ---- Drag callout --------------------------------------------
-            // The callout floats above the track during interaction. It's
-            // the only place the absolute (`total_fmt`) value appears, so it
-            // skips rendering when no formatter is configured.
+            // The callout floats above the track during interaction. The
+            // closure has full control over the text; the widget renders
+            // exactly what it returns. Skip rendering when no formatter is
+            // configured.
             if response.is_pointer_button_down_on() {
-                if let Some(fmt) = &self.total_fmt {
+                if let Some(fmt) = &self.callout_fmt {
                     paint_callout(
                         ui,
                         &theme,
@@ -493,8 +507,6 @@ impl<'a> Widget for PercentSlider<'a> {
                         thumb_center,
                         rect,
                         thumb_d,
-                        current,
-                        decimals,
                         fmt(current),
                     );
                 }
@@ -511,7 +523,6 @@ impl<'a> Widget for PercentSlider<'a> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn paint_callout(
     ui: &egui::Ui,
     theme: &Theme,
@@ -519,13 +530,10 @@ fn paint_callout(
     thumb_center: Pos2,
     widget_rect: Rect,
     thumb_d: f32,
-    current: f32,
-    decimals: usize,
-    total: String,
+    text: String,
 ) {
     let p = &theme.palette;
     let t = &theme.typography;
-    let text = format!("{current:.decimals$}% \u{00B7} {total}");
     let g = placeholder_galley(ui, &text, t.label, false, f32::INFINITY);
 
     let pad_x: f32 = 9.0;

@@ -1519,7 +1519,7 @@ impl App {
                 ui.add(
                     PercentSlider::new(&mut self.percent_cache)
                         .label("Cache window")
-                        .total_fmt(|p| {
+                        .callout_fmt(|p| {
                             let mins = (p * 60.0 / 100.0).round() as i32;
                             format!("{mins} min")
                         })
@@ -1543,7 +1543,11 @@ impl App {
                         .label("Disk share")
                         .show_ticks(false)
                         .accent(Accent::Purple)
-                        .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0))
+                        // Callout opts in to a percent prefix; default behaviour
+                        // is just whatever the closure returns.
+                        .callout_fmt(|p| {
+                            format!("{}% \u{00B7} {:.1} GB", p.round() as i32, p * 4.0 / 100.0)
+                        })
                         .desired_width(260.0),
                 );
             });

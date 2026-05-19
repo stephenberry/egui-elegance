@@ -857,7 +857,7 @@ fn render_percent_sliders() {
             ui.add(
                 PercentSlider::new(&mut cache)
                     .label("Cache window")
-                    .total_fmt(|p| {
+                    .callout_fmt(|p| {
                         let mins = (p * 60.0 / 100.0).round() as i32;
                         format!("{mins} min")
                     }),
@@ -875,7 +875,9 @@ fn render_percent_sliders() {
                     .label("Disk share")
                     .show_ticks(false)
                     .accent(Accent::Purple)
-                    .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0)),
+                    .callout_fmt(|p| {
+                        format!("{}% \u{00B7} {:.1} GB", p.round() as i32, p * 4.0 / 100.0)
+                    }),
             );
             ui.add_space(10.0);
             ui.add(
