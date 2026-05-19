@@ -17,11 +17,11 @@ use elegance::{
     Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
-    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, PairItem, Pairing, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment,
-    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem,
-    SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput,
-    TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, PairItem, Pairing,
+    PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
+    RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
+    Slider, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch,
+    TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -634,6 +634,36 @@ fn sliders_ui(ui: &mut egui::Ui) {
         Slider::new(&mut gain, 0.0..=1.0)
             .label("Gain")
             .accent(Accent::Green),
+    );
+}
+
+fn percent_sliders_ui(ui: &mut egui::Ui) {
+    let mut cache: f32 = 45.0;
+    let mut retention: f32 = 30.0;
+    let mut compact: f32 = 70.0;
+    ui.set_max_width(420.0);
+    ui.add(
+        PercentSlider::new(&mut cache)
+            .label("Cache window")
+            .total_fmt(|p| {
+                let mins = (p * 60.0 / 100.0).round() as i32;
+                format!("{mins} min")
+            }),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        PercentSlider::new(&mut retention)
+            .label("Snapshot retention")
+            .step(5.0)
+            .accent(Accent::Green),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        PercentSlider::new(&mut compact)
+            .label("Disk share")
+            .show_ticks(false)
+            .accent(Accent::Purple)
+            .total_fmt(|p| format!("{:.1} GB", p * 4.0 / 100.0)),
     );
 }
 
@@ -1658,6 +1688,7 @@ theme_tests!(status, status_ui);
 theme_tests!(stat_cards, stat_cards_ui);
 theme_tests!(avatars, avatars_ui);
 theme_tests!(sliders, sliders_ui);
+theme_tests!(percent_sliders, percent_sliders_ui);
 theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(knobs, knobs_ui);
 theme_tests!(feedback, feedback_ui);

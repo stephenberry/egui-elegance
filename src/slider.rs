@@ -7,8 +7,8 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, CornerRadius, CursorIcon, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui,
-    Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    emath::Numeric, CornerRadius, CursorIcon, Event, Key, Pos2, Rect, Response, Sense, Stroke,
+    StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::theme::{with_alpha, Accent, Theme};
@@ -226,6 +226,52 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                         current = new_value;
                         *self.value = T::from_f64(current);
                         response.mark_changed();
+                    }
+                }
+            }
+
+            // Keyboard nudges when the slider has focus. Arrow keys step by
+            // `step` (or 1% of the range if continuous); Shift bumps to 10x;
+            // Home / End jump to the endpoints. Mirrors RangeSlider so the
+            // two widgets feel identical from the keyboard.
+            if response.has_focus() {
+                let span = hi - lo;
+                let small_step = step.unwrap_or(span * 0.01);
+                let big_step = step.map(|s| s * 10.0).unwrap_or(span * 0.1);
+                let events = ui.input(|input| input.events.clone());
+                for ev in &events {
+                    if let Event::Key {
+                        key,
+                        pressed: true,
+                        modifiers,
+                        ..
+                    } = ev
+                    {
+                        let nudge = if modifiers.shift {
+                            big_step
+                        } else {
+                            small_step
+                        };
+                        let next = match key {
+                            Key::ArrowLeft | Key::ArrowDown => Some(current - nudge),
+                            Key::ArrowRight | Key::ArrowUp => Some(current + nudge),
+                            Key::Home => Some(lo),
+                            Key::End => Some(hi),
+                            _ => None,
+                        };
+                        if let Some(mut new_value) = next {
+                            if let Some(s) = step {
+                                if s > 0.0 {
+                                    new_value = lo + ((new_value - lo) / s).round() * s;
+                                }
+                            }
+                            new_value = new_value.clamp(lo, hi);
+                            if (new_value - current).abs() > f64::EPSILON {
+                                current = new_value;
+                                *self.value = T::from_f64(current);
+                                response.mark_changed();
+                            }
+                        }
                     }
                 }
             }
