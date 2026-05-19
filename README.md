@@ -358,11 +358,45 @@ ui.add(
 ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 ```
 
+### MetricSlider
+
+![Metric sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/metric_sliders.png)
+
+Single-value slider whose central UI element is the value itself, rendered large in the top-right. Generalised over an arbitrary `RangeInclusive<f32>` so it works for any metric: buffer size in GiB, latency budget in ms, refresh rate in Hz. Pair the headline with `.suffix("ms")` for a small muted unit baseline-aligned to the value, or replace the headline entirely with `.headline_fmt(|v| …)` when the value is a tier index or named category. Tick labels follow with `.tick_fmt(|v| …)`. Three snap modes: `.step(s)` for multiples of `s` relative to the range start; `.steps(n)` for `n` evenly-spaced positions including both endpoints; `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` (or 1% of the range span when continuous), `Shift`+`←`/`→` for a 10x nudge, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts. `PercentSlider` is the `0..=100` + `"%"` preset over this widget.
+
+```rust
+use elegance::{Accent, MetricSlider};
+
+ui.add(
+    MetricSlider::new(&mut buffer, 0.0..=32.0)
+        .label("Buffer size")
+        .suffix("GiB")
+        .stops([4.0, 8.0, 16.0, 32.0])
+        .accent(Accent::Amber),
+);
+ui.add(
+    MetricSlider::new(&mut latency, 0.0..=500.0)
+        .label("Latency budget")
+        .suffix("ms")
+        .step(25.0)
+        .accent(Accent::Red),
+);
+ui.add(
+    MetricSlider::new(&mut plan, 0.0..=3.0)
+        .label("Plan")
+        .stops([0.0, 1.0, 2.0, 3.0])
+        .headline_fmt(|v| {
+            ["Free", "Lite", "Pro", "Studio"][v.round() as usize].to_string()
+        })
+        .accent(Accent::Purple),
+);
+```
+
 ### PercentSlider
 
 ![Percent sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/percent_sliders.png)
 
-Opinionated 0–100% slider whose central UI element is the percentage value itself, rendered large in the top-right. Quartile ticks (`0`, `25%`, `50%`, `75%`, `100%`) sit beneath the track so "what fraction of the total am I setting?" reads at a glance, and faint 10% interior divisions add battery-style legibility without breaking the smooth-fill feel. Pair with `.callout_fmt(|p| …)` when the percentage maps to a meaningful absolute quantity (a duration, a file size, a budget share) — the closure's return value surfaces in a callout above the thumb while the user drags, with the consumer in full control of the text. Three snap modes: `.step(s)` for multiples of `s`; `.steps(n)` for `n` evenly-spaced positions including both endpoints (cleaner than computing a step size when stops don't divide 100 evenly); `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` or step to the adjacent stop, `Shift`+`←`/`→` for a 10x nudge in continuous mode, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts.
+The percent-flavoured preset of [`MetricSlider`](#metricslider): range locked to `0.0..=100.0`, small muted `%` suffix beside the headline, quartile ticks (`0`, `25%`, `50%`, `75%`, `100%`) beneath the track. Faint 10% interior divisions add battery-style legibility without breaking the smooth-fill feel. Pair with `.callout_fmt(|p| …)` when the percentage maps to a meaningful absolute quantity (a duration, a file size, a budget share) — the closure's return value surfaces in a callout above the thumb while the user drags, with the consumer in full control of the text. Three snap modes: `.step(s)` for multiples of `s`; `.steps(n)` for `n` evenly-spaced positions including both endpoints (cleaner than computing a step size when stops don't divide 100 evenly); `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` or step to the adjacent stop, `Shift`+`←`/`→` for a 10x nudge in continuous mode, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts.
 
 ```rust
 use elegance::{Accent, PercentSlider};

@@ -11,11 +11,12 @@ use elegance::{
     BadgeTone, BrowserTab, BrowserTabs, BrowserTabsEvent, BuiltInTheme, Button, ButtonSize,
     Callout, CalloutTone, Card, Checkbox, CollapsingSection, ColorPicker, ContextMenu, Drawer,
     DrawerSide, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob, KnobSize, LinearGauge,
-    LogBar, Menu, MenuBar, MenuItem, MenuSection, Modal, PairItem, Pairing, PercentSlider, Popover,
-    PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment,
-    SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem,
-    SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, SubMenuItem, Switch, TabBar,
-    TagInput, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts, Tooltip, TooltipSide,
+    LogBar, Menu, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem, Pairing,
+    PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
+    RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
+    Slider, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle,
+    SubMenuItem, Switch, TabBar, TagInput, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
+    Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {
@@ -72,6 +73,10 @@ struct App {
     percent_retention: f32,
     percent_compact: f32,
     percent_tier: f32,
+    metric_buffer: f32,
+    metric_latency: f32,
+    metric_refresh: f32,
+    metric_plan: f32,
     color_brand: egui::Color32,
     color_overlay: egui::Color32,
     color_status: egui::Color32,
@@ -217,6 +222,10 @@ impl Default for App {
             percent_retention: 30.0,
             percent_compact: 70.0,
             percent_tier: 25.0,
+            metric_buffer: 16.0,
+            metric_latency: 175.0,
+            metric_refresh: 120.0,
+            metric_plan: 2.0,
             color_brand: egui::Color32::from_rgb(0x38, 0xbd, 0xf8),
             color_overlay: egui::Color32::from_rgba_unmultiplied(0xc0, 0x84, 0xfc, 0xa6),
             color_status: egui::Color32::from_rgb(0xf8, 0x71, 0x71),
@@ -429,6 +438,7 @@ impl eframe::App for App {
                         2 => {
                             self.section_sliders(ui);
                             self.section_percent_sliders(ui);
+                            self.section_metric_sliders(ui);
                             self.section_knobs(ui);
                         }
                         3 => {
@@ -1558,6 +1568,60 @@ impl App {
                         .label("Bandwidth tier")
                         .stops([0.0, 10.0, 25.0, 75.0, 100.0])
                         .accent(Accent::Amber)
+                        .desired_width(380.0),
+                );
+            });
+        });
+    }
+
+    fn section_metric_sliders(&mut self, ui: &mut egui::Ui) {
+        Card::new().heading("MetricSlider").show(ui, |ui| {
+            labeled(ui, "Buffer size — discrete stops with suffix", |ui| {
+                ui.add(
+                    MetricSlider::new(&mut self.metric_buffer, 0.0..=32.0)
+                        .label("Buffer size")
+                        .suffix("GiB")
+                        .stops([4.0, 8.0, 16.0, 32.0])
+                        .accent(Accent::Amber)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Latency budget — step in user units", |ui| {
+                ui.add(
+                    MetricSlider::new(&mut self.metric_latency, 0.0..=500.0)
+                        .label("Latency budget")
+                        .suffix("ms")
+                        .step(25.0)
+                        .accent(Accent::Red)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Refresh rate — evenly-spaced steps", |ui| {
+                ui.add(
+                    MetricSlider::new(&mut self.metric_refresh, 30.0..=240.0)
+                        .label("Refresh rate")
+                        .suffix("Hz")
+                        .steps(8)
+                        .accent(Accent::Green)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Plan picker — headline_fmt replaces the value", |ui| {
+                ui.add(
+                    MetricSlider::new(&mut self.metric_plan, 0.0..=3.0)
+                        .label("Plan")
+                        .stops([0.0, 1.0, 2.0, 3.0])
+                        .headline_fmt(|v| {
+                            ["Free", "Lite", "Pro", "Studio"][v.round().clamp(0.0, 3.0) as usize]
+                                .to_string()
+                        })
+                        .tick_fmt(|v| {
+                            ["F", "L", "P", "S"][v.round().clamp(0.0, 3.0) as usize].to_string()
+                        })
+                        .accent(Accent::Purple)
                         .desired_width(380.0),
                 );
             });

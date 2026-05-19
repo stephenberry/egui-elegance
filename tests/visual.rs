@@ -17,7 +17,7 @@ use elegance::{
     Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
-    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, PairItem, Pairing,
+    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, PairItem, Pairing,
     PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
     Slider, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch,
@@ -675,6 +675,50 @@ fn percent_sliders_ui(ui: &mut egui::Ui) {
             .label("Bandwidth tier")
             .stops([0.0, 10.0, 25.0, 75.0, 100.0])
             .accent(Accent::Amber),
+    );
+}
+
+fn metric_sliders_ui(ui: &mut egui::Ui) {
+    let mut buffer: f32 = 16.0;
+    let mut latency: f32 = 175.0;
+    let mut refresh: f32 = 120.0;
+    let mut tier: f32 = 2.0;
+    ui.set_max_width(420.0);
+    ui.add(
+        MetricSlider::new(&mut buffer, 0.0..=32.0)
+            .label("Buffer size")
+            .suffix("GiB")
+            .stops([4.0, 8.0, 16.0, 32.0])
+            .accent(Accent::Amber),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        MetricSlider::new(&mut latency, 0.0..=500.0)
+            .label("Latency budget")
+            .suffix("ms")
+            .step(25.0)
+            .accent(Accent::Red),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        MetricSlider::new(&mut refresh, 30.0..=240.0)
+            .label("Refresh rate")
+            .suffix("Hz")
+            .steps(8)
+            .accent(Accent::Green),
+    );
+    ui.add_space(10.0);
+    // Headline-fmt override: the value is a tier index but the headline
+    // renders its name. No suffix; ticks show short labels.
+    ui.add(
+        MetricSlider::new(&mut tier, 0.0..=3.0)
+            .label("Plan")
+            .stops([0.0, 1.0, 2.0, 3.0])
+            .headline_fmt(|v| {
+                ["Free", "Lite", "Pro", "Studio"][v.round().clamp(0.0, 3.0) as usize].to_string()
+            })
+            .tick_fmt(|v| ["F", "L", "P", "S"][v.round().clamp(0.0, 3.0) as usize].to_string())
+            .accent(Accent::Purple),
     );
 }
 
@@ -1700,6 +1744,7 @@ theme_tests!(stat_cards, stat_cards_ui);
 theme_tests!(avatars, avatars_ui);
 theme_tests!(sliders, sliders_ui);
 theme_tests!(percent_sliders, percent_sliders_ui);
+theme_tests!(metric_sliders, metric_sliders_ui);
 theme_tests!(range_sliders, range_sliders_ui);
 theme_tests!(knobs, knobs_ui);
 theme_tests!(feedback, feedback_ui);
