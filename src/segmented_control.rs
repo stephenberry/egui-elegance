@@ -11,7 +11,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use egui::{
-    pos2, Color32, CornerRadius, FontId, FontSelection, Galley, Rect, Response, Sense, Stroke,
+    pos2, Color32, CornerRadius, FontId, FontSelection, Galley, Id, Rect, Response, Sense, Stroke,
     StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
@@ -279,6 +279,7 @@ pub struct SegmentedControl<'a> {
     size: SegmentedSize,
     fill: bool,
     accent: Option<Accent>,
+    id_salt: Option<Id>,
 }
 
 /// Selection model for [`SegmentedControl`].
@@ -360,6 +361,7 @@ impl<'a> SegmentedControl<'a> {
             size: SegmentedSize::default(),
             fill: false,
             accent: None,
+            id_salt: None,
         }
     }
 
@@ -375,6 +377,7 @@ impl<'a> SegmentedControl<'a> {
             size: SegmentedSize::default(),
             fill: false,
             accent: None,
+            id_salt: None,
         }
     }
 
@@ -410,6 +413,7 @@ impl<'a> SegmentedControl<'a> {
             size: SegmentedSize::default(),
             fill: false,
             accent: None,
+            id_salt: None,
         }
     }
 
@@ -450,6 +454,23 @@ impl<'a> SegmentedControl<'a> {
     #[inline]
     pub fn accent(mut self, accent: Accent) -> Self {
         self.accent = Some(accent);
+        self
+    }
+
+    /// Pin a stable id salt for this control.
+    ///
+    /// Without it, the widget id is drawn from the auto id counter, which
+    /// means a sibling widget added or removed conditionally above, or a
+    /// parent layout that reflows between frames, can shift the id. When
+    /// the id shifts at a stable screen rect, egui prints "Widget rect
+    /// ... changed id between passes". Set an explicit salt for pickers
+    /// that sit in regions whose siblings flip on user actions (mode
+    /// toggles, conditional headers) so per-segment focus state and
+    /// id-based diagnostics stay attached to the same control across
+    /// frames.
+    #[inline]
+    pub fn id_salt(mut self, id: impl Hash) -> Self {
+        self.id_salt = Some(Id::new(id));
         self
     }
 }
@@ -601,12 +622,20 @@ impl<'a> Widget for SegmentedControl<'a> {
         let total_w = track_pad * 2.0 + cell_widths.iter().sum::<f32>();
         let total_h = track_pad * 2.0 + segment_h;
 
-        // 3. Allocate the outer track rect. We use its auto-allocated id as the
-        //    base for per-segment interact ids, so multiple SegmentedControls
-        //    within the same parent never collide.
-        let (track_rect, mut response) =
-            ui.allocate_exact_size(Vec2::new(total_w, total_h), Sense::hover());
-        let base_id = response.id;
+        // 3. Allocate the outer track rect. The base id seeds every
+        //    per-segment interact id, so multiple SegmentedControls in the
+        //    same parent never collide. When the caller pinned an
+        //    `id_salt`, we honour it; otherwise we fall back to the auto
+        //    id from `allocate_space`, matching the previous default.
+        let desired = Vec2::new(total_w, total_h);
+        let (auto_id, frame_rect) = ui.allocate_space(desired);
+        let base_id = self
+            .id_salt
+            .map(|salt| ui.make_persistent_id(salt))
+            .unwrap_or(auto_id);
+        let track_rect = ui.layout().align_size_within_rect(desired, frame_rect);
+        let mut response = ui.interact(frame_rect, base_id, Sense::hover());
+        response.set_intrinsic_size(desired);
 
         // 4. Allocate per-segment interact rects (each is its own focus target).
         let mut x = track_rect.min.x + track_pad;
