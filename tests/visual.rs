@@ -20,7 +20,7 @@ use elegance::{
     KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, PairItem, Pairing,
     PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch,
+    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch,
     TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
@@ -637,6 +637,25 @@ fn sliders_ui(ui: &mut egui::Ui) {
     );
 }
 
+fn sliders_line_ui(ui: &mut egui::Ui) {
+    let mut threshold: u32 = 48;
+    let mut gain: f32 = 0.62;
+    ui.set_max_width(420.0);
+    ui.add(
+        Slider::new(&mut threshold, 0u32..=100u32)
+            .label("Threshold")
+            .suffix("%")
+            .handle(SliderHandle::Line),
+    );
+    ui.add_space(6.0);
+    ui.add(
+        Slider::new(&mut gain, 0.0..=1.0)
+            .label("Gain")
+            .accent(Accent::Green)
+            .handle(SliderHandle::Line),
+    );
+}
+
 fn percent_sliders_ui(ui: &mut egui::Ui) {
     let mut cache: f32 = 45.0;
     let mut retention: f32 = 30.0;
@@ -675,6 +694,29 @@ fn percent_sliders_ui(ui: &mut egui::Ui) {
             .label("Bandwidth tier")
             .stops([0.0, 10.0, 25.0, 75.0, 100.0])
             .accent(Accent::Amber),
+    );
+}
+
+fn percent_sliders_line_ui(ui: &mut egui::Ui) {
+    let mut cache: f32 = 45.0;
+    let mut retention: f32 = 30.0;
+    ui.set_max_width(420.0);
+    ui.add(
+        PercentSlider::new(&mut cache)
+            .label("Cache window")
+            .handle(SliderHandle::Line)
+            .callout_fmt(|p| {
+                let mins = (p * 60.0 / 100.0).round() as i32;
+                format!("{mins} min")
+            }),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        PercentSlider::new(&mut retention)
+            .label("Snapshot retention")
+            .step(5.0)
+            .accent(Accent::Green)
+            .handle(SliderHandle::Line),
     );
 }
 
@@ -719,6 +761,29 @@ fn metric_sliders_ui(ui: &mut egui::Ui) {
             })
             .tick_fmt(|v| ["F", "L", "P", "S"][v.round().clamp(0.0, 3.0) as usize].to_string())
             .accent(Accent::Purple),
+    );
+}
+
+fn metric_sliders_line_ui(ui: &mut egui::Ui) {
+    let mut buffer: f32 = 16.0;
+    let mut refresh: f32 = 120.0;
+    ui.set_max_width(420.0);
+    ui.add(
+        MetricSlider::new(&mut buffer, 0.0..=32.0)
+            .label("Buffer size")
+            .suffix("GiB")
+            .stops([4.0, 8.0, 16.0, 32.0])
+            .accent(Accent::Amber)
+            .handle(SliderHandle::Line),
+    );
+    ui.add_space(10.0);
+    ui.add(
+        MetricSlider::new(&mut refresh, 30.0..=240.0)
+            .label("Refresh rate")
+            .suffix("Hz")
+            .steps(8)
+            .accent(Accent::Green)
+            .handle(SliderHandle::Line),
     );
 }
 
@@ -914,6 +979,46 @@ fn range_sliders_ui(ui: &mut egui::Ui) {
                 .enabled(false)
                 .desired_width(w)
                 .id_salt("rs_retention"),
+        );
+    });
+}
+
+fn range_sliders_line_ui(ui: &mut egui::Ui) {
+    let (mut price_lo, mut price_hi): (u32, u32) = (24, 118);
+    let (mut latency_lo, mut latency_hi): (u32, u32) = (120, 340);
+    let (mut retention_lo, mut retention_hi): (u32, u32) = (7, 30);
+    let w = 520.0_f32;
+    Card::new().show(ui, |ui| {
+        ui.set_max_width(w);
+        ui.add(
+            RangeSlider::new(&mut price_lo, &mut price_hi, 0u32..=200u32)
+                .label("Price")
+                .value_fmt(|v| format!("${v:.0}"))
+                .handle(SliderHandle::Line)
+                .desired_width(w)
+                .id_salt("rsl_price"),
+        );
+        ui.add_space(8.0);
+        ui.add(
+            RangeSlider::new(&mut latency_lo, &mut latency_hi, 0u32..=500u32)
+                .label("Latency target")
+                .suffix(" ms")
+                .step(10.0)
+                .ticks(6)
+                .show_tick_labels(true)
+                .handle(SliderHandle::Line)
+                .desired_width(w)
+                .id_salt("rsl_latency"),
+        );
+        ui.add_space(8.0);
+        ui.add(
+            RangeSlider::new(&mut retention_lo, &mut retention_hi, 1u32..=90u32)
+                .label("Retention window (locked)")
+                .suffix(" days")
+                .enabled(false)
+                .handle(SliderHandle::Line)
+                .desired_width(w)
+                .id_salt("rsl_retention"),
         );
     });
 }
@@ -1743,9 +1848,13 @@ theme_tests!(status, status_ui);
 theme_tests!(stat_cards, stat_cards_ui);
 theme_tests!(avatars, avatars_ui);
 theme_tests!(sliders, sliders_ui);
+theme_tests!(sliders_line, sliders_line_ui);
 theme_tests!(percent_sliders, percent_sliders_ui);
+theme_tests!(percent_sliders_line, percent_sliders_line_ui);
 theme_tests!(metric_sliders, metric_sliders_ui);
+theme_tests!(metric_sliders_line, metric_sliders_line_ui);
 theme_tests!(range_sliders, range_sliders_ui);
+theme_tests!(range_sliders_line, range_sliders_line_ui);
 theme_tests!(knobs, knobs_ui);
 theme_tests!(feedback, feedback_ui);
 theme_tests!(progress_rings, progress_rings_ui);

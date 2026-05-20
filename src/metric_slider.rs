@@ -28,6 +28,7 @@ use egui::{
     Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
+use crate::slider::{paint_handle, SliderHandle};
 use crate::theme::{placeholder_galley, with_alpha, Accent, Theme, BASELINE_FRAC};
 
 /// A single-value slider whose central UI element is the value itself.
@@ -60,6 +61,7 @@ pub struct MetricSlider<'a> {
     tick_fmt: Option<Box<dyn Fn(f32) -> String + 'a>>,
     callout_fmt: Option<Box<dyn Fn(f32) -> String + 'a>>,
     desired_width: Option<f32>,
+    handle: SliderHandle,
 }
 
 impl<'a> std::fmt::Debug for MetricSlider<'a> {
@@ -73,6 +75,7 @@ impl<'a> std::fmt::Debug for MetricSlider<'a> {
             .field("decimals", &self.decimals)
             .field("suffix", &self.suffix)
             .field("desired_width", &self.desired_width)
+            .field("handle", &self.handle)
             .finish()
     }
 }
@@ -97,6 +100,7 @@ impl<'a> MetricSlider<'a> {
             tick_fmt: None,
             callout_fmt: None,
             desired_width: None,
+            handle: SliderHandle::Circle,
         }
     }
 
@@ -236,6 +240,15 @@ impl<'a> MetricSlider<'a> {
     #[inline]
     pub fn desired_width(mut self, width: f32) -> Self {
         self.desired_width = Some(width);
+        self
+    }
+
+    /// Pick the thumb shape. Default: [`SliderHandle::Circle`]. Switch to
+    /// [`SliderHandle::Line`] for a thin vertical bar instead of the standard
+    /// circular knob.
+    #[inline]
+    pub fn handle(mut self, handle: SliderHandle) -> Self {
+        self.handle = handle;
         self
     }
 }
@@ -474,19 +487,18 @@ impl<'a> Widget for MetricSlider<'a> {
                 );
             }
 
-            if response.has_focus() || response.is_pointer_button_down_on() {
-                painter.circle_filled(
-                    thumb_center,
-                    thumb_d * 0.5 + 4.0,
-                    with_alpha(accent_fill, 55),
-                );
-            }
-            painter.circle(
-                thumb_center,
-                thumb_d * 0.5,
-                p.text,
-                Stroke::new(2.0, accent_fill),
-            );
+            let active = response.has_focus() || response.is_pointer_button_down_on();
+            let halo = active.then(|| with_alpha(accent_fill, 55));
+            let line_body = if p.is_dark {
+                p.text
+            } else {
+                p.accent_hover(self.accent)
+            };
+            let (body, ring) = match self.handle {
+                SliderHandle::Circle => (p.text, Stroke::new(2.0, accent_fill)),
+                SliderHandle::Line => (line_body, Stroke::NONE),
+            };
+            paint_handle(&painter, self.handle, thumb_center, thumb_d, body, ring, halo);
 
             // ---- Ticks ---------------------------------------------------
             // With explicit stops: render a tick at each, all medium weight

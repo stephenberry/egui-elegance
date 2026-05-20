@@ -14,7 +14,7 @@ use elegance::{
     LogBar, Menu, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem, Pairing,
     PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle,
+    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle,
     SubMenuItem, Switch, TabBar, TagInput, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
     Toasts, Tooltip, TooltipSide,
 };
@@ -1481,6 +1481,13 @@ impl App {
                     .label("Gain")
                     .accent(Accent::Green),
             );
+            ui.add_space(6.0);
+            ui.add(
+                Slider::new(&mut self.slider_float, 0.0..=1.0)
+                    .label("Gain (line handle)")
+                    .accent(Accent::Green)
+                    .handle(SliderHandle::Line),
+            );
         });
 
         Card::new().heading("RangeSlider").show(ui, |ui| {
@@ -1519,6 +1526,19 @@ impl App {
                 .suffix(" dB")
                 .accent(Accent::Green)
                 .id_salt("ex_range_volume"),
+            );
+            ui.add_space(8.0);
+            ui.add(
+                RangeSlider::new(
+                    &mut self.range_volume_lo,
+                    &mut self.range_volume_hi,
+                    0u32..=100u32,
+                )
+                .label("Volume (line handles)")
+                .suffix(" dB")
+                .accent(Accent::Green)
+                .handle(SliderHandle::Line)
+                .id_salt("ex_range_volume_line"),
             );
         });
     }
@@ -1568,6 +1588,19 @@ impl App {
                         .label("Bandwidth tier")
                         .stops([0.0, 10.0, 25.0, 75.0, 100.0])
                         .accent(Accent::Amber)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Line handle — thin vertical bar", |ui| {
+                ui.add(
+                    PercentSlider::new(&mut self.percent_cache)
+                        .label("Cache window")
+                        .handle(SliderHandle::Line)
+                        .callout_fmt(|p| {
+                            let mins = (p * 60.0 / 100.0).round() as i32;
+                            format!("{mins} min")
+                        })
                         .desired_width(380.0),
                 );
             });
@@ -1622,6 +1655,18 @@ impl App {
                             ["F", "L", "P", "S"][v.round().clamp(0.0, 3.0) as usize].to_string()
                         })
                         .accent(Accent::Purple)
+                        .desired_width(380.0),
+                );
+            });
+            ui.add_space(8.0);
+            labeled(ui, "Line handle — thin vertical bar", |ui| {
+                ui.add(
+                    MetricSlider::new(&mut self.metric_refresh, 30.0..=240.0)
+                        .label("Refresh rate")
+                        .suffix("Hz")
+                        .steps(8)
+                        .accent(Accent::Green)
+                        .handle(SliderHandle::Line)
                         .desired_width(380.0),
                 );
             });

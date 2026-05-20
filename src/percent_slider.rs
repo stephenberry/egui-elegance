@@ -34,6 +34,7 @@
 use egui::{Response, Ui, Widget, WidgetText};
 
 use crate::metric_slider::MetricSlider;
+use crate::slider::SliderHandle;
 use crate::theme::Accent;
 
 /// A 0–100% slider whose central UI element is the percentage value itself.
@@ -179,6 +180,15 @@ impl<'a> PercentSlider<'a> {
     #[inline]
     pub fn desired_width(mut self, width: f32) -> Self {
         self.inner = self.inner.desired_width(width);
+        self
+    }
+
+    /// Pick the thumb shape. Default: [`SliderHandle::Circle`]. Switch to
+    /// [`SliderHandle::Line`] for a thin vertical bar instead of the standard
+    /// circular knob.
+    #[inline]
+    pub fn handle(mut self, handle: SliderHandle) -> Self {
+        self.inner = self.inner.handle(handle);
         self
     }
 }

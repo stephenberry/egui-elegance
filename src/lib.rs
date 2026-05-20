@@ -127,7 +127,7 @@ pub use removable_chip::{RemovableChip, RemovableChipResponse};
 pub use segmented::SegmentedButton;
 pub use segmented_control::{Segment, SegmentDot, SegmentedControl, SegmentedSize};
 pub use select::Select;
-pub use slider::Slider;
+pub use slider::{Slider, SliderHandle};
 pub use sortable_list::{SortableItem, SortableList, SortableStatus};
 pub use spinner::Spinner;
 pub use stat_card::StatCard;

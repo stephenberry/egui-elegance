@@ -7,11 +7,74 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, CornerRadius, CursorIcon, Event, EventFilter, Key, Pos2, Rect, Response, Sense,
-    Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    emath::Numeric, Color32, CornerRadius, CursorIcon, Event, EventFilter, Key, Painter, Pos2,
+    Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText,
+    WidgetType,
 };
 
 use crate::theme::{with_alpha, Accent, Theme};
+
+/// Visual style of the slider thumb.
+///
+/// Affects [`Slider`], [`RangeSlider`](crate::RangeSlider),
+/// [`MetricSlider`](crate::MetricSlider), and
+/// [`PercentSlider`](crate::PercentSlider). All four default to
+/// [`SliderHandle::Circle`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SliderHandle {
+    /// A circular thumb with a pale interior and an accent-coloured ring.
+    /// This is the default and matches the look of egui's built-in slider.
+    #[default]
+    Circle,
+    /// A thin, vertical accent-coloured bar. Useful for scrubber-style
+    /// sliders where the pointer position should sit on top of the rail
+    /// without a wide thumb obscuring nearby ticks or fill.
+    Line,
+}
+
+/// Width of the line-handle bar, in points.
+pub(crate) const LINE_HANDLE_W: f32 = 3.0;
+/// Total height of the line-handle bar, in points. Sized so the bar pokes a
+/// few points above and below the 6 pt track to read as a positive marker
+/// rather than a hairline.
+pub(crate) const LINE_HANDLE_H: f32 = 18.0;
+
+/// Paint a slider thumb at `center`.
+///
+/// `body` is the primary fill: for [`SliderHandle::Circle`] this is the pale
+/// interior; for [`SliderHandle::Line`] this is the bar fill itself
+/// (typically the accent colour or a desaturated variant when disabled).
+/// `accent_stroke` is the circle's outer ring and is ignored for `Line`.
+/// `halo` paints a soft, larger backdrop in the same shape when `Some`.
+pub(crate) fn paint_handle(
+    painter: &Painter,
+    handle: SliderHandle,
+    center: Pos2,
+    thumb_d: f32,
+    body: Color32,
+    accent_stroke: Stroke,
+    halo: Option<Color32>,
+) {
+    match handle {
+        SliderHandle::Circle => {
+            if let Some(c) = halo {
+                painter.circle_filled(center, thumb_d * 0.5 + 4.0, c);
+            }
+            painter.circle(center, thumb_d * 0.5, body, accent_stroke);
+        }
+        SliderHandle::Line => {
+            if let Some(c) = halo {
+                let halo_rect = Rect::from_center_size(
+                    center,
+                    Vec2::new(LINE_HANDLE_W + 10.0, LINE_HANDLE_H + 8.0),
+                );
+                painter.rect_filled(halo_rect, CornerRadius::same(6), c);
+            }
+            let bar = Rect::from_center_size(center, Vec2::new(LINE_HANDLE_W, LINE_HANDLE_H));
+            painter.rect_filled(bar, CornerRadius::same(1), body);
+        }
+    }
+}
 
 /// A horizontal numeric slider.
 ///
@@ -34,6 +97,7 @@ pub struct Slider<'a, T: Numeric> {
     step: Option<f64>,
     accent: Accent,
     desired_width: Option<f32>,
+    handle: SliderHandle,
 }
 
 impl<'a, T: Numeric> std::fmt::Debug for Slider<'a, T> {
@@ -47,6 +111,7 @@ impl<'a, T: Numeric> std::fmt::Debug for Slider<'a, T> {
             .field("step", &self.step)
             .field("accent", &self.accent)
             .field("desired_width", &self.desired_width)
+            .field("handle", &self.handle)
             .finish()
     }
 }
@@ -65,6 +130,7 @@ impl<'a, T: Numeric> Slider<'a, T> {
             step: None,
             accent: Accent::Sky,
             desired_width: None,
+            handle: SliderHandle::Circle,
         }
     }
 
@@ -116,6 +182,14 @@ impl<'a, T: Numeric> Slider<'a, T> {
     /// Override the slider width. Defaults to `ui.available_width()`.
     pub fn desired_width(mut self, width: f32) -> Self {
         self.desired_width = Some(width);
+        self
+    }
+
+    /// Pick the thumb shape. Default: [`SliderHandle::Circle`]. Switch to
+    /// [`SliderHandle::Line`] for a thin vertical bar instead of the standard
+    /// circular knob.
+    pub fn handle(mut self, handle: SliderHandle) -> Self {
+        self.handle = handle;
         self
     }
 
@@ -329,22 +403,18 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                     painter.rect_filled(fill_rect, track_radius, accent_fill);
                 }
 
-                // Focus / drag halo.
-                if response.has_focus() || response.is_pointer_button_down_on() {
-                    painter.circle_filled(
-                        thumb_center,
-                        thumb_d * 0.5 + 4.0,
-                        with_alpha(accent_fill, 55),
-                    );
-                }
-
-                // Thumb: pale fill, accent-coloured ring.
-                painter.circle(
-                    thumb_center,
-                    thumb_d * 0.5,
-                    p.text,
-                    Stroke::new(2.0, accent_fill),
-                );
+                let active = response.has_focus() || response.is_pointer_button_down_on();
+                let halo = active.then(|| with_alpha(accent_fill, 55));
+                let line_body = if p.is_dark {
+                    p.text
+                } else {
+                    p.accent_hover(self.accent)
+                };
+                let (body, ring) = match self.handle {
+                    SliderHandle::Circle => (p.text, Stroke::new(2.0, accent_fill)),
+                    SliderHandle::Line => (line_body, Stroke::NONE),
+                };
+                paint_handle(painter, self.handle, thumb_center, thumb_d, body, ring, halo);
 
                 if self.show_value {
                     let text = self.format_value(current);

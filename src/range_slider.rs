@@ -12,6 +12,7 @@ use egui::{
     Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
+use crate::slider::{paint_handle, SliderHandle};
 use crate::theme::{mix, with_alpha, Accent, Theme};
 
 /// A horizontal numeric range slider with two thumbs.
@@ -48,6 +49,7 @@ pub struct RangeSlider<'a, T: Numeric> {
     desired_width: Option<f32>,
     enabled: bool,
     id_salt: Option<Id>,
+    handle: SliderHandle,
 }
 
 impl<'a, T: Numeric> std::fmt::Debug for RangeSlider<'a, T> {
@@ -64,6 +66,7 @@ impl<'a, T: Numeric> std::fmt::Debug for RangeSlider<'a, T> {
             .field("accent", &self.accent)
             .field("desired_width", &self.desired_width)
             .field("enabled", &self.enabled)
+            .field("handle", &self.handle)
             .finish()
     }
 }
@@ -87,6 +90,7 @@ impl<'a, T: Numeric> RangeSlider<'a, T> {
             desired_width: None,
             enabled: true,
             id_salt: None,
+            handle: SliderHandle::Circle,
         }
     }
 
@@ -180,6 +184,15 @@ impl<'a, T: Numeric> RangeSlider<'a, T> {
     #[inline]
     pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
         self.id_salt = Some(Id::new(id_salt));
+        self
+    }
+
+    /// Pick the thumb shape. Both thumbs share the same style. Default:
+    /// [`SliderHandle::Circle`]. Switch to [`SliderHandle::Line`] for a thin
+    /// vertical bar instead of the standard circular knob.
+    #[inline]
+    pub fn handle(mut self, handle: SliderHandle) -> Self {
+        self.handle = handle;
         self
     }
 
@@ -548,19 +561,21 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                     let center = thumb_centers[i];
                     let active = self.enabled
                         && (thumb_resp[i].has_focus() || thumb_resp[i].is_pointer_button_down_on());
-                    if active {
-                        painter.circle_filled(
-                            center,
-                            thumb_d * 0.5 + 4.0,
-                            with_alpha(accent_fill, 55),
-                        );
-                    }
-                    let (fill, ring) = if !self.enabled {
-                        (mix(p.text, p.card, 0.5), Stroke::new(1.0, p.border))
+                    let halo = active.then(|| with_alpha(accent_fill, 55));
+                    let line_body = if p.is_dark {
+                        p.text
                     } else {
-                        (p.text, Stroke::new(2.0, accent_fill))
+                        p.accent_hover(self.accent)
                     };
-                    painter.circle(center, thumb_d * 0.5, fill, ring);
+                    let (body, ring) = match (self.handle, self.enabled) {
+                        (SliderHandle::Circle, true) => (p.text, Stroke::new(2.0, accent_fill)),
+                        (SliderHandle::Circle, false) => {
+                            (mix(p.text, p.card, 0.5), Stroke::new(1.0, p.border))
+                        }
+                        (SliderHandle::Line, true) => (line_body, Stroke::NONE),
+                        (SliderHandle::Line, false) => (mix(line_body, p.card, 0.5), Stroke::NONE),
+                    };
+                    paint_handle(painter, self.handle, center, thumb_d, body, ring, halo);
                 }
             }
 
