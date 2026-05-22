@@ -11,7 +11,7 @@ use egui::{
     WidgetText, WidgetType,
 };
 
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// A styled drop-down select.
 ///

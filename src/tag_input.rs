@@ -16,12 +16,12 @@
 use std::hash::Hash;
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, Event, FontId, FontSelection, Id, Key, Rect, Response,
-    Sense, Stroke, StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, Event, FontId, FontSelection, Id, Key, Rect, Response, Sense, Stroke,
+    StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
 };
 
-use crate::theme::{themed_input_visuals, with_alpha, with_themed_visuals, Theme};
 use crate::Accent;
+use crate::theme::{Theme, themed_input_visuals, with_alpha, with_themed_visuals};
 
 /// Boxed validator closure: `Ok(())` accepts the value, `Err(msg)` rejects
 /// it and surfaces `msg` as an inline error.
@@ -481,11 +481,11 @@ fn commit_value(
     if raw.is_empty() {
         return;
     }
-    if let Some(v) = validator {
-        if let Err(msg) = v(raw) {
-            state.error = Some(msg);
-            return;
-        }
+    if let Some(v) = validator
+        && let Err(msg) = v(raw)
+    {
+        state.error = Some(msg);
+        return;
     }
     let lower = raw.to_lowercase();
     if tags.iter().any(|t| t.to_lowercase() == lower) {

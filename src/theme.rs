@@ -8,10 +8,10 @@
 //! only swaps luminance.
 
 use egui::{
-    epaint::text::{FontInsert, FontPriority, InsertFontFamily},
-    style::{Selection, Widgets},
     Color32, Context, CornerRadius, FontData, FontFamily, FontId, Id, Margin, Stroke, Style,
     TextStyle, Vec2, Visuals, WidgetText,
+    epaint::text::{FontInsert, FontPriority, InsertFontFamily},
+    style::{Selection, Widgets},
 };
 
 /// Bundled subset of DejaVu Sans covering the arrow / key / math-ellipsis

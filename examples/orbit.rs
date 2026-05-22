@@ -9,10 +9,10 @@
 
 use eframe::egui;
 use elegance::{
-    request_repaint_at_rate, Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Card,
-    Checkbox, Indicator, IndicatorState, Menu, MenuItem, ProgressBar, ResponseFlashExt,
-    SegmentedButton, Select, Slider, Spinner, StatusPill, Switch, TabBar, TextArea, TextInput,
-    Theme, ThemeSwitcher, Toast, Toasts,
+    Accent, Badge, BadgeTone, BuiltInTheme, Button, ButtonSize, Card, Checkbox, Indicator,
+    IndicatorState, Menu, MenuItem, ProgressBar, ResponseFlashExt, SegmentedButton, Select, Slider,
+    Spinner, StatusPill, Switch, TabBar, TextArea, TextInput, Theme, ThemeSwitcher, Toast, Toasts,
+    request_repaint_at_rate,
 };
 
 fn main() -> eframe::Result<()> {

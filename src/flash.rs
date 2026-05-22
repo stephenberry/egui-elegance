@@ -26,7 +26,7 @@
 
 use egui::{Color32, Context, Id, Response};
 
-use crate::theme::{mix, Theme};
+use crate::theme::{Theme, mix};
 
 /// The duration of a flash animation, in seconds.
 pub const FLASH_DURATION: f64 = 0.8;

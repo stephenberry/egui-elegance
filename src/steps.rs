@@ -24,7 +24,7 @@ use egui::{
     Widget, WidgetInfo, WidgetType,
 };
 
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// Visual style for a [`Steps`] widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -366,40 +366,29 @@ fn paint_numbered(ui: &mut Ui, s: &Steps) -> Response {
             painter.galley(pos, galley, text_color);
         }
 
-        if has_labels {
-            if let Some(label_text) = s.labels.get(i) {
-                let is_active = matches!(state, StepState::Active | StepState::Error);
-                let label_color = match state {
-                    StepState::Done => p.text_muted,
-                    StepState::Active => p.text,
-                    StepState::Error => p.danger,
-                    StepState::Pending => p.text_muted,
-                };
-                let label_galley = crate::theme::placeholder_galley(
-                    ui,
-                    label_text,
-                    t.body,
-                    is_active,
-                    f32::INFINITY,
-                );
-                let label_y = rect.min.y + dot_d + label_gap;
-                let pos = Pos2::new(center.x - label_galley.size().x * 0.5, label_y);
-                painter.galley(pos, label_galley, label_color);
+        if has_labels && let Some(label_text) = s.labels.get(i) {
+            let is_active = matches!(state, StepState::Active | StepState::Error);
+            let label_color = match state {
+                StepState::Done => p.text_muted,
+                StepState::Active => p.text,
+                StepState::Error => p.danger,
+                StepState::Pending => p.text_muted,
+            };
+            let label_galley =
+                crate::theme::placeholder_galley(ui, label_text, t.body, is_active, f32::INFINITY);
+            let label_y = rect.min.y + dot_d + label_gap;
+            let pos = Pos2::new(center.x - label_galley.size().x * 0.5, label_y);
+            painter.galley(pos, label_galley, label_color);
 
-                if has_sublabel && i == s.current {
-                    if let Some(sub) = s.active_sublabel.as_deref() {
-                        let sub_galley = crate::theme::placeholder_galley(
-                            ui,
-                            sub,
-                            t.small,
-                            false,
-                            f32::INFINITY,
-                        );
-                        let sub_y = label_y + t.body + sublabel_gap;
-                        let sub_pos = Pos2::new(center.x - sub_galley.size().x * 0.5, sub_y);
-                        painter.galley(sub_pos, sub_galley, p.text_faint);
-                    }
-                }
+            if has_sublabel
+                && i == s.current
+                && let Some(sub) = s.active_sublabel.as_deref()
+            {
+                let sub_galley =
+                    crate::theme::placeholder_galley(ui, sub, t.small, false, f32::INFINITY);
+                let sub_y = label_y + t.body + sublabel_gap;
+                let sub_pos = Pos2::new(center.x - sub_galley.size().x * 0.5, sub_y);
+                painter.galley(sub_pos, sub_galley, p.text_faint);
             }
         }
     }

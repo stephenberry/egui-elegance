@@ -8,12 +8,12 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, CornerRadius, CursorIcon, Event, EventFilter, Id, Key, Pos2, Rect, Response,
-    Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    CornerRadius, CursorIcon, Event, EventFilter, Id, Key, Pos2, Rect, Response, Sense, Stroke,
+    StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType, emath::Numeric,
 };
 
-use crate::slider::{paint_handle, SliderHandle};
-use crate::theme::{mix, with_alpha, Accent, Theme};
+use crate::slider::{SliderHandle, paint_handle};
+use crate::theme::{Accent, Theme, mix, with_alpha};
 
 /// A horizontal numeric range slider with two thumbs.
 ///
@@ -248,12 +248,12 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
         let mut row_h = strip_h;
         // Reserve space below the track for tick marks (and optional labels)
         // so the next widget in the parent layout doesn't overlap them.
-        if let Some(n) = self.ticks {
-            if n >= 2 {
-                row_h += 4.0;
-                if self.show_tick_labels {
-                    row_h += t.small + 4.0;
-                }
+        if let Some(n) = self.ticks
+            && n >= 2
+        {
+            row_h += 4.0;
+            if self.show_tick_labels {
+                row_h += t.small + 4.0;
             }
         }
 
@@ -324,10 +324,10 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                 range_lo + frac * span
             };
             let snap = |mut v: f64| -> f64 {
-                if let Some(s) = step {
-                    if s > 0.0 {
-                        v = range_lo + ((v - range_lo) / s).round() * s;
-                    }
+                if let Some(s) = step
+                    && s > 0.0
+                {
+                    v = range_lo + ((v - range_lo) / s).round() * s;
                 }
                 v.clamp(range_lo, range_hi)
             };
@@ -361,13 +361,14 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
             // 1. Per-thumb pointer drag takes priority.
             let mut handled_thumb_drag = false;
             for (i, resp) in thumb_resp.iter().enumerate() {
-                if self.enabled && resp.is_pointer_button_down_on() {
-                    if let Some(pos) = resp.interact_pointer_pos() {
-                        let v = snap(to_value(pos.x));
-                        apply_to_endpoint(&mut new_low, &mut new_high, i, v);
-                        changed = true;
-                        handled_thumb_drag = true;
-                    }
+                if self.enabled
+                    && resp.is_pointer_button_down_on()
+                    && let Some(pos) = resp.interact_pointer_pos()
+                {
+                    let v = snap(to_value(pos.x));
+                    apply_to_endpoint(&mut new_low, &mut new_high, i, v);
+                    changed = true;
+                    handled_thumb_drag = true;
                 }
             }
 
@@ -517,41 +518,39 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                 }
 
                 // Tick marks.
-                if let Some(n) = self.ticks {
-                    if n >= 2 {
-                        for i in 0..n {
-                            let frac = i as f32 / (n - 1) as f32;
-                            let x = track_left + track_span * frac;
-                            let v = range_lo + (frac as f64) * span;
-                            let inside_fill = v >= low_v && v <= high_v;
-                            let color = if inside_fill {
-                                p.text_muted
-                            } else {
-                                p.text_faint
-                            };
-                            painter.line_segment(
-                                [
-                                    Pos2::new(x, track_y - track_h * 0.5 - 3.0),
-                                    Pos2::new(x, track_y - track_h * 0.5 - 7.0),
-                                ],
-                                Stroke::new(1.0, color),
-                            );
+                if let Some(n) = self.ticks
+                    && n >= 2
+                {
+                    for i in 0..n {
+                        let frac = i as f32 / (n - 1) as f32;
+                        let x = track_left + track_span * frac;
+                        let v = range_lo + (frac as f64) * span;
+                        let inside_fill = v >= low_v && v <= high_v;
+                        let color = if inside_fill {
+                            p.text_muted
+                        } else {
+                            p.text_faint
+                        };
+                        painter.line_segment(
+                            [
+                                Pos2::new(x, track_y - track_h * 0.5 - 3.0),
+                                Pos2::new(x, track_y - track_h * 0.5 - 7.0),
+                            ],
+                            Stroke::new(1.0, color),
+                        );
 
-                            if self.show_tick_labels {
-                                let label = self.format_value(v);
-                                let galley = crate::theme::placeholder_galley(
-                                    ui,
-                                    &label,
-                                    t.small,
-                                    false,
-                                    f32::INFINITY,
-                                );
-                                let pos = Pos2::new(
-                                    x - galley.size().x * 0.5,
-                                    track_y + track_h * 0.5 + 4.0,
-                                );
-                                painter.galley(pos, galley, p.text_faint);
-                            }
+                        if self.show_tick_labels {
+                            let label = self.format_value(v);
+                            let galley = crate::theme::placeholder_galley(
+                                ui,
+                                &label,
+                                t.small,
+                                false,
+                                f32::INFINITY,
+                            );
+                            let pos =
+                                Pos2::new(x - galley.size().x * 0.5, track_y + track_h * 0.5 + 4.0);
+                            painter.galley(pos, galley, p.text_faint);
                         }
                     }
                 }

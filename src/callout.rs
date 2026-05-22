@@ -308,10 +308,10 @@ impl<'a> Callout<'a> {
                                     );
                                 }
                                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                    if let Some(open) = open {
-                                        if dismiss_button(ui, &theme).clicked() {
-                                            *open = false;
-                                        }
+                                    if let Some(open) = open
+                                        && dismiss_button(ui, &theme).clicked()
+                                    {
+                                        *open = false;
                                     }
                                     add_actions(ui)
                                 })
@@ -376,10 +376,10 @@ impl<'a> Callout<'a> {
 
                     // Right-aligned action slot and optional dismiss button.
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(open) = open {
-                            if dismiss_button(ui, &theme).clicked() {
-                                *open = false;
-                            }
+                        if let Some(open) = open
+                            && dismiss_button(ui, &theme).clicked()
+                        {
+                            *open = false;
                         }
                         add_actions(ui)
                     })

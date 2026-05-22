@@ -8,12 +8,12 @@
 //! own app state.
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, DroppedFile, FontSelection, Pos2, Rect, Response, Sense,
-    Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, DroppedFile, FontSelection, Pos2, Rect, Response, Sense, Stroke,
+    StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
 };
 
 use crate::glyphs::UPLOAD as UPLOAD_GLYPH;
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// A click-and-drop file target.
 ///

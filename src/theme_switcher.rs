@@ -4,8 +4,8 @@
 
 use egui::{Id, Response, Ui, Widget};
 
-use crate::theme::BuiltInTheme;
 use crate::Select;
+use crate::theme::BuiltInTheme;
 
 /// A drop-in picker for the four built-in elegance themes.
 ///

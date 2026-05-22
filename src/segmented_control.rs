@@ -11,11 +11,11 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use egui::{
-    pos2, Color32, CornerRadius, FontId, FontSelection, Galley, Id, Rect, Response, Sense, Stroke,
-    StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, FontId, FontSelection, Galley, Id, Rect, Response, Sense, Stroke,
+    StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType, pos2,
 };
 
-use crate::theme::{placeholder_galley, with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, placeholder_galley, with_alpha};
 
 /// Size variants for [`SegmentedControl`].
 ///
@@ -681,18 +681,18 @@ impl<'a> Widget for SegmentedControl<'a> {
         // Apply the paint target to any segment under the cursor. We
         // hit-test against cell_rects so the drag survives crossing the
         // gap between segments.
-        if let (Some(target), Some(pos)) = (paint_target, ui.ctx().pointer_interact_pos()) {
-            if let Selection::Multi(states) = &mut self.selection {
-                for (i, cell_rect) in cell_rects.iter().enumerate() {
-                    if !prepared[i].enabled || !cell_rect.contains(pos) {
-                        continue;
-                    }
-                    if let Some(s) = states.get_mut(i) {
-                        if *s != target {
-                            *s = target;
-                            selection_changed = true;
-                        }
-                    }
+        if let (Some(target), Some(pos)) = (paint_target, ui.ctx().pointer_interact_pos())
+            && let Selection::Multi(states) = &mut self.selection
+        {
+            for (i, cell_rect) in cell_rects.iter().enumerate() {
+                if !prepared[i].enabled || !cell_rect.contains(pos) {
+                    continue;
+                }
+                if let Some(s) = states.get_mut(i)
+                    && *s != target
+                {
+                    *s = target;
+                    selection_changed = true;
                 }
             }
         }
@@ -740,12 +740,12 @@ impl<'a> Widget for SegmentedControl<'a> {
                 };
 
                 // Hover overlay (non-active only).
-                if let Some(h) = hovered_idx {
-                    if !is_active(h) {
-                        let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
-                        ui.painter()
-                            .rect_filled(cell_rects[h], corners_for(h), hover_fill);
-                    }
+                if let Some(h) = hovered_idx
+                    && !is_active(h)
+                {
+                    let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                    ui.painter()
+                        .rect_filled(cell_rects[h], corners_for(h), hover_fill);
                 }
 
                 // Active fills.
@@ -819,17 +819,17 @@ impl<'a> Widget for SegmentedControl<'a> {
                 let segment_radius = CornerRadius::same(size.segment_radius());
 
                 // Hovered fill (drawn before active, so an active+hover doesn't double-stack).
-                if let Some(h) = hovered_idx {
-                    if !is_active(h) {
-                        let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
-                        ui.painter().rect(
-                            cell_rects[h].shrink(0.5),
-                            segment_radius,
-                            hover_fill,
-                            Stroke::NONE,
-                            StrokeKind::Inside,
-                        );
-                    }
+                if let Some(h) = hovered_idx
+                    && !is_active(h)
+                {
+                    let hover_fill = with_alpha(p.text, if p.is_dark { 14 } else { 18 });
+                    ui.painter().rect(
+                        cell_rects[h].shrink(0.5),
+                        segment_radius,
+                        hover_fill,
+                        Stroke::NONE,
+                        StrokeKind::Inside,
+                    );
                 }
 
                 // Active fill(s): drop-shadow + card-coloured pill on every

@@ -22,12 +22,13 @@
 use std::f32::consts::PI;
 
 use egui::{
-    epaint::{PathShape, PathStroke},
-    pos2, Color32, CornerRadius, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget,
+    Color32, CornerRadius, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget,
     WidgetInfo, WidgetType,
+    epaint::{PathShape, PathStroke},
+    pos2,
 };
 
-use crate::theme::{placeholder_galley, with_alpha, Palette, Theme, BASELINE_FRAC};
+use crate::theme::{BASELINE_FRAC, Palette, Theme, placeholder_galley, with_alpha};
 
 /// Threshold breakpoints driving automatic colouring on a gauge.
 ///
@@ -80,11 +81,7 @@ impl GaugeZones {
 }
 
 fn clamp_fraction(f: f32) -> f32 {
-    if f.is_nan() {
-        0.0
-    } else {
-        f.clamp(0.0, 1.0)
-    }
+    if f.is_nan() { 0.0 } else { f.clamp(0.0, 1.0) }
 }
 
 fn track_color(palette: &Palette) -> Color32 {

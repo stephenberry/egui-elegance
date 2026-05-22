@@ -5,8 +5,8 @@
 //! enough to populate the accesskit tree and then assert on it.
 
 use eframe::egui;
-use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
+use egui_kittest::kittest::{NodeT, Queryable};
 use elegance::{
     BadgeTone, Drawer, DrawerSide, MenuBar, MenuItem, Modal, TextInput, Theme, Toast, Toasts,
 };

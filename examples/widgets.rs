@@ -14,9 +14,9 @@ use elegance::{
     LogBar, Menu, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem, Pairing,
     PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle,
-    SubMenuItem, Switch, TabBar, TagInput, TextArea, TextInput, Theme, ThemeSwitcher, Toast,
-    Toasts, Tooltip, TooltipSide,
+    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps,
+    StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TextArea, TextInput, Theme, ThemeSwitcher,
+    Toast, Toasts, Tooltip, TooltipSide,
 };
 
 fn main() -> eframe::Result<()> {

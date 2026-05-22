@@ -25,8 +25,8 @@
 //! ```
 
 use egui::{
-    emath::RectAlign, Color32, CornerRadius, Frame, Margin, Pos2, Rect, Response, Sense, Shape,
-    Stroke, Ui, Vec2, WidgetText,
+    Color32, CornerRadius, Frame, Margin, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2,
+    WidgetText, emath::RectAlign,
 };
 
 use crate::theme::Theme;

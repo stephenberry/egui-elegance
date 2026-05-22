@@ -26,14 +26,15 @@
 use std::hash::Hash;
 
 use egui::{
+    Color32, CornerRadius, FontSelection, Id, Pos2, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, TextEdit, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
     ecolor::{Hsva, HsvaGamma},
     epaint::Mesh,
-    lerp, pos2, vec2, Color32, CornerRadius, FontSelection, Id, Pos2, Rect, Response, Sense, Shape,
-    Stroke, StrokeKind, TextEdit, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    lerp, pos2, vec2,
 };
 
 use crate::popover::{Popover, PopoverSide};
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 const HEX_BUF_SUFFIX: &str = "color_picker::hex_buf";
 const HSV_CACHE_SUFFIX: &str = "color_picker::hsv_cache";
@@ -314,10 +315,10 @@ impl<'a> Widget for ColorPicker<'a> {
                         continuous_committed |= ended;
                     }
 
-                    if show_hex_input {
-                        if let Some(picked) = paint_hex_input(ui, &theme, id_salt, cur) {
-                            discrete_pick = Some(picked);
-                        }
+                    if show_hex_input
+                        && let Some(picked) = paint_hex_input(ui, &theme, id_salt, cur)
+                    {
+                        discrete_pick = Some(picked);
                     }
 
                     if let Some(next) = discrete_pick.or(continuous_pick) {
@@ -333,11 +334,11 @@ impl<'a> Widget for ColorPicker<'a> {
                 });
 
             let next_color = discrete_pick.or(continuous_pick);
-            if let Some(picked) = next_color {
-                if picked != *self.color {
-                    *self.color = picked;
-                    response.mark_changed();
-                }
+            if let Some(picked) = next_color
+                && picked != *self.color
+            {
+                *self.color = picked;
+                response.mark_changed();
             }
             // Push to recents on a deliberate commit: a discrete pick this
             // frame, or the moment a continuous control releases (after a
@@ -635,14 +636,14 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
     let mut changed = false;
     let committed = response.drag_stopped() || response.clicked();
 
-    if let Some(pos) = response.interact_pointer_pos() {
-        if response.is_pointer_button_down_on() {
-            let s = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
-            let v = 1.0 - ((pos.y - rect.min.y) / rect.height()).clamp(0.0, 1.0);
-            hsv.s = s;
-            hsv.v = v;
-            changed = true;
-        }
+    if let Some(pos) = response.interact_pointer_pos()
+        && response.is_pointer_button_down_on()
+    {
+        let s = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
+        let v = 1.0 - ((pos.y - rect.min.y) / rect.height()).clamp(0.0, 1.0);
+        hsv.s = s;
+        hsv.v = v;
+        changed = true;
     }
 
     if ui.is_rect_visible(rect) {
@@ -711,12 +712,12 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
     let mut changed = false;
     let committed = response.drag_stopped() || response.clicked();
 
-    if let Some(pos) = response.interact_pointer_pos() {
-        if response.is_pointer_button_down_on() {
-            let h = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
-            hsv.h = h;
-            changed = true;
-        }
+    if let Some(pos) = response.interact_pointer_pos()
+        && response.is_pointer_button_down_on()
+    {
+        let h = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
+        hsv.h = h;
+        changed = true;
     }
 
     if ui.is_rect_visible(rect) {
@@ -780,12 +781,12 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
     let mut changed = false;
     let committed = response.drag_stopped() || response.clicked();
 
-    if let Some(pos) = response.interact_pointer_pos() {
-        if response.is_pointer_button_down_on() {
-            let a = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
-            hsv.a = a;
-            changed = true;
-        }
+    if let Some(pos) = response.interact_pointer_pos()
+        && response.is_pointer_button_down_on()
+    {
+        let a = ((pos.x - rect.min.x) / rect.width()).clamp(0.0, 1.0);
+        hsv.a = a;
+        changed = true;
     }
 
     if ui.is_rect_visible(rect) {
@@ -1045,10 +1046,10 @@ fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
 fn current_hsv(ctx: &egui::Context, id_salt: Id, color: Color32) -> HsvaGamma {
     let cache_id = id_salt.with(HSV_CACHE_SUFFIX);
     let cached: Option<HsvaGamma> = ctx.data(|d| d.get_temp(cache_id));
-    if let Some(c) = cached {
-        if Color32::from(c) == color {
-            return c;
-        }
+    if let Some(c) = cached
+        && Color32::from(c) == color
+    {
+        return c;
     }
     HsvaGamma::from(Hsva::from(color))
 }

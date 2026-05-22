@@ -6,7 +6,7 @@ use egui::{
 };
 
 use crate::button::ButtonSize;
-use crate::theme::{with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, with_alpha};
 
 /// A toggle button with a built-in LED dot.
 ///

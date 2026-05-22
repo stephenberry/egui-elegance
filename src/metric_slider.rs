@@ -28,8 +28,8 @@ use egui::{
     Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
-use crate::slider::{paint_handle, SliderHandle};
-use crate::theme::{placeholder_galley, with_alpha, Accent, Theme, BASELINE_FRAC};
+use crate::slider::{SliderHandle, paint_handle};
+use crate::theme::{Accent, BASELINE_FRAC, Theme, placeholder_galley, with_alpha};
 
 /// A single-value slider whose central UI element is the value itself.
 ///
@@ -326,16 +326,16 @@ impl<'a> Widget for MetricSlider<'a> {
             Pos2::new(rect.max.x, track_y + track_h * 0.5),
         );
 
-        if response.is_pointer_button_down_on() {
-            if let Some(pos) = response.interact_pointer_pos() {
-                let clamped_x = pos.x.clamp(track_left, track_right);
-                let frac = ((clamped_x - track_left) / track_span).clamp(0.0, 1.0);
-                let next = snap(range_start + frac * range_span);
-                if (next - current).abs() > f32::EPSILON {
-                    current = next;
-                    *self.value = current;
-                    response.mark_changed();
-                }
+        if response.is_pointer_button_down_on()
+            && let Some(pos) = response.interact_pointer_pos()
+        {
+            let clamped_x = pos.x.clamp(track_left, track_right);
+            let frac = ((clamped_x - track_left) / track_span).clamp(0.0, 1.0);
+            let next = snap(range_start + frac * range_span);
+            if (next - current).abs() > f32::EPSILON {
+                current = next;
+                *self.value = current;
+                response.mark_changed();
             }
         }
 
@@ -498,7 +498,15 @@ impl<'a> Widget for MetricSlider<'a> {
                 SliderHandle::Circle => (p.text, Stroke::new(2.0, accent_fill)),
                 SliderHandle::Line => (line_body, Stroke::NONE),
             };
-            paint_handle(&painter, self.handle, thumb_center, thumb_d, body, ring, halo);
+            paint_handle(
+                &painter,
+                self.handle,
+                thumb_center,
+                thumb_d,
+                body,
+                ring,
+                halo,
+            );
 
             // ---- Ticks ---------------------------------------------------
             // With explicit stops: render a tick at each, all medium weight
@@ -548,18 +556,18 @@ impl<'a> Widget for MetricSlider<'a> {
             }
 
             // ---- Drag callout --------------------------------------------
-            if response.is_pointer_button_down_on() {
-                if let Some(fmt) = &self.callout_fmt {
-                    paint_callout(
-                        ui,
-                        &theme,
-                        &painter,
-                        thumb_center,
-                        rect,
-                        thumb_d,
-                        fmt(current),
-                    );
-                }
+            if response.is_pointer_button_down_on()
+                && let Some(fmt) = &self.callout_fmt
+            {
+                paint_callout(
+                    ui,
+                    &theme,
+                    &painter,
+                    thumb_center,
+                    rect,
+                    thumb_d,
+                    fmt(current),
+                );
             }
         }
 

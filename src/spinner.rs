@@ -8,11 +8,12 @@
 use std::f32::consts::TAU;
 
 use egui::{
+    Color32, Response, Sense, Ui, Vec2, Widget, WidgetInfo, WidgetType,
     epaint::{PathShape, PathStroke},
-    pos2, Color32, Response, Sense, Ui, Vec2, Widget, WidgetInfo, WidgetType,
+    pos2,
 };
 
-use crate::theme::{with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, with_alpha};
 
 /// A themed loading spinner.
 ///

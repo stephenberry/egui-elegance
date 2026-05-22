@@ -34,12 +34,11 @@
 use std::hash::Hash;
 
 use egui::{
-    emath::RectAlign, Align, Color32, CornerRadius, Frame, Id, Layout, Margin, Popup,
-    PopupCloseBehavior, Pos2, Rect, Sense, SetOpenCommand, Stroke, Ui, Vec2, WidgetInfo,
-    WidgetText, WidgetType,
+    Align, Color32, CornerRadius, Frame, Id, Layout, Margin, Popup, PopupCloseBehavior, Pos2, Rect,
+    Sense, SetOpenCommand, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, emath::RectAlign,
 };
 
-use crate::theme::{mix, with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, mix, with_alpha};
 
 const STRIP_PAD_Y: f32 = 4.0;
 const STRIP_PAD_X: f32 = 6.0;
@@ -133,21 +132,21 @@ impl MenuBar {
         // open menu would render its area for one extra frame because its
         // `Popup::show` runs (and renders) before the new menu's call to
         // `open_id` overwrites the memory slot.
-        if prev_state.any_open {
-            if let Some(pointer) = ui.ctx().pointer_hover_pos() {
-                let open_idx = prev_state
+        if prev_state.any_open
+            && let Some(pointer) = ui.ctx().pointer_hover_pos()
+        {
+            let open_idx = prev_state
+                .triggers
+                .iter()
+                .position(|(id, _)| Popup::is_id_open(ui.ctx(), *id));
+            if let Some(open_idx) = open_idx {
+                let on_sibling = prev_state
                     .triggers
                     .iter()
-                    .position(|(id, _)| Popup::is_id_open(ui.ctx(), *id));
-                if let Some(open_idx) = open_idx {
-                    let on_sibling = prev_state
-                        .triggers
-                        .iter()
-                        .enumerate()
-                        .any(|(i, (_, rect))| i != open_idx && rect.contains(pointer));
-                    if on_sibling {
-                        Popup::close_id(ui.ctx(), prev_state.triggers[open_idx].0);
-                    }
+                    .enumerate()
+                    .any(|(i, (_, rect))| i != open_idx && rect.contains(pointer));
+                if on_sibling {
+                    Popup::close_id(ui.ctx(), prev_state.triggers[open_idx].0);
                 }
             }
         }
