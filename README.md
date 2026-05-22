@@ -694,6 +694,14 @@ Card::new().heading("Account").show(ui, |ui| {
     ui.label("…card contents…");
 });
 
+// Per-axis padding (points) for compact rows where the vertical
+// breathing room of the default would dominate the layout.
+Card::new().padding_xy(10.0, 4.0).show(ui, |ui| {
+    ui.horizontal(|ui| {
+        ui.label("compact row of widgets");
+    });
+});
+
 CollapsingSection::new("advanced", "Show advanced options").show(ui, |ui| {
     ui.label("…hidden until expanded…");
 });

@@ -14,11 +14,21 @@ use crate::theme::Theme;
 /// });
 /// # });
 /// ```
+///
+/// Inner padding defaults to the active theme's `card_padding` on all
+/// four sides. Use one of the padding setters to override:
+///
+/// * [`Card::padding`] for a uniform value on all sides (most common).
+/// * [`Card::padding_xy`] when horizontal and vertical breathing room
+///   should differ, e.g. a dense info strip where each row is short
+///   but the card still wants room either side of the content.
+/// * [`Card::padding_margin`] for full per-side control via an
+///   [`egui::Margin`].
 #[derive(Default)]
 #[must_use = "Call `.show(ui, ...)` to render the card."]
 pub struct Card {
     heading: Option<WidgetText>,
-    padding: Option<f32>,
+    padding: Option<Margin>,
     fill: Option<Color32>,
     bordered: bool,
     corner_radius: Option<CornerRadius>,
@@ -54,9 +64,28 @@ impl Card {
         self
     }
 
-    /// Override the default inner padding (points).
+    /// Override the default inner padding (points), applied uniformly
+    /// on all four sides. For per-axis control see [`Card::padding_xy`]
+    /// or [`Card::padding_margin`].
     pub fn padding(mut self, padding: f32) -> Self {
-        self.padding = Some(padding);
+        self.padding = Some(Margin::same(padding as i8));
+        self
+    }
+
+    /// Override the inner padding with separate horizontal and vertical
+    /// values (points). Use when the card body needs more room on one
+    /// axis than the other; a typical case is a compact row of widgets
+    /// where vertical padding would otherwise dominate the layout.
+    pub fn padding_xy(mut self, x: f32, y: f32) -> Self {
+        self.padding = Some(Margin::symmetric(x as i8, y as i8));
+        self
+    }
+
+    /// Override the inner padding with a fully specified [`Margin`],
+    /// allowing different values on each of the four sides. Use when
+    /// `padding` and `padding_xy` are not flexible enough.
+    pub fn padding_margin(mut self, margin: Margin) -> Self {
+        self.padding = Some(margin);
         self
     }
 
@@ -85,7 +114,9 @@ impl Card {
         let theme = Theme::current(ui.ctx());
         let p = &theme.palette;
 
-        let padding = self.padding.unwrap_or(theme.card_padding);
+        let margin = self
+            .padding
+            .unwrap_or_else(|| Margin::same(theme.card_padding as i8));
         let stroke = if self.bordered {
             Stroke::new(1.0, p.border)
         } else {
@@ -100,7 +131,7 @@ impl Card {
             .fill(self.fill.unwrap_or(p.card))
             .stroke(stroke)
             .corner_radius(radius)
-            .inner_margin(Margin::same(padding as i8));
+            .inner_margin(margin);
 
         frame.show(ui, |ui| {
             if let Some(h) = &self.heading {
@@ -113,5 +144,46 @@ impl Card {
             }
             add_contents(ui)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// All three padding setters land on the same internal slot; the
+    /// most recent call wins, regardless of which variant set it. Guards
+    /// against an accidental split into separate fields where the show
+    /// path could read the wrong one.
+    #[test]
+    fn padding_setters_share_storage() {
+        let c = Card::new();
+        assert!(c.padding.is_none(), "default is unset");
+
+        let c = Card::new().padding(12.0);
+        assert_eq!(c.padding, Some(Margin::same(12)));
+
+        let c = Card::new().padding_xy(10.0, 4.0);
+        assert_eq!(c.padding, Some(Margin::symmetric(10, 4)));
+
+        let c = Card::new().padding_margin(Margin {
+            left: 1,
+            right: 2,
+            top: 3,
+            bottom: 4,
+        });
+        assert_eq!(
+            c.padding,
+            Some(Margin {
+                left: 1,
+                right: 2,
+                top: 3,
+                bottom: 4
+            })
+        );
+
+        // Last setter wins.
+        let c = Card::new().padding(20.0).padding_xy(8.0, 2.0);
+        assert_eq!(c.padding, Some(Margin::symmetric(8, 2)));
     }
 }
