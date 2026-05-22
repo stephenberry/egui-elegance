@@ -144,6 +144,10 @@ pub use tooltip::{Tooltip, TooltipSide};
 /// Re-export of [`egui`] for convenience.
 pub use egui;
 
+/// Re-export of [`egui::Margin`] so callers can build per-side padding
+/// values (e.g. for [`Card::padding`]) without reaching into `egui`.
+pub use egui::Margin;
+
 /// Stable codepoints for the icon glyphs bundled in the Elegance Symbols
 /// font. All icons are sourced from [Lucide](https://lucide.dev) and are
 /// kept in sync via `scripts/update_lucide_glyphs.py`. Use these in

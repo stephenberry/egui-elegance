@@ -694,9 +694,11 @@ Card::new().heading("Account").show(ui, |ui| {
     ui.label("…card contents…");
 });
 
-// Per-axis padding (points) for compact rows where the vertical
-// breathing room of the default would dominate the layout.
-Card::new().padding_xy(10.0, 4.0).show(ui, |ui| {
+// `padding` accepts anything convertible to an `egui::Margin`: a
+// scalar for uniform padding, a `Vec2` for per-axis (handy for
+// compact rows that want less vertical than horizontal room), or
+// an explicit `Margin` for full per-side control.
+Card::new().padding(egui::vec2(10.0, 4.0)).show(ui, |ui| {
     ui.horizontal(|ui| {
         ui.label("compact row of widgets");
     });
