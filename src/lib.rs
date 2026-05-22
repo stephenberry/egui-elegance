@@ -113,7 +113,7 @@ pub use input::TextInput;
 pub use knob::{Knob, KnobScale, KnobSize};
 pub use log_bar::{LogBar, LogEntry, LogKind};
 pub use menu::{Menu, MenuItem, MenuSection, SubMenuItem};
-pub use menu_bar::{MenuBar, MenuBarUi};
+pub use menu_bar::{BrandLogo, MenuBar, MenuBarUi};
 pub use metric_slider::MetricSlider;
 pub use modal::Modal;
 pub use pairing::{PairItem, Pairing};

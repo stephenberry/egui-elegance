@@ -26,6 +26,20 @@
 //! # });
 //! ```
 //!
+//! By default the brand renders as a sky-blue square followed by the label.
+//! Use [`MenuBar::brand_logo`] to swap the square for a different accent
+//! colour, a unicode glyph, an image, or to omit the logo slot entirely:
+//!
+//! ```no_run
+//! # use elegance::{Accent, BrandLogo, MenuBar};
+//! # egui::__run_test_ui(|ui| {
+//! MenuBar::new("app_menubar")
+//!     .brand("Elegance")
+//!     .brand_logo(BrandLogo::Glyph("\u{25C6}".into()))
+//!     .show(ui, |_bar| {});
+//! # });
+//! ```
+//!
 //! Dropdowns close on outside-click, `Esc`, or clicking an item.
 //!
 //! For a single click-to-open menu attached to an arbitrary trigger button,
@@ -34,8 +48,9 @@
 use std::hash::Hash;
 
 use egui::{
-    Align, Color32, CornerRadius, Frame, Id, Layout, Margin, Popup, PopupCloseBehavior, Pos2, Rect,
-    Sense, SetOpenCommand, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, emath::RectAlign,
+    Align, Color32, CornerRadius, Frame, Id, ImageSource, Layout, Margin, Popup,
+    PopupCloseBehavior, Pos2, Rect, Sense, SetOpenCommand, Stroke, Ui, Vec2, WidgetInfo,
+    WidgetText, WidgetType, emath::RectAlign,
 };
 
 use crate::theme::{Accent, Theme, mix, with_alpha};
@@ -52,6 +67,56 @@ struct StatusContent {
     dot: Option<Color32>,
 }
 
+/// What to paint in the brand's logo slot, left of the brand label.
+///
+/// The default ([`BrandLogo::Square`] with [`Accent::Sky`]) is used when a
+/// [`MenuBar`] sets brand text without an explicit logo. Use
+/// [`MenuBar::brand_logo`] to override it.
+///
+/// The slot is opinionated: it is a fixed size and paints glyphs in the
+/// theme's body text colour. Pick the variant that matches the kind of
+/// logo you have, and use [`BrandLogo::Image`] when you need full control
+/// over colour and detail.
+#[derive(Debug, Clone)]
+pub enum BrandLogo {
+    /// Omit the logo slot entirely. Use this to suppress the default
+    /// square next to a brand label, giving a text-only brand that sits
+    /// flush against the strip's left padding.
+    None,
+    /// Filled square in the given accent colour. The library default
+    /// (with [`Accent::Sky`]).
+    Square(Accent),
+    /// A unicode glyph, e.g. a character from an icon font like Material
+    /// Icons or Phosphor. Painted in the theme's body text colour at the
+    /// fixed logo size; styling beyond the glyph text itself is not
+    /// honoured. For a coloured or detailed mark, use [`BrandLogo::Image`].
+    Glyph(String),
+    /// A bitmap or SVG image, scaled to the logo size.
+    ///
+    /// The host app must have registered egui image loaders (e.g. via
+    /// `egui_extras::install_image_loaders`) for this to render; without
+    /// loaders, egui paints its placeholder.
+    ///
+    /// The `'static` bound suits the two common cases: a compiled-in
+    /// asset from [`egui::include_image!`], or an owned URI string via
+    /// `ImageSource::Uri(Cow::Owned(...))`. Borrowed URIs need to be
+    /// promoted to owned (or interned) by the caller.
+    Image(ImageSource<'static>),
+}
+
+impl Default for BrandLogo {
+    fn default() -> Self {
+        Self::Square(Accent::Sky)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Brand {
+    text: Option<WidgetText>,
+    /// `None` means "use the default logo if `text` is set, otherwise omit".
+    logo: Option<BrandLogo>,
+}
+
 /// A horizontal desktop-style menu bar with click-to-open dropdowns.
 ///
 /// See the module-level docs for an example.
@@ -59,7 +124,7 @@ struct StatusContent {
 #[must_use = "Call `.show(ui, |bar| ...)` to render the menu bar."]
 pub struct MenuBar {
     id_salt: Id,
-    brand: Option<WidgetText>,
+    brand: Option<Brand>,
     status: Option<StatusContent>,
 }
 
@@ -74,11 +139,35 @@ impl MenuBar {
         }
     }
 
-    /// Show a brand label on the left, preceded by a small accent square.
+    /// Show a brand label on the left. By default it is preceded by a small
+    /// sky-blue accent square; call [`MenuBar::brand_logo`] to override that
+    /// visual.
+    ///
     /// Use this for the application name.
     #[inline]
     pub fn brand(mut self, text: impl Into<WidgetText>) -> Self {
-        self.brand = Some(text.into());
+        let logo = self.brand.and_then(|b| b.logo);
+        self.brand = Some(Brand {
+            text: Some(text.into()),
+            logo,
+        });
+        self
+    }
+
+    /// Override the brand's logo slot. Pass [`BrandLogo::Square`] with a
+    /// different [`Accent`] to recolour the default square,
+    /// [`BrandLogo::Glyph`] for a unicode/icon-font glyph, [`BrandLogo::Image`]
+    /// for a bitmap or SVG, or [`BrandLogo::None`] for a text-only brand.
+    ///
+    /// Calling this without [`MenuBar::brand`] renders the logo on its own
+    /// (no brand label).
+    #[inline]
+    pub fn brand_logo(mut self, logo: BrandLogo) -> Self {
+        let text = self.brand.and_then(|b| b.text);
+        self.brand = Some(Brand {
+            text,
+            logo: Some(logo),
+        });
         self
     }
 
@@ -161,7 +250,7 @@ impl MenuBar {
                 ui.set_min_height(theme.typography.body + TRIGGER_PAD_Y * 2.0);
 
                 if let Some(brand) = self.brand.as_ref() {
-                    paint_brand(ui, &theme, brand.clone());
+                    paint_brand(ui, &theme, brand);
                 }
 
                 let mut bar = MenuBarUi {
@@ -375,23 +464,80 @@ impl<'u> MenuBarUi<'u> {
     }
 }
 
-fn paint_brand(ui: &mut Ui, theme: &Theme, text: WidgetText) {
+fn paint_brand(ui: &mut Ui, theme: &Theme, brand: &Brand) {
     let p = &theme.palette;
     let t = &theme.typography;
 
-    let logo_size = Vec2::splat(BRAND_LOGO_SIZE);
-    let (logo_rect, _) = ui.allocate_exact_size(logo_size, Sense::hover());
-    ui.painter()
-        .rect_filled(logo_rect, CornerRadius::same(3), p.accent_fill(Accent::Sky));
-    ui.add_space(8.0);
+    // Resolve the effective logo: an explicit override wins; otherwise the
+    // library default applies when there is brand text to sit next to.
+    // `Brand` is constructed only via `MenuBar::brand` or
+    // `MenuBar::brand_logo`, each of which sets at least one of the two
+    // fields — so the (None, None) state is unreachable.
+    let effective_logo = match (&brand.logo, &brand.text) {
+        (Some(logo), _) => logo.clone(),
+        (None, Some(_)) => BrandLogo::default(),
+        (None, None) => unreachable!("Brand requires at least one of text or logo"),
+    };
 
-    let galley = crate::theme::placeholder_galley(ui, text.text(), t.body, true, f32::INFINITY);
-    let label_size = Vec2::new(galley.size().x, galley.size().y + 4.0);
-    let (rect, _) = ui.allocate_exact_size(label_size, Sense::hover());
-    let pos = Pos2::new(rect.min.x, rect.center().y - galley.size().y * 0.5);
-    ui.painter().galley(pos, galley, p.text);
+    let logo_painted = paint_brand_logo(ui, theme, &effective_logo);
 
-    ui.add_space(14.0);
+    if logo_painted && brand.text.is_some() {
+        ui.add_space(8.0);
+    }
+
+    if let Some(text) = brand.text.as_ref() {
+        let galley = crate::theme::placeholder_galley(ui, text.text(), t.body, true, f32::INFINITY);
+        let label_size = Vec2::new(galley.size().x, galley.size().y + 4.0);
+        let (rect, _) = ui.allocate_exact_size(label_size, Sense::hover());
+        let pos = Pos2::new(rect.min.x, rect.center().y - galley.size().y * 0.5);
+        ui.painter().galley(pos, galley, p.text);
+    }
+
+    if logo_painted || brand.text.is_some() {
+        ui.add_space(14.0);
+    }
+}
+
+/// Paint the logo slot. Returns `true` if anything occupied the slot, so
+/// the caller knows whether to insert the gap before the brand label.
+fn paint_brand_logo(ui: &mut Ui, theme: &Theme, logo: &BrandLogo) -> bool {
+    let p = &theme.palette;
+    let size = Vec2::splat(BRAND_LOGO_SIZE);
+
+    match logo {
+        BrandLogo::None => false,
+        BrandLogo::Square(accent) => {
+            let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+            ui.painter()
+                .rect_filled(rect, CornerRadius::same(3), p.accent_fill(*accent));
+            true
+        }
+        BrandLogo::Glyph(glyph) => {
+            let galley =
+                crate::theme::placeholder_galley(ui, glyph, BRAND_LOGO_SIZE, true, f32::INFINITY);
+            // Allocate enough room for the actual glyph metrics — line
+            // height at a 14pt body font typically exceeds BRAND_LOGO_SIZE,
+            // so an undersized slot would lie to the surrounding layout.
+            let slot = Vec2::new(
+                galley.size().x.max(BRAND_LOGO_SIZE),
+                galley.size().y.max(BRAND_LOGO_SIZE),
+            );
+            let (rect, _) = ui.allocate_exact_size(slot, Sense::hover());
+            let pos = Pos2::new(
+                rect.center().x - galley.size().x * 0.5,
+                rect.center().y - galley.size().y * 0.5,
+            );
+            ui.painter().galley(pos, galley, p.text);
+            true
+        }
+        BrandLogo::Image(src) => {
+            let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+            egui::Image::new(src.clone())
+                .fit_to_exact_size(size)
+                .paint_at(ui, rect);
+            true
+        }
+    }
 }
 
 fn paint_status(ui: &mut Ui, theme: &Theme, status: &StatusContent) {
