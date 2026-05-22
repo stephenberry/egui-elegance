@@ -6,11 +6,11 @@
 //! Press `Esc` to dismiss.
 
 use egui::{
-    accesskit, Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Key, Layout,
-    Margin, Order, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Key, Layout, Margin,
+    Order, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, accesskit,
 };
 
-use crate::{theme::Theme, Accent, Button, ButtonSize};
+use crate::{Accent, Button, ButtonSize, theme::Theme};
 
 /// Boxed `FnOnce(&mut Ui)` callback used by the footer slots.
 type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;
@@ -357,10 +357,8 @@ impl<'a> Modal<'a> {
         // target the close button when a heading is present (it has a
         // stable id and is always interactive); without a heading there's
         // no intrinsic focus target, so focus is left to the caller.
-        if just_opened {
-            if let Some(id) = close_btn_id {
-                ctx.memory_mut(|m| m.request_focus(id));
-            }
+        if just_opened && let Some(id) = close_btn_id {
+            ctx.memory_mut(|m| m.request_focus(id));
         }
 
         if should_close {

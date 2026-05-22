@@ -28,8 +28,8 @@
 use std::hash::Hash;
 
 use egui::{
-    emath::RectAlign, Color32, CornerRadius, Frame, Id, InnerResponse, Margin, Pos2, Rect,
-    Response, Shape, Stroke, Ui, Vec2, WidgetText,
+    Color32, CornerRadius, Frame, Id, InnerResponse, Margin, Pos2, Rect, Response, Shape, Stroke,
+    Ui, Vec2, WidgetText, emath::RectAlign,
 };
 
 use crate::theme::Theme;

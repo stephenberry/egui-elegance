@@ -7,12 +7,12 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    emath::Numeric, Color32, CornerRadius, CursorIcon, Event, EventFilter, Key, Painter, Pos2,
-    Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText,
-    WidgetType,
+    Color32, CornerRadius, CursorIcon, Event, EventFilter, Key, Painter, Pos2, Rect, Response,
+    Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    emath::Numeric,
 };
 
-use crate::theme::{with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, with_alpha};
 
 /// Visual style of the slider thumb.
 ///
@@ -285,22 +285,22 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
             );
 
             // Update value from pointer while the button is held on the widget.
-            if response.is_pointer_button_down_on() {
-                if let Some(pos) = response.interact_pointer_pos() {
-                    let clamped_x = pos.x.clamp(track_left, track_right);
-                    let frac = ((clamped_x - track_left) / track_span).clamp(0.0, 1.0) as f64;
-                    let mut new_value = lo + frac * (hi - lo);
-                    if let Some(step) = step {
-                        if step > 0.0 {
-                            new_value = lo + ((new_value - lo) / step).round() * step;
-                        }
-                    }
-                    new_value = new_value.clamp(lo, hi);
-                    if (new_value - current).abs() > f64::EPSILON {
-                        current = new_value;
-                        *self.value = T::from_f64(current);
-                        response.mark_changed();
-                    }
+            if response.is_pointer_button_down_on()
+                && let Some(pos) = response.interact_pointer_pos()
+            {
+                let clamped_x = pos.x.clamp(track_left, track_right);
+                let frac = ((clamped_x - track_left) / track_span).clamp(0.0, 1.0) as f64;
+                let mut new_value = lo + frac * (hi - lo);
+                if let Some(step) = step
+                    && step > 0.0
+                {
+                    new_value = lo + ((new_value - lo) / step).round() * step;
+                }
+                new_value = new_value.clamp(lo, hi);
+                if (new_value - current).abs() > f64::EPSILON {
+                    current = new_value;
+                    *self.value = T::from_f64(current);
+                    response.mark_changed();
                 }
             }
 
@@ -350,10 +350,10 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                             _ => None,
                         };
                         if let Some(mut new_value) = next {
-                            if let Some(s) = step {
-                                if s > 0.0 {
-                                    new_value = lo + ((new_value - lo) / s).round() * s;
-                                }
+                            if let Some(s) = step
+                                && s > 0.0
+                            {
+                                new_value = lo + ((new_value - lo) / s).round() * s;
                             }
                             new_value = new_value.clamp(lo, hi);
                             if (new_value - current).abs() > f64::EPSILON {
@@ -414,7 +414,15 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                     SliderHandle::Circle => (p.text, Stroke::new(2.0, accent_fill)),
                     SliderHandle::Line => (line_body, Stroke::NONE),
                 };
-                paint_handle(painter, self.handle, thumb_center, thumb_d, body, ring, halo);
+                paint_handle(
+                    painter,
+                    self.handle,
+                    thumb_center,
+                    thumb_d,
+                    body,
+                    ring,
+                    halo,
+                );
 
                 if self.show_value {
                     let text = self.format_value(current);

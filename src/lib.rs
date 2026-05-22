@@ -106,7 +106,7 @@ pub use color_picker::ColorPicker;
 pub use context_menu::ContextMenu;
 pub use drawer::{Drawer, DrawerSide};
 pub use file_drop_zone::{FileDropResponse, FileDropZone};
-pub use flash::{flash_error, flash_success, FlashKind, ResponseFlashExt, FLASH_DURATION};
+pub use flash::{FLASH_DURATION, FlashKind, ResponseFlashExt, flash_error, flash_success};
 pub use gauge::{GaugeZones, LinearGauge, RadialGauge};
 pub use indicator::{Indicator, IndicatorState};
 pub use input::TextInput;

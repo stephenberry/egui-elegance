@@ -46,11 +46,11 @@
 use std::hash::Hash;
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, RichText, Sense,
-    Stroke, TextWrapMode, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, RichText, Sense, Stroke,
+    TextWrapMode, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
 };
 
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// A single tab cell rendered by [`BrowserTabs`].
 #[derive(Clone, Debug)]
@@ -558,18 +558,18 @@ impl BrowserTabs {
             );
         }
 
-        if let Some(id) = activate_target {
-            if self.selected.as_deref() != Some(id.as_str()) {
-                self.selected = Some(id.clone());
-                self.events.push(BrowserTabsEvent::Activated(id));
-            }
+        if let Some(id) = activate_target
+            && self.selected.as_deref() != Some(id.as_str())
+        {
+            self.selected = Some(id.clone());
+            self.events.push(BrowserTabsEvent::Activated(id));
         }
-        if let Some(id) = close_target {
-            if self.remove_tab(&id) {
-                self.events.push(BrowserTabsEvent::Closed(id));
-                if let Some(new_active) = self.selected.clone() {
-                    self.events.push(BrowserTabsEvent::Activated(new_active));
-                }
+        if let Some(id) = close_target
+            && self.remove_tab(&id)
+        {
+            self.events.push(BrowserTabsEvent::Closed(id));
+            if let Some(new_active) = self.selected.clone() {
+                self.events.push(BrowserTabsEvent::Activated(new_active));
             }
         }
         if new_clicked {

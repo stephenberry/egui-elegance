@@ -28,12 +28,12 @@
 use std::{collections::VecDeque, time::Duration};
 
 use egui::{
-    accesskit, Align2, Area, Color32, Context, CornerRadius, Id, Order, Pos2, Rect, Response,
-    Sense, Stroke, StrokeKind, Ui, Vec2,
+    Align2, Area, Color32, Context, CornerRadius, Id, Order, Pos2, Rect, Response, Sense, Stroke,
+    StrokeKind, Ui, Vec2, accesskit,
 };
 
-use crate::theme::Theme;
 use crate::BadgeTone;
+use crate::theme::Theme;
 
 /// How long the fade-out animation takes, in seconds. Counted against
 /// a toast's total lifetime (i.e., the toast disappears at

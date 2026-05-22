@@ -1,8 +1,8 @@
 //! A checkbox with a sky accent.
 
 use egui::{
-    vec2, Color32, CornerRadius, FontSelection, Response, Sense, Stroke, Ui, Vec2, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, FontSelection, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
+    WidgetText, WidgetType, vec2,
 };
 
 use crate::theme::Theme;

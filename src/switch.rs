@@ -16,12 +16,12 @@
 //! The knob transition is animated via [`egui::Context::animate_bool_responsive`].
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, FontSelection, Response, Sense, Stroke, Ui, Vec2, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, FontSelection, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
+    WidgetText, WidgetType, pos2, vec2,
 };
 
-use crate::theme::{mix, with_alpha, Theme};
 use crate::Accent;
+use crate::theme::{Theme, mix, with_alpha};
 
 /// A sliding on/off switch bound to a `&mut bool`.
 #[must_use = "Add this widget with `ui.add(...)`."]

@@ -56,12 +56,12 @@
 use std::hash::Hash;
 
 use egui::{
-    accesskit, emath, epaint::Shadow, Align, Area, Color32, Context, CornerRadius, Frame, Id, Key,
-    Layout, Margin, Order, Pos2, Rect, Response, Sense, Stroke, Ui, WidgetInfo, WidgetText,
-    WidgetType,
+    Align, Area, Color32, Context, CornerRadius, Frame, Id, Key, Layout, Margin, Order, Pos2, Rect,
+    Response, Sense, Stroke, Ui, WidgetInfo, WidgetText, WidgetType, accesskit, emath,
+    epaint::Shadow,
 };
 
-use crate::{theme::Theme, Button, ButtonSize};
+use crate::{Button, ButtonSize, theme::Theme};
 
 /// Which edge of the viewport the drawer slides in from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,10 +193,8 @@ impl<'a> Drawer<'a> {
         if just_opened {
             focus_state.prev_focus = ctx.memory(|m| m.focused());
         }
-        if just_closed {
-            if let Some(prev) = focus_state.prev_focus.take() {
-                ctx.memory_mut(|m| m.request_focus(prev));
-            }
+        if just_closed && let Some(prev) = focus_state.prev_focus.take() {
+            ctx.memory_mut(|m| m.request_focus(prev));
         }
         focus_state.was_open = is_open;
         ctx.data_mut(|d| d.insert_temp(focus_storage, focus_state));
@@ -344,10 +342,8 @@ impl<'a> Drawer<'a> {
         // so Tab navigates within the dialog. Targets the close button (it's
         // always interactive when chrome is rendered); without a title there
         // is no intrinsic focus target and focus is left to the caller.
-        if just_opened {
-            if let Some(id) = close_btn_id {
-                ctx.memory_mut(|m| m.request_focus(id));
-            }
+        if just_opened && let Some(id) = close_btn_id {
+            ctx.memory_mut(|m| m.request_focus(id));
         }
 
         if should_close {

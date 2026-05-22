@@ -2,7 +2,7 @@
 
 use egui::{CornerRadius, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo, WidgetType};
 
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// The three visual states of an [`Indicator`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

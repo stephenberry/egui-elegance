@@ -20,13 +20,14 @@ use std::f32::consts::PI;
 use std::ops::RangeInclusive;
 
 use egui::{
+    Align2, Color32, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
+    WidgetText, WidgetType,
     emath::Numeric,
     epaint::{PathShape, PathStroke},
-    pos2, vec2, Align2, Color32, FontId, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+    pos2, vec2,
 };
 
-use crate::theme::{with_alpha, Accent, Theme};
+use crate::theme::{Accent, Theme, with_alpha};
 
 /// Visual size preset for [`Knob`].
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -383,10 +384,10 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
             }
             let eff_step = step.or(if T::INTEGRAL { Some(1.0) } else { None });
             let mut snapped = v;
-            if let Some(s) = eff_step {
-                if s > 0.0 {
-                    snapped = lo + ((v - lo) / s).round() * s;
-                }
+            if let Some(s) = eff_step
+                && s > 0.0
+            {
+                snapped = lo + ((v - lo) / s).round() * s;
             }
             snapped.clamp(lo, hi)
         };
@@ -463,27 +464,25 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
 
             // ---- interaction ----
             if enabled {
-                if response.double_clicked() {
-                    if let Some(d) = default_value {
-                        let snapped = snap(d.clamp(lo, hi));
-                        if (snapped - current).abs() > f64::EPSILON {
-                            current = snapped;
-                            *value = T::from_f64(current);
-                            response.mark_changed();
-                        }
+                if response.double_clicked()
+                    && let Some(d) = default_value
+                {
+                    let snapped = snap(d.clamp(lo, hi));
+                    if (snapped - current).abs() > f64::EPSILON {
+                        current = snapped;
+                        *value = T::from_f64(current);
+                        response.mark_changed();
                     }
                 }
 
                 if response.drag_started() {
                     let alt = ui.input(|i| i.modifiers.alt);
-                    if alt {
-                        if let Some(d) = default_value {
-                            let snapped = snap(d.clamp(lo, hi));
-                            if (snapped - current).abs() > f64::EPSILON {
-                                current = snapped;
-                                *value = T::from_f64(current);
-                                response.mark_changed();
-                            }
+                    if alt && let Some(d) = default_value {
+                        let snapped = snap(d.clamp(lo, hi));
+                        if (snapped - current).abs() > f64::EPSILON {
+                            current = snapped;
+                            *value = T::from_f64(current);
+                            response.mark_changed();
                         }
                     }
                 }
@@ -620,10 +619,8 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                     if end_ {
                         next = hi;
                     }
-                    if reset {
-                        if let Some(d) = default_value {
-                            next = d.clamp(lo, hi);
-                        }
+                    if reset && let Some(d) = default_value {
+                        next = d.clamp(lo, hi);
                     }
                     next = snap(next);
                     if (next - current).abs() > f64::EPSILON {
@@ -787,26 +784,26 @@ fn nudge_value(
     value_to_pos: &dyn Fn(f64) -> f64,
     pos_to_value: &dyn Fn(f64) -> f64,
 ) -> f64 {
-    if let Some(detents) = detents {
-        if !detents.is_empty() {
-            let mut sorted: Vec<f64> = detents.iter().map(|(v, _)| *v).collect();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            let mut idx = 0usize;
-            let mut best = (sorted[0] - current).abs();
-            for (i, v) in sorted.iter().enumerate().skip(1) {
-                let dv = (v - current).abs();
-                if dv < best {
-                    best = dv;
-                    idx = i;
-                }
+    if let Some(detents) = detents
+        && !detents.is_empty()
+    {
+        let mut sorted: Vec<f64> = detents.iter().map(|(v, _)| *v).collect();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut idx = 0usize;
+        let mut best = (sorted[0] - current).abs();
+        for (i, v) in sorted.iter().enumerate().skip(1) {
+            let dv = (v - current).abs();
+            if dv < best {
+                best = dv;
+                idx = i;
             }
-            let next_idx = if dir > 0.0 {
-                (idx + 1).min(sorted.len() - 1)
-            } else {
-                idx.saturating_sub(1)
-            };
-            return sorted[next_idx];
         }
+        let next_idx = if dir > 0.0 {
+            (idx + 1).min(sorted.len() - 1)
+        } else {
+            idx.saturating_sub(1)
+        };
+        return sorted[next_idx];
     }
     let effective_step = step.or(if integral { Some(1.0) } else { None });
     if let Some(s) = effective_step {

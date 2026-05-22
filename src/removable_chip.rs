@@ -10,12 +10,12 @@
 use std::hash::Hash;
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, Sense, Shape,
-    Stroke, StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
 };
 
-use crate::theme::{themed_input_visuals, with_alpha, with_themed_visuals, Theme};
 use crate::Accent;
+use crate::theme::{Theme, themed_input_visuals, with_alpha, with_themed_visuals};
 
 /// A bordered inline text input with an `×` close button, bound to a single
 /// `String`.

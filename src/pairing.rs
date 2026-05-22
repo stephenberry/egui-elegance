@@ -3,8 +3,8 @@
 //! See [`Pairing`] for the full interaction model and an example.
 
 use egui::{
-    epaint::CubicBezierShape, Align2, Color32, CornerRadius, FontId, Id, Pos2, Rect, Response,
-    Sense, Shape, Stroke, StrokeKind, Ui, Vec2,
+    Align2, Color32, CornerRadius, FontId, Id, Pos2, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, Ui, Vec2, epaint::CubicBezierShape,
 };
 use std::hash::Hash;
 
@@ -362,27 +362,25 @@ impl<'a> Pairing<'a> {
             let pointer = ui.input(|i| i.pointer.hover_pos());
             let pressed = ui.input(|i| i.pointer.primary_clicked());
             let mut consumed = false;
-            if pressed {
-                if let Some(m) = pointer {
-                    if outer_rect.contains(m) {
-                        let mut remove = None;
-                        for (idx, (lid, rid)) in pairs.iter().enumerate() {
-                            if let (Some(lp), Some(rp)) = (
-                                port_of(&hits, Side::Left, lid),
-                                port_of(&hits, Side::Right, rid),
-                            ) {
-                                if bezier_hit(m, lp, rp, LINE_HIT_THRESHOLD) {
-                                    remove = Some(idx);
-                                    break;
-                                }
-                            }
-                        }
-                        if let Some(i) = remove {
-                            pairs.remove(i);
-                            state.selection = None;
-                            consumed = true;
-                        }
+            if pressed
+                && let Some(m) = pointer
+                && outer_rect.contains(m)
+            {
+                let mut remove = None;
+                for (idx, (lid, rid)) in pairs.iter().enumerate() {
+                    if let (Some(lp), Some(rp)) = (
+                        port_of(&hits, Side::Left, lid),
+                        port_of(&hits, Side::Right, rid),
+                    ) && bezier_hit(m, lp, rp, LINE_HIT_THRESHOLD)
+                    {
+                        remove = Some(idx);
+                        break;
                     }
+                }
+                if let Some(i) = remove {
+                    pairs.remove(i);
+                    state.selection = None;
+                    consumed = true;
                 }
             }
             if !consumed && response.clicked() {
@@ -444,25 +442,25 @@ impl<'a> Pairing<'a> {
             }
 
             // Ghost line while selecting.
-            if let Some((sel_side, sel_id)) = &state.selection {
-                if let Some(src) = port_of(&hits, *sel_side, sel_id) {
-                    let end = snap_target
-                        .as_ref()
-                        .and_then(|(s, i)| port_of(&hits, *s, i))
-                        .or_else(|| {
-                            ui.input(|i| i.pointer.hover_pos())
-                                .filter(|p| outer_rect.contains(*p))
-                        });
-                    if let Some(e) = end {
-                        let ghost_stroke = Stroke::new(1.75, with_alpha(palette.sky, 140));
-                        paint_bezier(painter, src, e, ghost_stroke, true);
-                        if snap_target.is_none() {
-                            painter.circle_filled(e, 3.5, with_alpha(palette.text_muted, 165));
-                        }
+            if let Some((sel_side, sel_id)) = &state.selection
+                && let Some(src) = port_of(&hits, *sel_side, sel_id)
+            {
+                let end = snap_target
+                    .as_ref()
+                    .and_then(|(s, i)| port_of(&hits, *s, i))
+                    .or_else(|| {
+                        ui.input(|i| i.pointer.hover_pos())
+                            .filter(|p| outer_rect.contains(*p))
+                    });
+                if let Some(e) = end {
+                    let ghost_stroke = Stroke::new(1.75, with_alpha(palette.sky, 140));
+                    paint_bezier(painter, src, e, ghost_stroke, true);
+                    if snap_target.is_none() {
+                        painter.circle_filled(e, 3.5, with_alpha(palette.text_muted, 165));
                     }
-                    // Keep the ghost tracking the cursor.
-                    ui.ctx().request_repaint();
                 }
+                // Keep the ghost tracking the cursor.
+                ui.ctx().request_repaint();
             }
 
             // Nodes on top of lines.
@@ -556,13 +554,14 @@ fn compute_aligned_positions(
                 (r == &other_item.id).then_some(l)
             }
         });
-        if let Some(pid) = partner_id {
-            if let Some(ai) = aligned.iter().position(|a| &a.id == pid) {
-                if other_idx < max_pos && !slot_taken[other_idx] && positions[ai] == usize::MAX {
-                    positions[ai] = other_idx;
-                    slot_taken[other_idx] = true;
-                }
-            }
+        if let Some(pid) = partner_id
+            && let Some(ai) = aligned.iter().position(|a| &a.id == pid)
+            && other_idx < max_pos
+            && !slot_taken[other_idx]
+            && positions[ai] == usize::MAX
+        {
+            positions[ai] = other_idx;
+            slot_taken[other_idx] = true;
         }
     }
 
@@ -587,30 +586,31 @@ fn handle_node_click(state: &mut State, side: Side, id: &str, pairs: &mut Vec<(S
     let sel = state.selection.clone();
 
     // Re-clicking the selected node cancels.
-    if let Some((s, sid)) = &sel {
-        if *s == side && sid == id {
-            state.selection = None;
-            return;
-        }
+    if let Some((s, sid)) = &sel
+        && *s == side
+        && sid == id
+    {
+        state.selection = None;
+        return;
     }
 
     // Opposite-side click → pair (swap if target was already paired).
-    if let Some((sel_side, sel_id)) = &sel {
-        if *sel_side != side {
-            if paired {
-                pairs.retain(|(l, r)| match side {
-                    Side::Left => l != id,
-                    Side::Right => r != id,
-                });
-            }
-            let pair = match side {
-                Side::Left => (id.to_string(), sel_id.clone()),
-                Side::Right => (sel_id.clone(), id.to_string()),
-            };
-            pairs.push(pair);
-            state.selection = None;
-            return;
+    if let Some((sel_side, sel_id)) = &sel
+        && *sel_side != side
+    {
+        if paired {
+            pairs.retain(|(l, r)| match side {
+                Side::Left => l != id,
+                Side::Right => r != id,
+            });
         }
+        let pair = match side {
+            Side::Left => (id.to_string(), sel_id.clone()),
+            Side::Right => (sel_id.clone(), id.to_string()),
+        };
+        pairs.push(pair);
+        state.selection = None;
+        return;
     }
 
     // Otherwise (no selection, or same-side click): unpair if needed, then select.

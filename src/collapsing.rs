@@ -2,8 +2,8 @@
 //! that hides or reveals a body of content.
 
 use egui::{
-    pos2, Color32, Id, InnerResponse, Pos2, Response, Sense, Stroke, Ui, Vec2, WidgetInfo,
-    WidgetText, WidgetType,
+    Color32, Id, InnerResponse, Pos2, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText,
+    WidgetType, pos2,
 };
 
 use crate::theme::Theme;

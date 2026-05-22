@@ -13,12 +13,13 @@
 use std::f32::consts::{PI, TAU};
 
 use egui::{
+    Color32, Pos2, Response, Sense, Ui, Vec2, Widget, WidgetInfo, WidgetType,
     epaint::{PathShape, PathStroke},
-    pos2, Color32, Pos2, Response, Sense, Ui, Vec2, Widget, WidgetInfo, WidgetType,
+    pos2,
 };
 
 use crate::gauge::GaugeZones;
-use crate::theme::{placeholder_galley, Accent, Theme, BASELINE_FRAC};
+use crate::theme::{Accent, BASELINE_FRAC, Theme, placeholder_galley};
 
 /// A themed determinate circular progress indicator.
 ///

@@ -8,13 +8,14 @@
 //! by the card's accent shows the recent trend at a glance.
 
 use egui::{
-    epaint::{Mesh, PathShape, PathStroke},
-    pos2, Align, Color32, CornerRadius, FontId, FontSelection, Frame, Layout, Margin, Pos2, Rect,
+    Align, Color32, CornerRadius, FontId, FontSelection, Frame, Layout, Margin, Pos2, Rect,
     Response, Sense, Shape, Stroke, StrokeKind, TextWrapMode, Ui, Vec2, Widget, WidgetInfo,
     WidgetText, WidgetType,
+    epaint::{Mesh, PathShape, PathStroke},
+    pos2,
 };
 
-use crate::theme::{with_alpha, Accent, Palette, Theme};
+use crate::theme::{Accent, Palette, Theme, with_alpha};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum DeltaDir {
@@ -313,24 +314,22 @@ impl Widget for StatCard<'_> {
 
                             ui.add_space(2.0);
 
-                            if !loading {
-                                if let Some(trend) = trend {
-                                    let g = WidgetText::from(
-                                        egui::RichText::new(trend.text())
-                                            .color(p.text_faint)
-                                            .size(small_size),
-                                    )
-                                    .into_galley(
-                                        ui,
-                                        Some(TextWrapMode::Truncate),
-                                        ui.available_width(),
-                                        FontSelection::FontId(FontId::proportional(small_size)),
-                                    );
-                                    let size = g.size();
-                                    let (tr, _) = ui.allocate_exact_size(size, Sense::hover());
-                                    if ui.is_rect_visible(tr) {
-                                        ui.painter().galley(tr.min, g, p.text_faint);
-                                    }
+                            if !loading && let Some(trend) = trend {
+                                let g = WidgetText::from(
+                                    egui::RichText::new(trend.text())
+                                        .color(p.text_faint)
+                                        .size(small_size),
+                                )
+                                .into_galley(
+                                    ui,
+                                    Some(TextWrapMode::Truncate),
+                                    ui.available_width(),
+                                    FontSelection::FontId(FontId::proportional(small_size)),
+                                );
+                                let size = g.size();
+                                let (tr, _) = ui.allocate_exact_size(size, Sense::hover());
+                                if ui.is_rect_visible(tr) {
+                                    ui.painter().galley(tr.min, g, p.text_faint);
                                 }
                             }
 

@@ -1,6 +1,6 @@
 //! Tab bar with a sky-coloured underline on the active tab.
 
-use egui::{vec2, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType, vec2};
 
 use crate::theme::Theme;
 

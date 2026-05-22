@@ -11,8 +11,8 @@
 //! ```
 
 use eframe::egui;
-use egui_kittest::kittest::Queryable;
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use elegance::{
     Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
@@ -20,8 +20,8 @@ use elegance::{
     KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, PairItem, Pairing,
     PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch,
-    TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps,
+    StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {

@@ -32,7 +32,7 @@ use egui::{
     WidgetInfo, WidgetText, WidgetType,
 };
 
-use crate::theme::{with_alpha, Theme};
+use crate::theme::{Theme, with_alpha};
 
 /// A click-to-open popup menu anchored below a trigger [`Response`].
 ///
@@ -479,9 +479,9 @@ fn sub_menu_show<R>(
 ) -> Option<R> {
     use egui::containers::menu::{MenuConfig, MenuState};
     use egui::{
+        Frame, Layout, Margin, PointerButton, Popup, PopupCloseBehavior, Rect, UiKind, UiStackInfo,
         emath::{Align, RectAlign},
-        pos2, Frame, Layout, Margin, PointerButton, Popup, PopupCloseBehavior, Rect, UiKind,
-        UiStackInfo,
+        pos2,
     };
 
     // Horizontal gap between the trigger row's right edge and the

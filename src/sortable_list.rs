@@ -10,7 +10,7 @@ use egui::{
 };
 
 use crate::badge::BadgeTone;
-use crate::theme::{with_alpha, Palette, Theme};
+use crate::theme::{Palette, Theme, with_alpha};
 
 const ROW_HEIGHT: f32 = 50.0;
 const ROW_GAP: f32 = 6.0;
@@ -174,10 +174,10 @@ impl<'a> SortableList<'a> {
 
         // Load and validate cross-frame drag state.
         let mut drag: Option<DragState> = ui.ctx().data(|d| d.get_temp(id_salt));
-        if let Some(s) = &drag {
-            if s.origin_idx >= items.len() {
-                drag = None;
-            }
+        if let Some(s) = &drag
+            && s.origin_idx >= items.len()
+        {
+            drag = None;
         }
 
         // Cancel on Escape.
@@ -277,10 +277,10 @@ impl<'a> SortableList<'a> {
         }
 
         // Render the drop slot.
-        if let Some(rect) = slot_rect {
-            if ui.is_rect_visible(rect) {
-                paint_slot(ui, rect, &theme);
-            }
+        if let Some(rect) = slot_rect
+            && ui.is_rect_visible(rect)
+        {
+            paint_slot(ui, rect, &theme);
         }
 
         // Update target index and render the ghost row.
@@ -306,16 +306,14 @@ impl<'a> SortableList<'a> {
         }
 
         // Commit a drop or clear cancelled state.
-        if commit_drop {
-            if let Some(s) = drag.take() {
-                let mut final_idx = s.target_idx.min(n);
-                if final_idx > s.origin_idx {
-                    final_idx -= 1;
-                }
-                if final_idx != s.origin_idx && final_idx < items.len() {
-                    let moved = items.remove(s.origin_idx);
-                    items.insert(final_idx, moved);
-                }
+        if commit_drop && let Some(s) = drag.take() {
+            let mut final_idx = s.target_idx.min(n);
+            if final_idx > s.origin_idx {
+                final_idx -= 1;
+            }
+            if final_idx != s.origin_idx && final_idx < items.len() {
+                let moved = items.remove(s.origin_idx);
+                items.insert(final_idx, moved);
             }
         }
 

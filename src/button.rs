@@ -6,11 +6,11 @@
 //! actions, [`Button::outline`] gives a transparent, bordered treatment.
 
 use egui::{
-    pos2, vec2, Color32, CornerRadius, Response, Sense, Shape, Stroke, Ui, Vec2, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, Response, Sense, Shape, Stroke, Ui, Vec2, Widget, WidgetInfo,
+    WidgetText, WidgetType, pos2, vec2,
 };
 
-use crate::theme::{mix, Accent, Theme};
+use crate::theme::{Accent, Theme, mix};
 
 /// Size presets for buttons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

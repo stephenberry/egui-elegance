@@ -20,12 +20,12 @@
 use std::hash::Hash;
 
 use egui::{
-    pos2, Align2, Color32, CornerRadius, FontId, Frame, Id, InnerResponse, Key, Margin, Pos2,
-    Sense, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Align2, Color32, CornerRadius, FontId, Frame, Id, InnerResponse, Key, Margin, Pos2, Sense,
+    Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2,
 };
 
-use crate::theme::{with_alpha, Theme};
 use crate::Accent;
+use crate::theme::{Theme, with_alpha};
 
 /// Boxed `FnOnce(&mut Ui)` callback used by the meta slot.
 type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;

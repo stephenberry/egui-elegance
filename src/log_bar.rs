@@ -47,7 +47,7 @@ use std::collections::VecDeque;
 use std::hash::Hash;
 
 use egui::{
-    pos2, Color32, CornerRadius, Id, Pos2, Response, Sense, Stroke, Vec2, WidgetInfo, WidgetType,
+    Color32, CornerRadius, Id, Pos2, Response, Sense, Stroke, Vec2, WidgetInfo, WidgetType, pos2,
 };
 
 use crate::theme::Theme;
