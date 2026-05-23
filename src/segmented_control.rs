@@ -93,7 +93,7 @@ impl SegmentedSize {
 /// Status colour for the optional dot indicator inside a [`Segment`].
 ///
 /// Maps to the palette's status accents (`success`, `warning`, `danger`,
-/// `sky`) plus a neutral grey. Pick the variant that matches what the
+/// `focus`) plus a neutral grey. Pick the variant that matches what the
 /// segment represents (open / triaged / resolved / rejected, etc.).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SegmentDot {
@@ -508,12 +508,12 @@ fn dot_color(dot: SegmentDot, theme: &Theme, active: bool) -> Color32 {
     match dot {
         SegmentDot::Neutral => {
             if active {
-                p.sky
+                p.focus
             } else {
                 p.text_faint
             }
         }
-        SegmentDot::Sky => p.sky,
+        SegmentDot::Sky => p.focus,
         SegmentDot::Amber => p.warning,
         SegmentDot::Red => p.danger,
         SegmentDot::Green => p.success,
@@ -938,7 +938,7 @@ impl<'a> Widget for SegmentedControl<'a> {
                         Vec2::new(pill_w, count_h),
                     );
                     let (pill_bg, pill_fg) = if active {
-                        (with_alpha(p.sky, 50), p.sky)
+                        (with_alpha(p.focus, 50), p.focus)
                     } else if !prep.enabled {
                         (with_alpha(p.text_faint, 35), with_alpha(p.text_faint, 200))
                     } else {

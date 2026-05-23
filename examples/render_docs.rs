@@ -116,7 +116,7 @@ fn render_hero() {
                     ui.horizontal(|ui| {
                         ui.add(egui::Label::new(
                             egui::RichText::new("Elegance")
-                                .color(p.sky)
+                                .color(p.focus)
                                 .size(24.0)
                                 .strong(),
                         ));
@@ -1612,7 +1612,7 @@ fn render_drawer() {
                     egui::vec2(cell_w, cell_h),
                 );
                 let fill = if col == 1 && row == 0 {
-                    egui::Color32::from_rgba_unmultiplied(p.sky.r(), p.sky.g(), p.sky.b(), 30)
+                    egui::Color32::from_rgba_unmultiplied(p.focus.r(), p.focus.g(), p.focus.b(), 30)
                 } else {
                     p.depth_tint(p.card, 0.18)
                 };
@@ -1624,9 +1624,9 @@ fn render_drawer() {
                         egui::Stroke::new(
                             1.0,
                             egui::Color32::from_rgba_unmultiplied(
-                                p.sky.r(),
-                                p.sky.g(),
-                                p.sky.b(),
+                                p.focus.r(),
+                                p.focus.g(),
+                                p.focus.b(),
                                 115,
                             ),
                         ),

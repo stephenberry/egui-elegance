@@ -1,4 +1,4 @@
-//! A checkbox with a sky accent.
+//! A checkbox with a focus accent.
 
 use egui::{
     Color32, CornerRadius, FontSelection, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
@@ -81,9 +81,9 @@ impl<'a> Widget for Checkbox<'a> {
             );
 
             let (fill, stroke) = if checked {
-                (p.sky, Stroke::new(1.0, p.sky))
+                (p.focus, Stroke::new(1.0, p.focus))
             } else if is_hovered {
-                (p.input_bg, Stroke::new(1.0, p.sky))
+                (p.input_bg, Stroke::new(1.0, p.focus))
             } else {
                 (p.input_bg, Stroke::new(1.0, p.border))
             };

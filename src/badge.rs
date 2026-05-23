@@ -17,7 +17,7 @@ pub enum BadgeTone {
     Warning,
     /// Error — red.
     Danger,
-    /// Informational — sky.
+    /// Informational — focus accent.
     Info,
     /// Neutral grey, for status that isn't success/warning/error.
     Neutral,
@@ -30,7 +30,7 @@ impl BadgeTone {
             BadgeTone::Ok => (with_alpha(p.green, 64), p.success),
             BadgeTone::Warning => (with_alpha(p.amber, 64), p.warning),
             BadgeTone::Danger => (with_alpha(p.red, 64), p.danger),
-            BadgeTone::Info => (with_alpha(p.sky, 64), p.sky),
+            BadgeTone::Info => (with_alpha(p.focus, 64), p.focus),
             BadgeTone::Neutral => (with_alpha(p.text_muted, 40), p.text_muted),
         }
     }

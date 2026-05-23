@@ -108,7 +108,7 @@ impl AvatarTone {
     fn colours(self, theme: &Theme) -> (Color32, Color32) {
         let p = &theme.palette;
         match self {
-            AvatarTone::Sky => (with_alpha(p.sky, 51), p.sky),
+            AvatarTone::Sky => (with_alpha(p.focus, 51), p.focus),
             AvatarTone::Green => (with_alpha(p.green, 46), p.success),
             AvatarTone::Amber => (with_alpha(p.warning, 51), p.warning),
             AvatarTone::Red => (with_alpha(p.danger, 51), p.danger),

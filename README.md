@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/stephenberry/egui-elegance/actions/workflows/ci.yml/badge.svg)](https://github.com/stephenberry/egui-elegance/actions/workflows/ci.yml)
 
-Opinionated widgets for [`egui`]: six-accent rounded buttons, text inputs with a sky focus ring and submit-flash feedback, themed selects and tabs, segmented LED toggles, status pills, and badges — all driven by a single installable `Theme`. Four palettes ship built-in — two dark (`Theme::slate`, `Theme::charcoal`) and two light (`Theme::frost`, `Theme::paper`) — paired so you can toggle without any layout shift.
+Opinionated widgets for [`egui`]: six-accent rounded buttons, text inputs with a focus ring and submit-flash feedback, themed selects and tabs, segmented LED toggles, status pills, and badges — all driven by a single installable `Theme`. Four palettes ship built-in — two dark (`Theme::slate`, `Theme::charcoal`) and two light (`Theme::frost`, `Theme::paper`) — paired so you can toggle without any layout shift.
 
 The design aims to make native apps feel as polished as modern web UIs.
 
@@ -19,7 +19,7 @@ or, in `Cargo.toml`:
 ```toml
 [dependencies]
 egui          = "0.34"
-egui-elegance = "0.3"
+egui-elegance = "0.10"
 ```
 
 The crate is published as `egui-elegance` but the library name is `elegance`, so imports look like `use elegance::Button;`.
@@ -212,7 +212,7 @@ ui.add(
 
 ![TabBar](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/tabs.png)
 
-Horizontal tab strip. The active tab gets a sky underline.
+Horizontal tab strip. The active tab gets a focus-accent underline.
 
 ```rust
 use elegance::TabBar;
@@ -275,7 +275,7 @@ ui.add(
 
 ![BrowserTabs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/browser_tabs.png)
 
-Owned-state strip of browser-style closable tabs. The active tab fills with the card colour so it merges with the panel below; each tab can flag a sky dirty-dot for unsaved changes, and the trailing `+` emits a `NewRequested` event for the caller to handle.
+Owned-state strip of browser-style closable tabs. The active tab fills with the card colour so it merges with the panel below; each tab can flag a focus-accent dirty-dot for unsaved changes, and the trailing `+` emits a `NewRequested` event for the caller to handle.
 
 ```rust
 use elegance::{BrowserTab, BrowserTabs, BrowserTabsEvent};
@@ -597,7 +597,7 @@ ui.add(ProgressRing::new(0.3).size(32.0).text(""));
 
 ![Gauges — radial and linear](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/gauge.png)
 
-Two widgets for displaying a value (as a `0..1` fraction) against optional threshold zones. `RadialGauge` is a half-circle dashboard speedometer with a needle and a value readout in the bowl; `LinearGauge` is a horizontal meter with optional faded threshold bands behind the fill plus tick-and-label markers above. For the donut form (a circular gauge with no needle), use `ProgressRing` with `.zones(...)`. Pass `GaugeZones::new(warn, crit)` to drive the fill colour automatically (success/warning/danger based on which band the value falls into). Without zones, the fill defaults to the theme's sky accent.
+Two widgets for displaying a value (as a `0..1` fraction) against optional threshold zones. `RadialGauge` is a half-circle dashboard speedometer with a needle and a value readout in the bowl; `LinearGauge` is a horizontal meter with optional faded threshold bands behind the fill plus tick-and-label markers above. For the donut form (a circular gauge with no needle), use `ProgressRing` with `.zones(...)`. Pass `GaugeZones::new(warn, crit)` to drive the fill colour automatically (success/warning/danger based on which band the value falls into). Without zones, the fill defaults to the theme's focus accent.
 
 ```rust
 use elegance::{GaugeZones, LinearGauge, RadialGauge};
@@ -623,7 +623,7 @@ ui.add(
 
 ![Steps — cells, numbered, labeled](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/steps.png)
 
-A stepped progress indicator for discrete, countable stages. Three visual styles share the same state model (`total`, `current`, `errored`): `StepsStyle::Cells` paints a segmented bar of uniform rounded cells, suited to compact "N of M" progress. `StepsStyle::Numbered` paints numbered circles connected by thin lines, with a checkmark on completed dots and a glow on the active one. `StepsStyle::Labeled` (via `Steps::labeled`) paints taller pills containing text labels — horizontal by default (a progress bar with readable stage names), or call `.vertical()` for a wizard-sidebar layout. Done cells use the theme's success green, the active one uses sky, and errors use danger red.
+A stepped progress indicator for discrete, countable stages. Three visual styles share the same state model (`total`, `current`, `errored`): `StepsStyle::Cells` paints a segmented bar of uniform rounded cells, suited to compact "N of M" progress. `StepsStyle::Numbered` paints numbered circles connected by thin lines, with a checkmark on completed dots and a glow on the active one. `StepsStyle::Labeled` (via `Steps::labeled`) paints taller pills containing text labels — horizontal by default (a progress bar with readable stage names), or call `.vertical()` for a wizard-sidebar layout. Done cells use the theme's success green, the active one uses the focus accent, and errors use danger red.
 
 ```rust
 use elegance::{Steps, StepsStyle};
@@ -1011,7 +1011,7 @@ Pairing::new("client-server", &clients, &servers, &mut pairs)
 
 ![Sortable list](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/sortable_list.png)
 
-Drag-and-drop list of rows: press a row's grip handle, drag to a new position, release. The source row collapses out of layout and a ghost copy floats under the cursor; a sky-tinted slot opens at the predicted drop position so the user sees where the row will land. Releasing on the source's own slot is a no-op; pressing Escape mid-drag cancels.
+Drag-and-drop list of rows: press a row's grip handle, drag to a new position, release. The source row collapses out of layout and a ghost copy floats under the cursor; a focus-accent-tinted slot opens at the predicted drop position so the user sees where the row will land. Releasing on the source's own slot is a no-op; pressing Escape mid-drag cancels.
 
 Each row supports an optional leading icon glyph, a title, an optional subtitle line, and an optional trailing status pill toned via `BadgeTone`. Items are reordered in place in the caller-owned `Vec<SortableItem>`; transient drag state lives in egui memory keyed by the widget's id salt.
 
@@ -1091,7 +1091,7 @@ Four presets are built in, arranged as two dark/light pairs that share shape and
 | Name | Mode | Flavour |
 |---|---|---|
 | `Theme::slate()` | dark | cool corporate blue — the default |
-| `Theme::frost()` | light | slate-tinted off-white with a sky accent |
+| `Theme::frost()` | light | slate-tinted off-white with a focus accent |
 | `Theme::charcoal()` | dark | neutral dark grey with a cyan accent |
 | `Theme::paper()` | light | warm off-white with a cyan accent |
 
@@ -1099,8 +1099,28 @@ The `widgets` demo switches between all four live via a header picker. Start fro
 
 ```rust
 let mut theme = elegance::Theme::charcoal();
-theme.palette.sky = egui::Color32::from_rgb(0xa7, 0xf3, 0xd0);
+theme.palette.focus = egui::Color32::from_rgb(0xa7, 0xf3, 0xd0);
 theme.card_radius = 14.0;
+theme.install(ctx);
+```
+
+### Re-theming to a brand colour
+
+"The accent" is two separate roles, kept apart on purpose:
+
+- **Structural accent** — focus rings, active tabs, selection, info tone, step markers, drop zones — is the single `palette.focus` field. One assignment recolours every active/selected state.
+- **Semantic button palette** — the `Accent` enum (`Blue`, `Green`, `Red`, `Purple`, `Amber`) — encodes meaning (red = destructive, green = affirmative), so it is deliberately not one colour. `Button` defaults to `Accent::Blue`, so retinting `palette.blue` / `palette.blue_hover` rebrands the primary button everywhere with no per-button `.accent(…)` call.
+
+So a one-colour gold rebrand is two assignments with distinct intent, not a single override:
+
+```rust
+let gold      = egui::Color32::from_rgb(0xd9, 0xa3, 0x06);
+let gold_dark = egui::Color32::from_rgb(0xb4, 0x81, 0x09);
+
+let mut theme = elegance::Theme::slate();
+theme.palette.focus = gold;        // focus rings, selection, active states
+theme.palette.blue = gold;         // the default (Blue) primary button
+theme.palette.blue_hover = gold_dark;
 theme.install(ctx);
 ```
 

@@ -492,7 +492,7 @@ fn tone_accent(theme: &Theme, tone: BadgeTone) -> Color32 {
         BadgeTone::Ok => p.success,
         BadgeTone::Warning => p.warning,
         BadgeTone::Danger => p.danger,
-        BadgeTone::Info => p.sky,
+        BadgeTone::Info => p.focus,
         BadgeTone::Neutral => p.text_muted,
     }
 }

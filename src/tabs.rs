@@ -1,10 +1,10 @@
-//! Tab bar with a sky-coloured underline on the active tab.
+//! Tab bar with a focus-accent underline on the active tab.
 
 use egui::{Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType, vec2};
 
 use crate::theme::Theme;
 
-/// A horizontal tab bar. The active tab is indicated by a sky-coloured
+/// A horizontal tab bar. The active tab is indicated by a focus-accent
 /// underline and an inactive tab lights up on hover.
 ///
 /// ```no_run
@@ -96,7 +96,7 @@ impl<'a> Widget for TabBar<'a> {
                 }
 
                 let text_color = if is_selected {
-                    p.sky
+                    p.focus
                 } else if resp.hovered() {
                     p.text
                 } else {
@@ -110,7 +110,7 @@ impl<'a> Widget for TabBar<'a> {
                 if is_selected {
                     let a = egui::pos2(rect.min.x + 4.0, bottom - 1.0);
                     let b = egui::pos2(rect.max.x - 4.0, bottom - 1.0);
-                    ui.painter().line_segment([a, b], Stroke::new(2.0, p.sky));
+                    ui.painter().line_segment([a, b], Stroke::new(2.0, p.focus));
                 }
             }
             changed

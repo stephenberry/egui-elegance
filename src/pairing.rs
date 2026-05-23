@@ -430,8 +430,8 @@ impl<'a> Pairing<'a> {
                 );
             }
 
-            // Existing pair lines (solid, sky).
-            let line_stroke = Stroke::new(2.0, palette.sky);
+            // Existing pair lines (solid, focus accent).
+            let line_stroke = Stroke::new(2.0, palette.focus);
             for (lid, rid) in pairs.iter() {
                 if let (Some(lp), Some(rp)) = (
                     port_of(&hits, Side::Left, lid),
@@ -453,7 +453,7 @@ impl<'a> Pairing<'a> {
                             .filter(|p| outer_rect.contains(*p))
                     });
                 if let Some(e) = end {
-                    let ghost_stroke = Stroke::new(1.75, with_alpha(palette.sky, 140));
+                    let ghost_stroke = Stroke::new(1.75, with_alpha(palette.focus, 140));
                     paint_bezier(painter, src, e, ghost_stroke, true);
                     if snap_target.is_none() {
                         painter.circle_filled(e, 3.5, with_alpha(palette.text_muted, 165));
@@ -657,7 +657,7 @@ fn paint_node(
 
     // Background + border (fold into one rect() call).
     let border = if selected || snap_target {
-        palette.sky
+        palette.focus
     } else if hovered {
         palette.text_muted
     } else {
@@ -728,12 +728,12 @@ fn paint_node(
     // Port.
     let active = selected || snap_target || paired;
     let port_fill = if active {
-        palette.sky
+        palette.focus
     } else {
         palette.input_bg
     };
     let port_stroke = if active || hovered {
-        palette.sky
+        palette.focus
     } else {
         palette.border
     };
@@ -743,7 +743,7 @@ fn paint_node(
         painter.circle_stroke(
             port,
             port_radius + 3.0,
-            Stroke::new(3.0, with_alpha(palette.sky, 46)),
+            Stroke::new(3.0, with_alpha(palette.focus, 46)),
         );
     }
 }

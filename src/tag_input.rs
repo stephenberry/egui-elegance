@@ -248,8 +248,8 @@ impl<'a> TagInput<'a> {
                                         ] {
                                             w.bg_stroke = Stroke::NONE;
                                         }
-                                        v.selection.bg_fill = with_alpha(p.sky, 90);
-                                        v.selection.stroke = Stroke::new(1.0, p.sky);
+                                        v.selection.bg_fill = with_alpha(p.focus, 90);
+                                        v.selection.stroke = Stroke::new(1.0, p.focus);
 
                                         let mut te = TextEdit::singleline(&mut state.buffer)
                                             .id(edit_id)
@@ -407,7 +407,7 @@ impl<'a> TagInput<'a> {
                 } else if state.error.is_some() {
                     (1.5, p.danger)
                 } else if frame_focused {
-                    (1.5, p.sky)
+                    (1.5, p.focus)
                 } else if frame_hovered {
                     (1.0, p.text_muted)
                 } else {

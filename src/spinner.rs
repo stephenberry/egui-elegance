@@ -40,7 +40,7 @@ impl Default for Spinner {
 }
 
 impl Spinner {
-    /// Create a spinner with the default size (18 pt) and the theme's sky accent.
+    /// Create a spinner with the default size (18 pt) and the theme's focus accent.
     pub fn new() -> Self {
         Self {
             size: 18.0,
@@ -84,7 +84,7 @@ impl Widget for Spinner {
         let color = match (self.color, self.accent) {
             (Some(c), _) => c,
             (_, Some(a)) => theme.palette.accent_fill(a),
-            _ => theme.palette.sky,
+            _ => theme.palette.focus,
         };
         let thickness = self.thickness.unwrap_or((self.size * 0.12).max(1.5));
 

@@ -16,7 +16,7 @@
 //!
 //! Both gauges derive their fill colour from [`GaugeZones`] when supplied
 //! (`success` / `warning` / `danger` based on which band the value falls
-//! in). Without zones they fall back to the theme's sky accent. Override
+//! in). Without zones they fall back to the theme's focus accent. Override
 //! either with the per-widget `color` builder.
 
 use std::f32::consts::PI;
@@ -259,7 +259,7 @@ impl Widget for RadialGauge {
                 self.zones
                     .as_ref()
                     .map(|z| z.color(self.fraction, p))
-                    .unwrap_or(p.sky)
+                    .unwrap_or(p.focus)
             });
             if self.fraction > 0.0 {
                 painter.add(PathShape::line(
@@ -538,7 +538,7 @@ impl Widget for LinearGauge {
                 self.zones
                     .as_ref()
                     .map(|z| z.color(self.fraction, p))
-                    .unwrap_or(p.sky)
+                    .unwrap_or(p.focus)
             });
             let fill_w = bar_rect.width() * self.fraction;
             if fill_w > 0.5 {

@@ -92,7 +92,7 @@ impl Widget for ProgressBar {
         let fill_color = match (self.color, self.accent) {
             (Some(c), _) => c,
             (_, Some(a)) => p.accent_fill(a),
-            _ => p.sky,
+            _ => p.focus,
         };
 
         let width = self

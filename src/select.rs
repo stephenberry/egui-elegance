@@ -1,7 +1,7 @@
 //! Styled select (combo-box) widget.
 //!
 //! Wraps [`egui::ComboBox`] and paints it with the elegance palette: slate
-//! input background, 1-px border, sky focus ring, and a matching chevron.
+//! input background, 1-px border, focus ring, and a matching chevron.
 
 use std::borrow::Cow;
 use std::hash::Hash;
@@ -279,9 +279,9 @@ fn select_option(ui: &mut Ui, label: &str, selected: bool, theme: &Theme) -> Res
 
     if ui.is_rect_visible(rect) {
         let bg = if response.hovered() {
-            with_alpha(p.sky, 60)
+            with_alpha(p.focus, 60)
         } else if selected {
-            with_alpha(p.sky, 40)
+            with_alpha(p.focus, 40)
         } else {
             Color32::TRANSPARENT
         };

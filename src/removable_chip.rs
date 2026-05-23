@@ -225,8 +225,8 @@ impl<'a> RemovableChip<'a> {
                 ] {
                     w.bg_stroke = Stroke::NONE;
                 }
-                v.selection.bg_fill = with_alpha(p.sky, 90);
-                v.selection.stroke = Stroke::new(1.0, p.sky);
+                v.selection.bg_fill = with_alpha(p.focus, 90);
+                v.selection.stroke = Stroke::new(1.0, p.focus);
 
                 let mut te = TextEdit::singleline(self.text)
                     .id(edit_id)
