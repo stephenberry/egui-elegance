@@ -300,7 +300,7 @@ fn panel_header(ui: &mut egui::Ui, theme: &Theme, label: &str, open: bool) -> Re
     if ui.is_rect_visible(rect) {
         let hovered = resp.hovered();
         let label_color = if hovered { p.text } else { p.text_muted };
-        let chevron_color = if hovered { p.sky } else { p.text_muted };
+        let chevron_color = if hovered { p.focus } else { p.text_muted };
 
         if hovered {
             ui.painter()

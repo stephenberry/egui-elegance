@@ -394,7 +394,7 @@ impl<'a, 'u> AccordionItem<'a, 'u> {
                     row_rect.shrink(1.0),
                     CornerRadius::ZERO,
                     Color32::TRANSPARENT,
-                    Stroke::new(2.0, with_alpha(p.sky, 180)),
+                    Stroke::new(2.0, with_alpha(p.focus, 180)),
                     StrokeKind::Inside,
                 );
             }

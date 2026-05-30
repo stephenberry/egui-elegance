@@ -32,7 +32,7 @@ use crate::theme::{Accent, BASELINE_FRAC, Theme, placeholder_galley};
 /// ```no_run
 /// # use elegance::{Accent, GaugeZones, ProgressRing};
 /// # egui::__run_test_ui(|ui| {
-/// // Default: 56 pt diameter, sky arc, percent in the centre.
+/// // Default: 56 pt diameter, focus-accent arc, percent in the centre.
 /// ui.add(ProgressRing::new(0.42));
 ///
 /// // Larger, green, custom centre text + sub-caption.
@@ -121,7 +121,7 @@ impl ProgressRing {
     }
 
     /// Pick the arc colour from one of the theme's accents. Clears any
-    /// previously set explicit colour. Default: the theme's sky.
+    /// previously set explicit colour. Default: the theme's focus accent.
     pub fn accent(mut self, accent: Accent) -> Self {
         self.accent = Some(accent);
         self.color = None;
@@ -183,7 +183,7 @@ impl Widget for ProgressRing {
             (Some(c), _, _) => c,
             (_, Some(z), _) => z.color(self.fraction, p),
             (_, _, Some(a)) => p.accent_fill(a),
-            _ => p.sky,
+            _ => p.focus,
         };
         let stroke_w = self
             .stroke_width

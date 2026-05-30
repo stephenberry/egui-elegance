@@ -23,7 +23,7 @@ use crate::theme::Theme;
 /// Semantic tones for a [`Callout`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CalloutTone {
-    /// Informational — sky accent. For neutral announcements.
+    /// Informational — focus accent. For neutral announcements.
     Info,
     /// Success — green accent. For affirmative context ("Deploy complete").
     Success,
@@ -39,7 +39,7 @@ impl CalloutTone {
     fn stripe(self, theme: &Theme) -> Color32 {
         let p = &theme.palette;
         match self {
-            Self::Info => p.sky,
+            Self::Info => p.focus,
             Self::Success => p.green,
             Self::Warning => p.amber,
             Self::Danger => p.red,
@@ -50,7 +50,7 @@ impl CalloutTone {
     fn icon_color(self, theme: &Theme) -> Color32 {
         let p = &theme.palette;
         match self {
-            Self::Info => p.sky,
+            Self::Info => p.focus,
             Self::Success => p.success,
             Self::Warning => p.warning,
             Self::Danger => p.danger,

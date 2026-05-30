@@ -305,7 +305,7 @@ impl Widget for MenuItem {
                 let bg = if self.danger {
                     with_alpha(p.red, 40)
                 } else {
-                    with_alpha(p.sky, 28)
+                    with_alpha(p.focus, 28)
                 };
                 let radius = CornerRadius::same((theme.control_radius as u8).saturating_sub(2));
                 ui.painter().rect_filled(rect, radius, bg);
@@ -315,7 +315,7 @@ impl Widget for MenuItem {
                 // Centre the glyph within the gutter slot.
                 let slot_x = rect.min.x + pad_x;
                 let glyph_color = match &self.leading {
-                    Some(Leading::Checked(true)) | Some(Leading::Radio(true)) => p.sky,
+                    Some(Leading::Checked(true)) | Some(Leading::Radio(true)) => p.focus,
                     _ if !self.enabled => p.text_faint,
                     _ => p.text_muted,
                 };

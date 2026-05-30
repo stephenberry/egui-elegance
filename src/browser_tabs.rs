@@ -7,7 +7,7 @@
 //! [`BrowserTabs::take_events`] each frame.
 //!
 //! Each [`BrowserTab`] carries a stable string id, a label, an optional icon
-//! glyph, and a `dirty` flag. The dirty flag paints a small sky dot to
+//! glyph, and a `dirty` flag. The dirty flag paints a small focus-accent dot to
 //! signal unsaved changes. The active tab fills with the theme's card
 //! colour so it visually merges with the panel below.
 //!
@@ -62,7 +62,7 @@ pub struct BrowserTab {
     /// Optional leading icon glyph. Pass any string; typically a single
     /// glyph from a font like Lucide via [`crate::glyphs`].
     pub icon: Option<String>,
-    /// Show a small sky dot to signal unsaved changes.
+    /// Show a small focus-accent dot to signal unsaved changes.
     pub dirty: bool,
 }
 
@@ -363,7 +363,7 @@ impl BrowserTabs {
             let painter = ui.painter();
 
             let (fill, label_color, icon_color) = if is_active {
-                (p.card, p.text, p.sky)
+                (p.card, p.text, p.focus)
             } else if any_hover {
                 (p.depth_tint(strip_bg, 0.06), p.text, p.text_muted)
             } else {
@@ -433,7 +433,7 @@ impl BrowserTabs {
 
             if tab.dirty {
                 let dot_x = close_rect.min.x - DIRTY_TO_CLOSE_GAP - DIRTY_SIZE * 0.5;
-                painter.circle_filled(pos2(dot_x, cy), DIRTY_SIZE * 0.5, p.sky);
+                painter.circle_filled(pos2(dot_x, cy), DIRTY_SIZE * 0.5, p.focus);
             }
 
             let close_visible = is_active || any_hover;

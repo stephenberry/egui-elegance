@@ -109,7 +109,7 @@ struct DragState {
 ///
 /// - **Press on a row's grip** to start dragging. The source row collapses
 ///   out of layout and a ghost copy of the row floats under the cursor.
-/// - **Move** the cursor — a sky-tinted slot opens at the predicted drop
+/// - **Move** the cursor — a focus-tinted slot opens at the predicted drop
 ///   position, and the surrounding rows shift to reveal it.
 /// - **Release** to commit the move. If the slot lands at the source's own
 ///   position the order is left untouched.
@@ -352,7 +352,7 @@ fn paint_row(ui: &Ui, rect: Rect, item: &SortableItem, theme: &Theme, hovered: b
     let radius = CornerRadius::same(theme.control_radius as u8);
 
     let (fill, border, grip_color) = if ghost {
-        (p.card, with_alpha(p.sky, 115), p.sky)
+        (p.card, with_alpha(p.focus, 115), p.focus)
     } else if hovered {
         (p.input_bg, p.text_muted, p.text_muted)
     } else {
@@ -477,7 +477,7 @@ fn pill_colours(tone: BadgeTone, p: &Palette) -> (Color32, Color32, Color32) {
         BadgeTone::Ok => (with_alpha(p.green, 26), with_alpha(p.green, 64), p.success),
         BadgeTone::Warning => (with_alpha(p.amber, 26), with_alpha(p.amber, 64), p.warning),
         BadgeTone::Danger => (with_alpha(p.red, 26), with_alpha(p.red, 64), p.danger),
-        BadgeTone::Info => (with_alpha(p.sky, 26), with_alpha(p.sky, 64), p.sky),
+        BadgeTone::Info => (with_alpha(p.focus, 26), with_alpha(p.focus, 64), p.focus),
         BadgeTone::Neutral => (
             with_alpha(p.text_muted, 20),
             with_alpha(p.text_muted, 51),
@@ -493,7 +493,7 @@ fn paint_slot(ui: &Ui, rect: Rect, theme: &Theme) {
     painter.rect(
         rect,
         radius,
-        with_alpha(p.sky, 13),
+        with_alpha(p.focus, 13),
         Stroke::NONE,
         StrokeKind::Inside,
     );
@@ -504,7 +504,7 @@ fn paint_slot(ui: &Ui, rect: Rect, theme: &Theme) {
         rect.left_bottom(),
         rect.left_top(),
     ];
-    let stroke = Stroke::new(1.0, with_alpha(p.sky, 102));
+    let stroke = Stroke::new(1.0, with_alpha(p.focus, 102));
     painter.extend(egui::Shape::dashed_line(&pts, stroke, 6.0, 4.0));
 }
 
@@ -526,13 +526,13 @@ fn paint_ghost(ui: &Ui, rect: Rect, item: &SortableItem, theme: &Theme, id_salt:
         rect,
         radius,
         p.card,
-        Stroke::new(1.0, with_alpha(p.sky, 115)),
+        Stroke::new(1.0, with_alpha(p.focus, 115)),
         StrokeKind::Inside,
     );
 
     let mid_y = rect.center().y;
     let mut x = rect.left() + ROW_PAD_X;
-    paint_grip(&painter, Pos2::new(x + GRIP_W * 0.5, mid_y), p.sky);
+    paint_grip(&painter, Pos2::new(x + GRIP_W * 0.5, mid_y), p.focus);
     x += GRIP_W + COLUMN_GAP;
 
     if let Some(icon) = &item.icon {

@@ -3,7 +3,7 @@
 //!
 //! Wraps [`egui::TextEdit::multiline`] with the same visual treatment as
 //! `TextInput`: the slate input background, a 1-px border that turns
-//! sky-coloured on focus, optional label, hint, dirty bar, and submit-
+//! focus-accent on focus, optional label, hint, dirty bar, and submit-
 //! flash feedback via [`ResponseFlashExt`](crate::ResponseFlashExt).
 
 use egui::{
@@ -84,7 +84,7 @@ impl<'a> TextArea<'a> {
         self
     }
 
-    /// Mark the input as having unsaved changes. Shows a sky-coloured
+    /// Mark the input as having unsaved changes. Shows a focus-accent
     /// accent bar down the left side.
     pub fn dirty(mut self, dirty: bool) -> Self {
         self.dirty = dirty;
@@ -153,8 +153,8 @@ impl<'a> Widget for TextArea<'a> {
                 let v = ui.visuals_mut();
                 crate::theme::themed_input_visuals(v, &theme, bg_fill);
                 v.extreme_bg_color = bg_fill;
-                v.selection.bg_fill = crate::theme::with_alpha(p.sky, 90);
-                v.selection.stroke = Stroke::new(1.0, p.sky);
+                v.selection.bg_fill = crate::theme::with_alpha(p.focus, 90);
+                v.selection.stroke = Stroke::new(1.0, p.focus);
 
                 let mut edit = TextEdit::multiline(self.text)
                     .id_salt(id_salt)
@@ -193,7 +193,7 @@ impl<'a> Widget for TextArea<'a> {
                     ne: 0,
                     se: 0,
                 };
-                ui.painter().rect_filled(bar, corner, p.sky);
+                ui.painter().rect_filled(bar, corner, p.focus);
             }
 
             if let Some(label) = &self.label {

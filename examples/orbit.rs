@@ -148,7 +148,7 @@ impl App {
         ui.horizontal(|ui| {
             ui.add(egui::Label::new(
                 egui::RichText::new("Orbit")
-                    .color(p.sky)
+                    .color(p.focus)
                     .size(22.0)
                     .strong(),
             ));
@@ -809,7 +809,7 @@ fn running_deployment_row(ui: &mut egui::Ui, when: &str, desc: &str, who: &str) 
     let p = &theme.palette;
     egui::Frame::new()
         .fill(p.input_bg)
-        .stroke(egui::Stroke::new(1.0, p.sky))
+        .stroke(egui::Stroke::new(1.0, p.focus))
         .corner_radius(egui::CornerRadius::same(6))
         .inner_margin(egui::Margin::symmetric(12, 8))
         .show(ui, |ui| {
@@ -817,7 +817,7 @@ fn running_deployment_row(ui: &mut egui::Ui, when: &str, desc: &str, who: &str) 
                 ui.add(Spinner::new().size(14.0));
                 ui.add_space(6.0);
                 ui.add(egui::Label::new(
-                    egui::RichText::new(when).color(p.sky).strong(),
+                    egui::RichText::new(when).color(p.focus).strong(),
                 ));
                 ui.add_space(10.0);
                 ui.add(egui::Label::new(egui::RichText::new(desc).color(p.text)));
@@ -847,13 +847,13 @@ fn running_pipeline_row(ui: &mut egui::Ui, id: &str, commit: &str, elapsed: &str
     let p = &theme.palette;
     egui::Frame::new()
         .fill(p.input_bg)
-        .stroke(egui::Stroke::new(1.0, p.sky))
+        .stroke(egui::Stroke::new(1.0, p.focus))
         .corner_radius(egui::CornerRadius::same(6))
         .inner_margin(egui::Margin::symmetric(12, 8))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.add(egui::Label::new(
-                    egui::RichText::new(id).color(p.sky).strong(),
+                    egui::RichText::new(id).color(p.focus).strong(),
                 ));
                 ui.add_space(10.0);
                 ui.add(egui::Label::new(
@@ -887,7 +887,7 @@ fn pipeline_run_row(
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.add(egui::Label::new(
-                    egui::RichText::new(id).color(p.sky).strong(),
+                    egui::RichText::new(id).color(p.focus).strong(),
                 ));
                 ui.add_space(10.0);
                 ui.add(egui::Label::new(

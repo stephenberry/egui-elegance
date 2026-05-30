@@ -39,7 +39,7 @@ pub enum Accent {
     Purple,
     /// Amber — caution-leaning actions that aren't destructive.
     Amber,
-    /// Sky — the same colour used for focus rings and active states.
+    /// Sky — shares the focus accent used by focus rings and active states.
     Sky,
 }
 
@@ -47,6 +47,28 @@ pub enum Accent {
 ///
 /// You can tweak individual fields before calling [`Theme::install`] if you
 /// want to nudge the default slate look.
+///
+/// # Re-theming to a brand colour
+///
+/// "The accent" is two separate roles, deliberately kept apart:
+///
+/// - **Structural accent** — focus rings, active tabs, selection, info
+///   tone, step markers, drop zones. All driven by the single [`focus`]
+///   field, so one assignment recolours every active/selected state:
+///   `palette.focus = my_gold;`
+/// - **Semantic button palette** — the [`Accent`] enum (`Blue`, `Green`,
+///   `Red`, `Purple`, `Amber`). These encode *meaning* (red = destructive,
+///   green = affirmative) and are intentionally not a single colour.
+///   [`Button`](crate::Button) defaults to [`Accent::Blue`], so to rebrand
+///   the *primary* button across the whole app, retint that one accent:
+///   `palette.blue = my_gold; palette.blue_hover = my_gold_dark;` — no
+///   per-button `.accent(…)` call needed.
+///
+/// So a one-colour gold rebrand is two assignments with distinct intent
+/// (`focus` for active states, `blue` for the primary button), not a single
+/// override — collapsing them would discard the semantic button colours.
+///
+/// [`focus`]: Palette::focus
 #[derive(Clone, Debug, PartialEq)]
 pub struct Palette {
     /// Whether this palette is a dark-mode palette.
@@ -93,8 +115,15 @@ pub struct Palette {
     pub amber: Color32,
     /// Amber accent, hover/pressed state.
     pub amber_hover: Color32,
-    /// The sky blue used for focus rings, active tabs, and "dirty" input bars.
-    pub sky: Color32,
+    /// The structural focus accent: focus rings, active tabs, text
+    /// selection, "dirty" input bars, info-toned badges/callouts, active
+    /// step markers, drop-zone highlights, and more.
+    ///
+    /// This is the single field to retint when rebranding the "active /
+    /// selected" colour of the whole UI — it is independent of the
+    /// semantic button palette (`blue`/`green`/`red`/… backing the
+    /// [`Accent`] enum). See the [`Palette`] docs for re-theming guidance.
+    pub focus: Color32,
 
     /// Success accent used by the status light and flashy feedback.
     pub success: Color32,
@@ -105,7 +134,7 @@ pub struct Palette {
 }
 
 impl Palette {
-    /// The default "slate" palette — cool corporate dark blue with a sky
+    /// The default "slate" palette — cool corporate dark blue with a sky-blue
     /// focus ring. Matches the reference design.
     pub fn slate() -> Self {
         Self {
@@ -129,7 +158,7 @@ impl Palette {
             purple_hover: rgb(0x6d, 0x28, 0xd9),
             amber: rgb(0xd9, 0x77, 0x06),
             amber_hover: rgb(0xb4, 0x53, 0x09),
-            sky: rgb(0x38, 0xbd, 0xf8),
+            focus: rgb(0x38, 0xbd, 0xf8),
 
             success: rgb(0x4a, 0xde, 0x80),
             danger: rgb(0xf8, 0x71, 0x71),
@@ -162,7 +191,7 @@ impl Palette {
             purple_hover: rgb(0x7c, 0x3a, 0xed),
             amber: rgb(0xf5, 0x9e, 0x0b),
             amber_hover: rgb(0xd9, 0x77, 0x06),
-            sky: rgb(0x22, 0xd3, 0xee),
+            focus: rgb(0x22, 0xd3, 0xee),
 
             success: rgb(0x4a, 0xde, 0x80),
             danger: rgb(0xf8, 0x71, 0x71),
@@ -196,7 +225,7 @@ impl Palette {
             purple_hover: rgb(0x6d, 0x28, 0xd9),
             amber: rgb(0xd9, 0x77, 0x06),
             amber_hover: rgb(0xb4, 0x53, 0x09),
-            sky: rgb(0x03, 0x74, 0xb0),
+            focus: rgb(0x03, 0x74, 0xb0),
 
             success: rgb(0x16, 0xa3, 0x4a),
             danger: rgb(0xdc, 0x26, 0x26),
@@ -229,7 +258,7 @@ impl Palette {
             purple_hover: rgb(0x6d, 0x28, 0xd9),
             amber: rgb(0xd9, 0x77, 0x06),
             amber_hover: rgb(0xb4, 0x53, 0x09),
-            sky: rgb(0x0c, 0x80, 0x9e),
+            focus: rgb(0x0c, 0x80, 0x9e),
 
             success: rgb(0x16, 0xa3, 0x4a),
             danger: rgb(0xdc, 0x26, 0x26),
@@ -261,7 +290,7 @@ impl Palette {
             Accent::Red => self.red,
             Accent::Purple => self.purple,
             Accent::Amber => self.amber,
-            Accent::Sky => self.sky,
+            Accent::Sky => self.focus,
         }
     }
 
@@ -273,7 +302,7 @@ impl Palette {
             Accent::Red => self.red_hover,
             Accent::Purple => self.purple_hover,
             Accent::Amber => self.amber_hover,
-            Accent::Sky => mix(self.sky, Color32::BLACK, 0.15),
+            Accent::Sky => mix(self.focus, Color32::BLACK, 0.15),
         }
     }
 }
@@ -498,15 +527,15 @@ impl Theme {
         v.extreme_bg_color = p.input_bg;
         v.faint_bg_color = p.depth_tint(p.card, 0.02);
         v.code_bg_color = p.input_bg;
-        v.hyperlink_color = p.sky;
+        v.hyperlink_color = p.focus;
         v.warn_fg_color = p.warning;
         v.error_fg_color = p.danger;
         v.button_frame = true;
         v.striped = false;
 
         v.selection = Selection {
-            bg_fill: with_alpha(p.sky, 70),
-            stroke: Stroke::new(1.0, p.sky),
+            bg_fill: with_alpha(p.focus, 70),
+            stroke: Stroke::new(1.0, p.focus),
         };
 
         // Widget visuals: we use these for built-in widgets. Elegance
@@ -539,9 +568,9 @@ impl Theme {
                 expansion: 1.0,
             },
             active: egui::style::WidgetVisuals {
-                bg_fill: mix(p.input_bg, p.sky, 0.15),
-                weak_bg_fill: mix(p.input_bg, p.sky, 0.15),
-                bg_stroke: Stroke::new(1.0, p.sky),
+                bg_fill: mix(p.input_bg, p.focus, 0.15),
+                weak_bg_fill: mix(p.input_bg, p.focus, 0.15),
+                bg_stroke: Stroke::new(1.0, p.focus),
                 corner_radius: control_radius,
                 fg_stroke: Stroke::new(1.5, p.text),
                 expansion: 1.0,
@@ -549,7 +578,7 @@ impl Theme {
             open: egui::style::WidgetVisuals {
                 bg_fill: p.input_bg,
                 weak_bg_fill: p.input_bg,
-                bg_stroke: Stroke::new(1.0, p.sky),
+                bg_stroke: Stroke::new(1.0, p.focus),
                 corner_radius: control_radius,
                 fg_stroke: Stroke::new(1.0, p.text),
                 expansion: 0.0,
@@ -687,7 +716,7 @@ pub(crate) fn with_themed_visuals<R>(ui: &mut egui::Ui, f: impl FnOnce(&mut egui
 /// Apply the shared "input-like frame" visuals to `v`: every widget state
 /// gets the same `bg_fill` / `weak_bg_fill` / `corner_radius`, and each
 /// state's border stroke follows the elegance convention
-/// (inactive → border, hovered → text_muted, active/open → sky).
+/// (inactive → border, hovered → text_muted, active/open → focus).
 ///
 /// Callers layer their variant-specific tweaks on top — text edits add
 /// `extreme_bg_color` + selection colours, selects add per-state
@@ -712,8 +741,8 @@ pub(crate) fn themed_input_visuals(v: &mut Visuals, theme: &Theme, bg_fill: Colo
     }
     v.widgets.inactive.bg_stroke = Stroke::new(1.0, p.border);
     v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.text_muted);
-    v.widgets.active.bg_stroke = Stroke::new(1.5, p.sky);
-    v.widgets.open.bg_stroke = Stroke::new(1.5, p.sky);
+    v.widgets.active.bg_stroke = Stroke::new(1.5, p.focus);
+    v.widgets.open.bg_stroke = Stroke::new(1.5, p.focus);
 }
 
 /// Lay out `text` as a proportional-font galley with `Color32::PLACEHOLDER`

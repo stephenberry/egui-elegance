@@ -408,7 +408,7 @@ fn paint_trigger(
         let painter = ui.painter();
         let radius = CornerRadius::same(theme.control_radius as u8);
         let stroke_color = if response.has_focus() {
-            with_alpha(p.sky, 200)
+            with_alpha(p.focus, 200)
         } else if response.hovered() {
             p.text_muted
         } else {
@@ -552,7 +552,7 @@ fn paint_palette_swatch(
         painter.rect_stroke(
             outer,
             CornerRadius::same(5),
-            Stroke::new(2.0, theme.palette.sky),
+            Stroke::new(2.0, theme.palette.focus),
             StrokeKind::Outside,
         );
     } else if resp.hovered() {
@@ -870,8 +870,8 @@ fn paint_hex_input(ui: &mut Ui, theme: &Theme, id_salt: Id, current: Color32) ->
             let v = ui.visuals_mut();
             crate::theme::themed_input_visuals(v, theme, p.input_bg);
             v.extreme_bg_color = p.input_bg;
-            v.selection.bg_fill = with_alpha(p.sky, 90);
-            v.selection.stroke = Stroke::new(1.0, p.sky);
+            v.selection.bg_fill = with_alpha(p.focus, 90);
+            v.selection.stroke = Stroke::new(1.0, p.focus);
 
             let edit = TextEdit::singleline(&mut buf)
                 .id(edit_id)

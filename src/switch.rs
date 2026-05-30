@@ -137,7 +137,7 @@ impl<'a> Widget for Switch<'a> {
             } else if progress > 0.05 {
                 mix(p.border, accent, progress)
             } else if hovered {
-                p.sky
+                p.focus
             } else {
                 p.border
             };

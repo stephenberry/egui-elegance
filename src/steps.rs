@@ -259,7 +259,7 @@ fn paint_cells(ui: &mut Ui, s: &Steps) -> Response {
                 Rect::from_min_size(Pos2::new(x, rect.min.y), Vec2::new(cell_w, height));
             let fill = match s.step_state(i) {
                 StepState::Done => p.success,
-                StepState::Active => p.sky,
+                StepState::Active => p.focus,
                 StepState::Error => p.danger,
                 StepState::Pending => pending_fill,
             };
@@ -341,13 +341,13 @@ fn paint_numbered(ui: &mut Ui, s: &Steps) -> Response {
         let state = s.step_state(i);
         let (fill, text_color) = match state {
             StepState::Done => (p.success, Color32::WHITE),
-            StepState::Active => (p.sky, Color32::WHITE),
+            StepState::Active => (p.focus, Color32::WHITE),
             StepState::Error => (p.danger, Color32::WHITE),
             StepState::Pending => (pending_fill, p.text_muted),
         };
 
         if matches!(state, StepState::Active) {
-            painter.circle_filled(center, dot_r + 3.0, with_alpha(p.sky, 64));
+            painter.circle_filled(center, dot_r + 3.0, with_alpha(p.focus, 64));
         }
 
         painter.circle_filled(center, dot_r, fill);
@@ -454,7 +454,7 @@ fn paint_labeled(ui: &mut Ui, s: &Steps) -> Response {
             let state = s.step_state(i);
             let (fill, text_color) = match state {
                 StepState::Done => (p.success, Color32::WHITE),
-                StepState::Active => (p.sky, Color32::WHITE),
+                StepState::Active => (p.focus, Color32::WHITE),
                 StepState::Error => (p.danger, Color32::WHITE),
                 StepState::Pending => (pending_fill, p.text_muted),
             };

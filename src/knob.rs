@@ -743,7 +743,7 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                     painter.circle_stroke(
                         center,
                         g.rim_r + 4.0,
-                        Stroke::new(1.5, with_alpha(p.sky, 180)),
+                        Stroke::new(1.5, with_alpha(p.focus, 180)),
                     );
                 }
             }

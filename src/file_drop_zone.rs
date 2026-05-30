@@ -71,14 +71,14 @@ impl FileDropZone {
     }
 
     /// Override the prompt text. Defaults to "Drop files here, or browse",
-    /// where the action word is rendered in the sky accent.
+    /// where the action word is rendered in the focus accent.
     #[inline]
     pub fn prompt(mut self, prompt: impl Into<WidgetText>) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    /// Override the action word rendered in the sky accent inside the
+    /// Override the action word rendered in the focus accent inside the
     /// prompt. Defaults to `"browse"`. Ignored if [`Self::prompt`] is set.
     #[inline]
     pub fn action_word(mut self, word: impl Into<String>) -> Self {
@@ -209,12 +209,12 @@ fn paint_zone(
     let hovered = enabled && response.hovered();
     let focused = enabled && response.has_focus();
 
-    // Background fill. Subtle by default; sky-tinted while a file is dragged
+    // Background fill. Subtle by default; focus-tinted while a file is dragged
     // over the zone.
     let fill = if !enabled {
         Color32::TRANSPARENT
     } else if dragover {
-        with_alpha(p.sky, 26)
+        with_alpha(p.focus, 26)
     } else {
         p.depth_tint(p.card, 0.015)
     };
@@ -225,7 +225,7 @@ fn paint_zone(
     let border_color = if !enabled {
         with_alpha(p.border, 160)
     } else if dragover {
-        p.sky
+        p.focus
     } else if hovered || focused {
         p.text_muted
     } else {
@@ -246,7 +246,7 @@ fn paint_zone(
         painter.rect_stroke(
             rect.expand(2.0),
             radius,
-            Stroke::new(2.0, with_alpha(p.sky, 180)),
+            Stroke::new(2.0, with_alpha(p.focus, 180)),
             StrokeKind::Outside,
         );
     }
@@ -259,7 +259,7 @@ fn paint_zone(
     let prompt_color = if !enabled {
         p.text_muted
     } else if dragover {
-        p.sky
+        p.focus
     } else {
         p.text
     };
@@ -296,17 +296,17 @@ fn paint_zone(
     let icon_color = if !enabled {
         p.text_faint
     } else if dragover {
-        p.sky
+        p.focus
     } else {
         p.text_muted
     };
     let icon_bg = if dragover {
-        with_alpha(p.sky, 30)
+        with_alpha(p.focus, 30)
     } else {
         p.input_bg
     };
     let icon_stroke_color = if dragover {
-        with_alpha(p.sky, 115)
+        with_alpha(p.focus, 115)
     } else {
         p.border
     };
@@ -329,7 +329,7 @@ fn paint_zone(
     cursor_y += icon_diameter + icon_gap;
 
     // Prompt text. If we generated the default prompt, draw the action
-    // word in the sky accent instead of the body colour.
+    // word in the focus accent instead of the body colour.
     let prompt_size = prompt_galley.size();
     let prompt_pos = pos2(rect.center().x - prompt_size.x * 0.5, cursor_y);
     if enabled && !dragover {
@@ -389,7 +389,7 @@ fn paint_split_prompt(
     };
 
     let before_g = layout(before, p.text);
-    let word_g = layout(accent_word, p.sky);
+    let word_g = layout(accent_word, p.focus);
     let after_g = layout(after, p.text);
 
     let baseline_y = base.y + (full_size.y - before_g.size().y) * 0.5;
@@ -397,7 +397,7 @@ fn paint_split_prompt(
     let painter = ui.painter();
     painter.galley(pos2(x, baseline_y), before_g.clone(), p.text);
     x += before_g.size().x;
-    painter.galley(pos2(x, baseline_y), word_g.clone(), p.sky);
+    painter.galley(pos2(x, baseline_y), word_g.clone(), p.focus);
     x += word_g.size().x;
     painter.galley(pos2(x, baseline_y), after_g, p.text);
 }

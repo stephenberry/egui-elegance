@@ -326,7 +326,7 @@ fn resolve_colors(
         resting
     };
     let stroke = if response.has_focus() {
-        Stroke::new(2.0, with_alpha(p.sky, 180))
+        Stroke::new(2.0, with_alpha(p.focus, 180))
     } else {
         Stroke::NONE
     };

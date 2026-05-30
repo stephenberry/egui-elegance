@@ -120,7 +120,7 @@ fn trigger_row(ui: &mut Ui, label: &str, theme: &Theme, open: bool) -> Response 
     if ui.is_rect_visible(rect) {
         let hovered = resp.hovered();
         let label_color = if hovered { p.text } else { p.text_muted };
-        let chevron_color = if hovered { p.sky } else { p.text_muted };
+        let chevron_color = if hovered { p.focus } else { p.text_muted };
 
         let chev_center = pos2(rect.min.x + PAD_X + CHEVRON * 0.5, rect.center().y);
         draw_chevron(ui, chev_center, CHEVRON, chevron_color, open);
