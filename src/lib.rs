@@ -181,6 +181,10 @@ pub mod glyphs {
     pub const ZOOM_OUT: char = '\u{E008}';
     /// Power icon. Source: [Lucide `power`](https://lucide.dev/icons/power).
     pub const POWER: char = '\u{E009}';
+    /// Trash / delete icon, for destructive actions. Source: [Lucide `trash-2`](https://lucide.dev/icons/trash-2).
+    pub const TRASH: char = '\u{E00A}';
+    /// Pencil / edit icon. Source: [Lucide `pencil`](https://lucide.dev/icons/pencil).
+    pub const PENCIL: char = '\u{E00B}';
     /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
     /// also pick up the elegance treatment.
     /// Source: [Lucide `check`](https://lucide.dev/icons/check).

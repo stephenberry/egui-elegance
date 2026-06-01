@@ -2003,6 +2003,8 @@ fn render_glyphs() {
                         g::ZOOM_IN,
                         g::ZOOM_OUT,
                         g::POWER,
+                        g::TRASH,
+                        g::PENCIL,
                     ]
                     .iter()
                     .map(|c| format!("{c} "))
