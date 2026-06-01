@@ -5,7 +5,8 @@
 A ~15 KB font combining a subset of DejaVu Sans (arrows, math ellipsis,
 modifier keys, delete keys, return arrows, disclosure triangles) with a
 small set of [Lucide](https://lucide.dev) UI icons (upload, download,
-search, pin, copy, alert, network, zoom-in, zoom-out, power, check, x).
+search, pin, copy, alert, network, zoom-in, zoom-out, power, trash, pencil,
+check, x).
 
 The source font, DejaVu Sans, is derived from Bitstream Vera. Its license
 permits redistribution of modified/subset fonts provided the font is renamed
@@ -52,6 +53,8 @@ Arev contributions) is preserved in `elegance-symbols-LICENSE.txt`.
 | U+E007    | (PUA) | zoom-in / magnifier with plus (Lucide `zoom-in`) |
 | U+E008    | (PUA) | zoom-out / magnifier with minus (Lucide `zoom-out`) |
 | U+E009    | (PUA) | power (Lucide `power`) |
+| U+E00A    | (PUA) | trash / delete (Lucide `trash-2`) |
+| U+E00B    | (PUA) | pencil / edit (Lucide `pencil`) |
 
 ### Regenerating the subset
 
