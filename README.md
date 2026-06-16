@@ -59,6 +59,14 @@ impl eframe::App for App {
 }
 ```
 
+> **`fn ui`, not `fn update`.** The signature above is real, not pseudo-code:
+> as of eframe 0.34 the `App` trait's required per-frame method is
+> `fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame)`. It hands
+> you a `Ui` directly (reach the context with `ui.ctx()`). The older
+> `fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame)` still
+> exists but is `#[deprecated]` in favour of `ui`. On eframe ≤ 0.33, implement
+> `update` instead and call these widgets inside a panel's `show`.
+
 ## Widgets
 
 Every widget follows one of three usage patterns:
@@ -186,6 +194,9 @@ ui.add(
 
 // Shorthand for string-valued selects:
 ui.add(Select::strings("env", &mut env, ["Production", "Staging", "Development"]));
+
+// Disable inline — no need to wrap in `ui.add_enabled_ui`:
+ui.add(Select::strings("env", &mut env, ["Production", "Staging"]).enabled(false));
 ```
 
 ### Checkbox · Switch · SegmentedButton
@@ -848,6 +859,8 @@ Modal::new("stats", &mut open)
         ui.label("…");
     });
 ```
+
+Disable individual dismissal paths with `.close_on_escape(false)` / `.close_on_backdrop(false)`, or block all user-driven dismissal at once with `.closable(false)` — which also hides the × — to hold the dialog open while a task runs. The caller can still close it from code by setting `open = false`.
 
 ### Drawer
 

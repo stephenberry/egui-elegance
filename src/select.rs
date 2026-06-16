@@ -52,6 +52,7 @@ pub struct Select<'a, T: PartialEq + Clone> {
     label: Option<WidgetText>,
     options: Vec<(T, Cow<'a, str>)>,
     width: Option<f32>,
+    enabled: bool,
 }
 
 impl<'a, T: PartialEq + Clone> std::fmt::Debug for Select<'a, T> {
@@ -61,6 +62,7 @@ impl<'a, T: PartialEq + Clone> std::fmt::Debug for Select<'a, T> {
             .field("id_salt", &self.id_salt)
             .field("option_labels", &labels)
             .field("width", &self.width)
+            .field("enabled", &self.enabled)
             .finish()
     }
 }
@@ -75,6 +77,7 @@ impl<'a, T: PartialEq + Clone> Select<'a, T> {
             label: None,
             options: Vec::new(),
             width: None,
+            enabled: true,
         }
     }
 
@@ -99,6 +102,15 @@ impl<'a, T: PartialEq + Clone> Select<'a, T> {
     /// size of the selected label plus padding.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// Enable or disable the select. A disabled select is dimmed and cannot
+    /// be opened, mirroring [`Button::enabled`](crate::Button::enabled) — so a
+    /// select can be greyed out inline without wrapping it in
+    /// [`Ui::add_enabled_ui`](egui::Ui::add_enabled_ui). Default: `true`.
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 }
@@ -133,6 +145,7 @@ impl<'a> Select<'a, String> {
             label: None,
             options,
             width: None,
+            enabled: true,
         }
     }
 }
@@ -144,9 +157,17 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
         let t = &theme.typography;
 
         let mut changed = false;
+        let enabled = self.enabled;
 
         let mut response = ui
             .vertical(|ui| {
+                // Fade and lock the whole control (label + field). `disable`
+                // multiplies the painter opacity and denies interaction, so the
+                // combo can't be opened and our explicit override colours dim
+                // along with everything else.
+                if !enabled {
+                    ui.disable();
+                }
                 if let Some(label) = &self.label {
                     let rich = egui::RichText::new(label.text())
                         .color(p.text_muted)
@@ -213,7 +234,7 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
                     let selected_label = selected_label.clone();
                     response.widget_info(|| {
                         let mut info =
-                            WidgetInfo::labeled(WidgetType::ComboBox, true, &field_label);
+                            WidgetInfo::labeled(WidgetType::ComboBox, enabled, &field_label);
                         info.current_text_value = Some(selected_label.clone());
                         info
                     });

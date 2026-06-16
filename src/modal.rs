@@ -40,6 +40,7 @@ pub struct Modal<'a> {
     header_accent: Option<Accent>,
     open: &'a mut bool,
     max_width: f32,
+    closable: bool,
     close_on_backdrop: bool,
     close_on_escape: bool,
     alert: bool,
@@ -57,6 +58,7 @@ impl<'a> std::fmt::Debug for Modal<'a> {
             .field("header_accent", &self.header_accent)
             .field("open", &*self.open)
             .field("max_width", &self.max_width)
+            .field("closable", &self.closable)
             .field("close_on_backdrop", &self.close_on_backdrop)
             .field("close_on_escape", &self.close_on_escape)
             .field("alert", &self.alert)
@@ -80,6 +82,7 @@ impl<'a> Modal<'a> {
             header_accent: None,
             open,
             max_width: 440.0,
+            closable: true,
             close_on_backdrop: true,
             close_on_escape: true,
             alert: false,
@@ -119,6 +122,23 @@ impl<'a> Modal<'a> {
     /// Override the maximum width of the modal card in points. Default: 440.
     pub fn max_width(mut self, max_width: f32) -> Self {
         self.max_width = max_width;
+        self
+    }
+
+    /// Whether the user may dismiss the modal at all. When `false`, the
+    /// close "×" button is hidden and `Esc` / backdrop clicks are ignored —
+    /// regardless of [`Modal::close_on_backdrop`] / [`Modal::close_on_escape`].
+    ///
+    /// Use this to force the user to see an in-progress action through (or
+    /// cancel it via an explicit footer button) — for example, blocking
+    /// dismissal while a long-running task runs, instead of juggling the
+    /// `open` flag with an external "is it running?" guard.
+    ///
+    /// This only removes the *user-driven* dismissal affordances; the caller
+    /// is still free to set the bound `open` flag to `false` programmatically
+    /// to close the modal from code. Default: `true`.
+    pub fn closable(mut self, closable: bool) -> Self {
+        self.closable = closable;
         self
     }
 
@@ -204,6 +224,7 @@ impl<'a> Modal<'a> {
         let p = &theme.palette;
         let mut should_close = false;
         let mut close_btn_id: Option<Id> = None;
+        let closable = self.closable;
 
         // --- Backdrop ----------------------------------------------------
         let screen = ctx.content_rect();
@@ -219,7 +240,7 @@ impl<'a> Modal<'a> {
                 );
                 ui.allocate_rect(screen, Sense::click())
             });
-        if self.close_on_backdrop && backdrop.inner.clicked() {
+        if closable && self.close_on_backdrop && backdrop.inner.clicked() {
             should_close = true;
         }
 
@@ -293,11 +314,16 @@ impl<'a> Modal<'a> {
                                             }
                                         });
                                         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                                            let resp = close_button(ui);
-                                            if resp.clicked() {
-                                                should_close = true;
+                                            // A non-closable modal shows no "×":
+                                            // there's no user-driven way out, so
+                                            // an affordance would only mislead.
+                                            if closable {
+                                                let resp = close_button(ui);
+                                                if resp.clicked() {
+                                                    should_close = true;
+                                                }
+                                                close_btn_id = Some(resp.id);
                                             }
-                                            close_btn_id = Some(resp.id);
                                         });
                                     });
                                 });
@@ -348,7 +374,7 @@ impl<'a> Modal<'a> {
                     })
             });
 
-        if self.close_on_escape && ctx.input(|i| i.key_pressed(Key::Escape)) {
+        if closable && self.close_on_escape && ctx.input(|i| i.key_pressed(Key::Escape)) {
             should_close = true;
         }
 
@@ -363,6 +389,19 @@ impl<'a> Modal<'a> {
 
         if should_close {
             *self.open = false;
+            // Restore focus and clear the lifecycle state right now — in the
+            // same frame the close is triggered — rather than deferring to the
+            // `was_open && !is_open` branch on a subsequent `show()`. Callers
+            // routinely drop the modal the instant it closes (the natural
+            // `if let Some(m) = &self.modal { … }` + `self.modal = None`
+            // pattern), so `show()` is never called again. A deferred cleanup
+            // would then silently leak: focus is never returned to the
+            // pre-modal widget, and the stale `was_open = true` defeats the
+            // just-opened focus grab the next time a modal with this salt opens.
+            if let Some(prev) = focus_state.prev_focus {
+                ctx.memory_mut(|m| m.request_focus(prev));
+            }
+            ctx.data_mut(|d| d.insert_temp(focus_storage, ModalFocusState::default()));
         }
 
         Some(result.inner.inner)
