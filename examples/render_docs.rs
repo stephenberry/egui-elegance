@@ -1996,7 +1996,12 @@ fn render_glyphs() {
                     // themed base-font rows above, so the gallery stays
                     // scannable instead of one ever-growing line.
                     let icons = |chars: &[char]| -> String {
-                        chars.iter().map(|c| format!("{c} ")).collect::<String>().trim_end().to_string()
+                        chars
+                            .iter()
+                            .map(|c| format!("{c} "))
+                            .collect::<String>()
+                            .trim_end()
+                            .to_string()
                     };
                     let rows: [(&str, String); 13] = [
                         ("Arrows", "← ↑ → ↓ ↩ ↲ ↵".to_string()),
@@ -2017,12 +2022,25 @@ fn render_glyphs() {
                             ]),
                         ),
                         ("Transfer", icons(&[g::UPLOAD, g::DOWNLOAD, g::REFRESH])),
-                        ("Search", icons(&[g::SEARCH, g::ZOOM_IN, g::ZOOM_OUT, g::FILTER])),
+                        (
+                            "Search",
+                            icons(&[g::SEARCH, g::ZOOM_IN, g::ZOOM_OUT, g::FILTER]),
+                        ),
                         ("Visibility", icons(&[g::EYE, g::EYE_OFF])),
-                        ("Edit", icons(&[g::PLUS, g::PENCIL, g::COPY, g::TRASH, g::SAVE])),
+                        (
+                            "Edit",
+                            icons(&[g::PLUS, g::PENCIL, g::COPY, g::TRASH, g::SAVE]),
+                        ),
                         (
                             "System",
-                            icons(&[g::TERMINAL, g::SETTINGS, g::KEY, g::LOCK, g::POWER, g::NETWORK]),
+                            icons(&[
+                                g::TERMINAL,
+                                g::SETTINGS,
+                                g::KEY,
+                                g::LOCK,
+                                g::POWER,
+                                g::NETWORK,
+                            ]),
                         ),
                         (
                             "Direction",
@@ -2035,7 +2053,10 @@ fn render_glyphs() {
                                 g::CHEVRON_DOWN,
                             ]),
                         ),
-                        ("Navigation", icons(&[g::HOME, g::MENU, g::EXTERNAL_LINK, g::PIN])),
+                        (
+                            "Navigation",
+                            icons(&[g::HOME, g::MENU, g::EXTERNAL_LINK, g::PIN]),
+                        ),
                     ];
                     for (label, glyphs) in &rows {
                         ui.add(egui::Label::new(theme.muted_text(*label)));

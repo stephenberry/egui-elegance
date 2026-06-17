@@ -87,8 +87,14 @@ fn glyph_lists_stay_in_sync() {
         consts.len(),
     );
 
-    let baked_only: Vec<_> = baked.difference(&consts).map(|c| format!("U+{c:04X}")).collect();
-    let const_only: Vec<_> = consts.difference(&baked).map(|c| format!("U+{c:04X}")).collect();
+    let baked_only: Vec<_> = baked
+        .difference(&consts)
+        .map(|c| format!("U+{c:04X}"))
+        .collect();
+    let const_only: Vec<_> = consts
+        .difference(&baked)
+        .map(|c| format!("U+{c:04X}"))
+        .collect();
 
     assert!(
         baked_only.is_empty(),
