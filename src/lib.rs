@@ -185,6 +185,52 @@ pub mod glyphs {
     pub const TRASH: char = '\u{E00A}';
     /// Pencil / edit icon. Source: [Lucide `pencil`](https://lucide.dev/icons/pencil).
     pub const PENCIL: char = '\u{E00B}';
+    /// Plus / add icon, for "new" / "create" actions. Source: [Lucide `plus`](https://lucide.dev/icons/plus).
+    pub const PLUS: char = '\u{E00C}';
+    /// Terminal / console icon, for opening a shell session. Source: [Lucide `terminal`](https://lucide.dev/icons/terminal).
+    pub const TERMINAL: char = '\u{E00D}';
+    /// Key icon, for keys / credentials / secrets. Source: [Lucide `key-round`](https://lucide.dev/icons/key-round).
+    pub const KEY: char = '\u{E00E}';
+    /// Refresh / reload icon, for re-fetch or re-scan. Source: [Lucide `refresh-cw`](https://lucide.dev/icons/refresh-cw).
+    pub const REFRESH: char = '\u{E00F}';
+    /// Up-arrow icon, for ascending sort, "move up", or navigation. Source: [Lucide `arrow-up`](https://lucide.dev/icons/arrow-up).
+    pub const ARROW_UP: char = '\u{E010}';
+    /// Down-arrow icon, for descending sort, "move down", or navigation. Source: [Lucide `arrow-down`](https://lucide.dev/icons/arrow-down).
+    pub const ARROW_DOWN: char = '\u{E011}';
+    /// Info icon, for the informational callout tone. Source: [Lucide `info`](https://lucide.dev/icons/info).
+    pub const INFO: char = '\u{E012}';
+    /// Warning triangle, for the caution callout tone. Source: [Lucide `triangle-alert`](https://lucide.dev/icons/triangle-alert).
+    pub const TRIANGLE_ALERT: char = '\u{E013}';
+    /// Circled cross, for the error / danger callout tone. Source: [Lucide `circle-x`](https://lucide.dev/icons/circle-x).
+    pub const CIRCLE_X: char = '\u{E014}';
+    /// Circled check, for the success callout tone. Source: [Lucide `circle-check`](https://lucide.dev/icons/circle-check).
+    pub const CIRCLE_CHECK: char = '\u{E015}';
+    /// Settings / preferences gear. Source: [Lucide `settings`](https://lucide.dev/icons/settings).
+    pub const SETTINGS: char = '\u{E016}';
+    /// Hamburger menu icon, for nav drawers. Source: [Lucide `menu`](https://lucide.dev/icons/menu).
+    pub const MENU: char = '\u{E017}';
+    /// Left-arrow icon, for back / previous / navigation. Source: [Lucide `arrow-left`](https://lucide.dev/icons/arrow-left).
+    pub const ARROW_LEFT: char = '\u{E018}';
+    /// Right-arrow icon, for forward / next / navigation. Source: [Lucide `arrow-right`](https://lucide.dev/icons/arrow-right).
+    pub const ARROW_RIGHT: char = '\u{E019}';
+    /// External-link icon, for links that open outside the app. Source: [Lucide `external-link`](https://lucide.dev/icons/external-link).
+    pub const EXTERNAL_LINK: char = '\u{E01A}';
+    /// Right chevron, for nav / expand affordances. Source: [Lucide `chevron-right`](https://lucide.dev/icons/chevron-right).
+    pub const CHEVRON_RIGHT: char = '\u{E01B}';
+    /// Down chevron, for nav / expand affordances. Source: [Lucide `chevron-down`](https://lucide.dev/icons/chevron-down).
+    pub const CHEVRON_DOWN: char = '\u{E01C}';
+    /// Filter / funnel icon, for refining lists and tables. Source: [Lucide `funnel`](https://lucide.dev/icons/funnel).
+    pub const FILTER: char = '\u{E01D}';
+    /// Eye icon, for "visible" / reveal toggles. Source: [Lucide `eye`](https://lucide.dev/icons/eye).
+    pub const EYE: char = '\u{E01E}';
+    /// Eye-off icon, for "hidden" / mask toggles. Source: [Lucide `eye-off`](https://lucide.dev/icons/eye-off).
+    pub const EYE_OFF: char = '\u{E01F}';
+    /// Home icon, for the navigation root. Source: [Lucide `house`](https://lucide.dev/icons/house).
+    pub const HOME: char = '\u{E020}';
+    /// Lock icon, for a secured / locked state (complements [`KEY`]). Source: [Lucide `lock`](https://lucide.dev/icons/lock).
+    pub const LOCK: char = '\u{E021}';
+    /// Save icon, for persisting changes. Source: [Lucide `save`](https://lucide.dev/icons/save).
+    pub const SAVE: char = '\u{E022}';
     /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
     /// also pick up the elegance treatment.
     /// Source: [Lucide `check`](https://lucide.dev/icons/check).

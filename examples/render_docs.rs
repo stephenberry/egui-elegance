@@ -1992,35 +1992,76 @@ fn render_glyphs() {
                 .spacing([20.0, 6.0])
                 .show(ui, |ui| {
                     use elegance::glyphs as g;
-                    let icons: String = [
-                        g::UPLOAD,
-                        g::DOWNLOAD,
-                        g::SEARCH,
-                        g::PIN,
-                        g::COPY,
-                        g::CIRCLE_ALERT,
-                        g::NETWORK,
-                        g::ZOOM_IN,
-                        g::ZOOM_OUT,
-                        g::POWER,
-                        g::TRASH,
-                        g::PENCIL,
-                    ]
-                    .iter()
-                    .map(|c| format!("{c} "))
-                    .collect();
-                    for (label, glyphs) in [
-                        ("Arrows", "← ↑ → ↓ ↩ ↲ ↵"),
-                        ("Ellipsis", "⋮ ⋯"),
-                        ("Modifier keys", "⌃ ⌘ ⌥ ⇧ ⇪"),
-                        ("Editing keys", "⌫ ⌦ ⌧ ⏎ ⇥"),
-                        ("Triangles", "▴ ▸ ▾ ◂"),
-                        ("Status", "✓ ✗"),
-                        ("Icons", icons.trim_end()),
-                    ] {
-                        ui.add(egui::Label::new(theme.muted_text(label)));
+                    // Lucide icon rows are grouped by function, mirroring the
+                    // themed base-font rows above, so the gallery stays
+                    // scannable instead of one ever-growing line.
+                    let icons = |chars: &[char]| -> String {
+                        chars
+                            .iter()
+                            .map(|c| format!("{c} "))
+                            .collect::<String>()
+                            .trim_end()
+                            .to_string()
+                    };
+                    let rows: [(&str, String); 13] = [
+                        ("Arrows", "← ↑ → ↓ ↩ ↲ ↵".to_string()),
+                        ("Ellipsis", "⋮ ⋯".to_string()),
+                        ("Modifier keys", "⌃ ⌘ ⌥ ⇧ ⇪".to_string()),
+                        ("Editing keys", "⌫ ⌦ ⌧ ⏎ ⇥".to_string()),
+                        ("Triangles", "▴ ▸ ▾ ◂".to_string()),
+                        (
+                            "Status",
+                            icons(&[
+                                g::CHECK,
+                                g::X,
+                                g::INFO,
+                                g::CIRCLE_CHECK,
+                                g::TRIANGLE_ALERT,
+                                g::CIRCLE_X,
+                                g::CIRCLE_ALERT,
+                            ]),
+                        ),
+                        ("Transfer", icons(&[g::UPLOAD, g::DOWNLOAD, g::REFRESH])),
+                        (
+                            "Search",
+                            icons(&[g::SEARCH, g::ZOOM_IN, g::ZOOM_OUT, g::FILTER]),
+                        ),
+                        ("Visibility", icons(&[g::EYE, g::EYE_OFF])),
+                        (
+                            "Edit",
+                            icons(&[g::PLUS, g::PENCIL, g::COPY, g::TRASH, g::SAVE]),
+                        ),
+                        (
+                            "System",
+                            icons(&[
+                                g::TERMINAL,
+                                g::SETTINGS,
+                                g::KEY,
+                                g::LOCK,
+                                g::POWER,
+                                g::NETWORK,
+                            ]),
+                        ),
+                        (
+                            "Direction",
+                            icons(&[
+                                g::ARROW_UP,
+                                g::ARROW_DOWN,
+                                g::ARROW_LEFT,
+                                g::ARROW_RIGHT,
+                                g::CHEVRON_RIGHT,
+                                g::CHEVRON_DOWN,
+                            ]),
+                        ),
+                        (
+                            "Navigation",
+                            icons(&[g::HOME, g::MENU, g::EXTERNAL_LINK, g::PIN]),
+                        ),
+                    ];
+                    for (label, glyphs) in &rows {
+                        ui.add(egui::Label::new(theme.muted_text(*label)));
                         ui.add(egui::Label::new(
-                            egui::RichText::new(glyphs)
+                            egui::RichText::new(glyphs.as_str())
                                 .color(p.text)
                                 .size(theme.typography.body + 4.0)
                                 .monospace(),

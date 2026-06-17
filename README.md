@@ -1070,7 +1070,18 @@ The tint fades out over `FLASH_DURATION` (~0.8 s). `resp.clear_flash()` dismisse
 
 `Theme::install` registers the ~15 KB `Elegance Symbols` font as a Proportional and Monospace fallback, so inline glyphs like `→`, `⋯`, `⌘`, `⇧`, `⌫`, `⏎`, `↩`, `▾` render out of the box without egui's default font missing them.
 
-The font combines a subset of DejaVu Sans (arrows, math ellipsis, Mac modifier keys `⌘ ⌥ ⌃ ⇧ ⇪`, editing keys `⌫ ⌦ ⌧ ⏎ ⇥`, disclosure triangles) with a small set of [Lucide](https://lucide.dev) UI icons baked in at the Private Use Area (`upload`, `download`, `search`, `pin`, `copy`, `circle-alert`, `network`, `zoom-in`, `zoom-out`, `power`, `trash-2`, `pencil`) plus Lucide-styled `check` / `x` overriding the standard U+2713 / U+2717 codepoints. The icons are exposed as constants in the [`glyphs`] module:
+The font combines a subset of DejaVu Sans (arrows, math ellipsis, Mac modifier keys `⌘ ⌥ ⌃ ⇧ ⇪`, editing keys `⌫ ⌦ ⌧ ⏎ ⇥`, disclosure triangles) with a set of [Lucide](https://lucide.dev) UI icons baked in at the Private Use Area, grouped by purpose:
+
+- **Transfer** — `upload`, `download`, `refresh-cw`
+- **Search** — `search`, `zoom-in`, `zoom-out`, `funnel`
+- **Visibility** — `eye`, `eye-off`
+- **Edit** — `plus`, `pencil`, `copy`, `trash-2`, `save`
+- **System** — `terminal`, `settings`, `key-round`, `lock`, `power`, `network`
+- **Status** — `info`, `circle-check`, `triangle-alert`, `circle-x`, `circle-alert`
+- **Direction** — `arrow-up`, `arrow-down`, `arrow-left`, `arrow-right`, `chevron-right`, `chevron-down`
+- **Navigation** — `house`, `menu`, `external-link`, `pin`
+
+plus Lucide-styled `check` / `x` overriding the standard U+2713 / U+2717 codepoints. The status marks also back `Callout`'s per-tone icons. The icons are exposed as constants in the [`glyphs`] module (a few are intent-named where the Lucide name differs, e.g. `FILTER` for `funnel`, `HOME` for `house`):
 
 ```rust
 ui.label(egui::RichText::new(elegance::glyphs::UPLOAD).size(20.0));
