@@ -95,7 +95,7 @@ ui.add(Button::new("Disabled").accent(Accent::Blue).enabled(false));
 
 ### TextInput
 
-![Text inputs — normal, hint, dirty, password](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/text_inputs.png)
+![Text inputs — normal, hint, dirty, password, revealable](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/text_inputs.png)
 
 Single-line text input. See also [Submit-flash feedback](#submit-flash-feedback) for success / error tinting on submit.
 
@@ -109,6 +109,11 @@ ui.add(
 );
 ui.add(TextInput::new(&mut secret).label("API key").password(true));
 ui.add(TextInput::new(&mut name).label("Name").dirty(true));
+
+// Password / passphrase field with a built-in show / hide toggle. The field
+// is masked by default; the eye toggle reveals it. State is kept internally,
+// and the toggle is operable by mouse, keyboard, and screen readers.
+ui.add(TextInput::new(&mut passphrase).label("Passphrase").revealable(true));
 ```
 
 ### TextArea

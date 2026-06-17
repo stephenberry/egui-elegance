@@ -182,6 +182,7 @@ fn text_inputs_ui(ui: &mut egui::Ui) {
     let mut hint = String::new();
     let mut dirty = "3000.0".to_string();
     let mut pw = "hunter2".to_string();
+    let mut reveal = "correct-horse".to_string();
     ui.horizontal(|ui| {
         ui.add(
             TextInput::new(&mut normal)
@@ -213,6 +214,15 @@ fn text_inputs_ui(ui: &mut egui::Ui) {
                 .password(true)
                 .desired_width(240.0)
                 .id_salt("t_pw"),
+        );
+    });
+    ui.horizontal(|ui| {
+        ui.add(
+            TextInput::new(&mut reveal)
+                .label("Passphrase (revealable)")
+                .revealable(true)
+                .desired_width(240.0)
+                .id_salt("t_reveal"),
         );
     });
 }
@@ -1946,6 +1956,17 @@ fn dirty_text_input_ui(ui: &mut egui::Ui) {
     );
 }
 
+fn revealable_text_input_ui(ui: &mut egui::Ui) {
+    let mut secret = "correct-horse".to_string();
+    ui.add(
+        TextInput::new(&mut secret)
+            .label("Passphrase")
+            .revealable(true)
+            .desired_width(240.0)
+            .id_salt("reveal_focus"),
+    );
+}
+
 fn hover_deploy(h: &Harness) {
     h.get_by_label("Deploy").hover();
 }
@@ -1965,6 +1986,11 @@ fn focus_email(h: &Harness) {
 
 fn focus_dirty(h: &Harness) {
     h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Dirty")
+        .focus();
+}
+
+fn focus_reveal(h: &Harness) {
+    h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Passphrase")
         .focus();
 }
 
@@ -2017,6 +2043,11 @@ interact_tests!(button_focused, single_button_ui, focus_deploy);
 interact_tests!(switch_hovered_off, single_switch_off_ui, hover_notify);
 interact_tests!(text_input_focused, single_text_input_ui, focus_email);
 interact_tests!(text_input_dirty_focused, dirty_text_input_ui, focus_dirty);
+interact_tests!(
+    revealable_input_focused,
+    revealable_text_input_ui,
+    focus_reveal
+);
 
 // ---------------------------------------------------------------------------
 // Rounded-corner regression tests (issue #7). A footer / row fill must follow
