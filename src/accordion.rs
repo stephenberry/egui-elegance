@@ -20,8 +20,9 @@
 use std::hash::Hash;
 
 use egui::{
-    Align2, Color32, CornerRadius, FontId, Frame, Id, InnerResponse, Key, Margin, Pos2, Sense,
-    Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2,
+    Align2, Color32, CornerRadius, FontId, Frame, Id, InnerResponse, Key, Margin, Pos2, Rect,
+    Sense, Shape, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    layers::ShapeIdx, pos2,
 };
 
 use crate::Accent;
@@ -98,9 +99,7 @@ impl Accordion {
 
         let exclusive_id = self.id_salt.with("__exclusive_open");
         let seeded_id = self.id_salt.with("__seeded");
-        let count_id = self.id_salt.with("__item_count");
         let prev_open: Option<usize> = ui.ctx().data(|d| d.get_temp(exclusive_id));
-        let prev_count: usize = ui.ctx().data(|d| d.get_temp(count_id).unwrap_or(0));
         let already_seeded: bool = ui
             .ctx()
             .data(|d| d.get_temp::<bool>(seeded_id).unwrap_or(false));
@@ -124,7 +123,7 @@ impl Accordion {
                     flush: self.flush,
                     next_index: 0,
                     item_count: 0,
-                    total_hint: prev_count,
+                    highlights: Vec::new(),
                     prev_open_exclusive: prev_open,
                     next_open_exclusive: prev_open,
                     seeded: already_seeded,
@@ -132,16 +131,14 @@ impl Accordion {
                 };
                 let r = body(&mut handle);
 
+                // Now that every item is declared, paint the row highlights
+                // that were deferred so they could round the card's corners.
+                handle.flush_highlights();
+
                 let final_open = handle.next_open_exclusive;
                 let any_items = handle.next_index > 0;
                 let chain = std::mem::take(&mut handle.focus_chain);
                 let ctx = handle.ui.ctx().clone();
-
-                // Carry this frame's item count forward so the next frame can
-                // recognise the last row (see `AccordionUi::total_hint`).
-                if handle.next_index != prev_count {
-                    ctx.data_mut(|d| d.insert_temp(count_id, handle.next_index));
-                }
 
                 if self.exclusive && final_open != prev_open {
                     ctx.data_mut(|d| match final_open {
@@ -179,17 +176,28 @@ pub struct AccordionUi<'u> {
     flush: bool,
     next_index: usize,
     item_count: usize,
-    /// Total item count from the *previous* frame, used to recognise the last
-    /// row (so its highlight can round the card's bottom corners). The count
-    /// isn't known until the body closure finishes declaring items, so we
-    /// carry it forward a frame — standard immediate-mode bookkeeping. Zero on
-    /// the very first frame, which only leaves the last row's bottom corners
-    /// momentarily square if it happens to be hovered before the second frame.
-    total_hint: usize,
+    /// Hover/focus row highlights deferred until the body closure finishes.
+    /// A highlight needs to know whether its row is the *last* one (to round
+    /// the card's bottom corners), which isn't known until every item has been
+    /// declared. So each highlighted row reserves a shape slot at its paint
+    /// position and records itself here; [`AccordionUi::flush_highlights`]
+    /// fills those slots once the final count is in hand.
+    highlights: Vec<PendingHighlight>,
     prev_open_exclusive: Option<usize>,
     next_open_exclusive: Option<usize>,
     seeded: bool,
     focus_chain: Vec<Id>,
+}
+
+/// A hover/focus highlight whose painting is deferred (see
+/// [`AccordionUi::highlights`]). `slot` was reserved behind the row's content,
+/// so filling it later keeps the highlight under the chevron/title.
+struct PendingHighlight {
+    slot: ShapeIdx,
+    rect: Rect,
+    index: usize,
+    is_open: bool,
+    focused: bool,
 }
 
 impl<'u> std::fmt::Debug for AccordionUi<'u> {
@@ -220,6 +228,53 @@ impl<'u> AccordionUi<'u> {
             meta: None,
             default_open: false,
             disabled: false,
+        }
+    }
+
+    /// Paint the deferred row highlights. Called once the body closure has
+    /// declared every item, so `next_index` is the true count and the last
+    /// row is known. Each highlight fills the shape slot it reserved at paint
+    /// time, which keeps it behind the row content. The corners that meet the
+    /// card's rounded corners (top on the first row, bottom on the last closed
+    /// row) are rounded to match; the rest stay square. See issue #7.
+    fn flush_highlights(&mut self) {
+        if self.highlights.is_empty() {
+            return;
+        }
+        let theme = Theme::current(self.ui.ctx());
+        let p = &theme.palette;
+        let total = self.next_index;
+        let card_r = if self.flush {
+            0
+        } else {
+            theme.card_radius as u8
+        };
+        for h in std::mem::take(&mut self.highlights) {
+            let is_first = h.index == 0;
+            // A closed final row abuts the card's rounded bottom corners; an
+            // open one puts its (fill-less) body there, so its header is
+            // interior and stays square.
+            let is_last = !h.is_open && h.index + 1 == total;
+            let corners = |r: u8| CornerRadius {
+                nw: if is_first { r } else { 0 },
+                ne: if is_first { r } else { 0 },
+                sw: if is_last { r } else { 0 },
+                se: if is_last { r } else { 0 },
+            };
+            let alpha = if h.focused { 12 } else { 8 };
+            let lift = Color32::from_rgba_unmultiplied(p.text.r(), p.text.g(), p.text.b(), alpha);
+            let mut shapes = vec![Shape::rect_filled(h.rect, corners(card_r), lift)];
+            if h.focused {
+                // The ring sits 1px inside the row, so its outer corners curve
+                // one pixel tighter than the card to stay concentric with it.
+                shapes.push(Shape::rect_stroke(
+                    h.rect.shrink(1.0),
+                    corners(card_r.saturating_sub(1)),
+                    Stroke::new(2.0, with_alpha(p.focus, 180)),
+                    StrokeKind::Inside,
+                ));
+            }
+            self.ui.painter().set(h.slot, Shape::Vec(shapes));
         }
     }
 }
@@ -397,49 +452,22 @@ impl<'a, 'u> AccordionItem<'a, 'u> {
             owner.focus_chain.push(row_resp.id);
         }
 
-        // The row highlight and focus ring span the full row, so on the first
-        // and last rows their corners coincide with the card's rounded corners
-        // (non-flush mode). Round just those corners to match — otherwise a
-        // square fill / ring squares off the card's curve (issue #7's pattern).
-        let is_first = index == 0;
-        // The last row only abuts the card's rounded bottom corners when it is
-        // the final item *and* closed; an open last item puts its (fill-less)
-        // body there instead, so its header stays interior (square).
-        let is_last = !is_open && owner.total_hint > 0 && index + 1 == owner.total_hint;
-        let card_r = if owner.flush {
-            0
-        } else {
-            theme.card_radius as u8
-        };
-        let outer_corners = |r: u8| CornerRadius {
-            nw: if is_first { r } else { 0 },
-            ne: if is_first { r } else { 0 },
-            sw: if is_last { r } else { 0 },
-            se: if is_last { r } else { 0 },
-        };
-
         if owner.ui.is_rect_visible(row_rect) {
-            // Hover / focus background lift. Matches the card radius exactly at
-            // the outer corners so the (faint) fill tracks the card's curve.
+            // Defer the hover/focus highlight: reserve a slot now (so it paints
+            // behind this row's content) and record the row. Once the body
+            // closure has declared every item, `flush_highlights` fills the
+            // slot, rounding the corners that meet the card (top on the first
+            // row, bottom on the last) — a square fill/ring would otherwise
+            // square off the card's curve (issue #7's pattern).
             if !disabled && (row_resp.hovered() || row_resp.has_focus()) {
-                let alpha = if row_resp.has_focus() { 12 } else { 8 };
-                let lift =
-                    Color32::from_rgba_unmultiplied(p.text.r(), p.text.g(), p.text.b(), alpha);
-                owner
-                    .ui
-                    .painter()
-                    .rect_filled(row_rect, outer_corners(card_r), lift);
-            }
-            if row_resp.has_focus() {
-                // The ring sits 1px inside the row, so its outer corners curve
-                // one pixel tighter than the card to stay concentric with it.
-                owner.ui.painter().rect(
-                    row_rect.shrink(1.0),
-                    outer_corners(card_r.saturating_sub(1)),
-                    Color32::TRANSPARENT,
-                    Stroke::new(2.0, with_alpha(p.focus, 180)),
-                    StrokeKind::Inside,
-                );
+                let slot = owner.ui.painter().add(Shape::Noop);
+                owner.highlights.push(PendingHighlight {
+                    slot,
+                    rect: row_rect,
+                    index,
+                    is_open,
+                    focused: row_resp.has_focus(),
+                });
             }
 
             let dim = if disabled { 0.55 } else { 1.0 };
