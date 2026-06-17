@@ -8,7 +8,8 @@ use eframe::egui;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
 use elegance::{
-    BadgeTone, Drawer, DrawerSide, MenuBar, MenuItem, Modal, TextInput, Theme, Toast, Toasts,
+    BadgeTone, Drawer, DrawerSide, MenuBar, MenuItem, Modal, Select, TextInput, Theme, Toast,
+    Toasts,
 };
 
 fn new_harness<'a>(app: impl FnMut(&mut egui::Ui) + 'a) -> Harness<'a> {
@@ -184,6 +185,144 @@ fn modal_restores_focus_on_close() {
     assert!(
         email.accesskit_node().is_focused(),
         "focus should be restored to the widget that had it before the modal opened"
+    );
+}
+
+/// A harness that only *constructs* the modal while it's open — the common
+/// "drop on close" pattern (`if let Some(m) = &self.modal { … }`). Once the
+/// modal closes itself, `show()` is never called again, so any focus cleanup
+/// deferred to a later `show()` would never run.
+fn drop_on_close_harness<'a>() -> Harness<'a, FocusTestState> {
+    Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 400.0))
+        .build_ui_state(
+            |ui, state: &mut FocusTestState| {
+                Theme::slate().install(ui.ctx());
+                ui.add(
+                    TextInput::new(&mut state.email)
+                        .label("Email")
+                        .id_salt("focus_email"),
+                );
+                if state.open {
+                    Modal::new("drop_modal", &mut state.open)
+                        .heading("Dialog")
+                        .show(ui.ctx(), |ui| {
+                            ui.label("Body");
+                        });
+                }
+            },
+            FocusTestState {
+                open: false,
+                email: "hi".into(),
+            },
+        )
+}
+
+#[test]
+fn modal_restores_focus_when_dropped_on_internal_close() {
+    let mut harness = drop_on_close_harness();
+
+    // Focus Email, then open the modal.
+    harness.run();
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, "Email")
+        .focus();
+    harness.run();
+    harness.state_mut().open = true;
+    harness.run();
+    harness.run();
+
+    assert!(
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Button, "Close")
+            .accesskit_node()
+            .is_focused(),
+        "close button should be focused on first open"
+    );
+
+    // Dismiss via Esc. The modal flips `open` false and the caller stops
+    // rendering it — so cleanup must happen in the same frame the close fires,
+    // not on a (never-occurring) subsequent `show()`.
+    harness.key_press(egui::Key::Escape);
+    harness.run();
+    harness.run();
+
+    assert!(
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::TextInput, "Email")
+            .accesskit_node()
+            .is_focused(),
+        "focus should return to Email after an internal close that drops the modal"
+    );
+
+    // Reopening must still grab focus — proving the lifecycle state was reset,
+    // not left stuck at `was_open = true`.
+    harness.state_mut().open = true;
+    harness.run();
+    harness.run();
+
+    assert!(
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Button, "Close")
+            .accesskit_node()
+            .is_focused(),
+        "close button should be focused again on the second open"
+    );
+}
+
+#[test]
+fn non_closable_modal_hides_close_button_and_ignores_escape() {
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 400.0))
+        .build_ui_state(
+            |ui, open: &mut bool| {
+                Theme::slate().install(ui.ctx());
+                Modal::new("locked_modal", open)
+                    .heading("Working…")
+                    .closable(false)
+                    .show(ui.ctx(), |ui| {
+                        ui.label("Please wait");
+                    });
+            },
+            true,
+        );
+    harness.run();
+    harness.run();
+
+    // No "×" affordance is rendered when the modal can't be dismissed.
+    assert!(
+        harness
+            .query_by_role_and_label(egui::accesskit::Role::Button, "Close")
+            .is_none(),
+        "a non-closable modal should not render a close button"
+    );
+
+    // Esc must not close it.
+    harness.key_press(egui::Key::Escape);
+    harness.run();
+    harness.run();
+    assert!(
+        *harness.state(),
+        "Esc should not dismiss a non-closable modal"
+    );
+}
+
+#[test]
+fn disabled_select_is_exposed_as_disabled() {
+    let mut value = String::from("ms");
+    let harness = new_harness(move |ui| {
+        Theme::slate().install(ui.ctx());
+        ui.add(
+            Select::strings("unit", &mut value, ["us", "ms", "s"])
+                .label("Unit")
+                .enabled(false),
+        );
+    });
+
+    let node = harness.get_by_role_and_label(egui::accesskit::Role::ComboBox, "Unit");
+    assert!(
+        node.accesskit_node().is_disabled(),
+        "a disabled Select should expose accesskit Disabled so assistive tech skips it"
     );
 }
 
