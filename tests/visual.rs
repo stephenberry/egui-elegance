@@ -18,11 +18,11 @@ use elegance::{
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
     KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem,
-    Pairing,
-    PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    Pairing, PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge,
+    RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl,
+    SegmentedSize, Select, Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip,
+    TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
