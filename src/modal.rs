@@ -7,7 +7,8 @@
 
 use egui::{
     Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Key, Layout, Margin,
-    Order, Response, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, accesskit,
+    Order, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, WidgetInfo, WidgetText,
+    WidgetType, accesskit,
 };
 
 use crate::{Accent, Button, ButtonSize, theme::Theme};
@@ -353,8 +354,20 @@ impl<'a> Modal<'a> {
                         // --- Footer ---
                         if let Some(footer) = self.footer {
                             ui.separator();
-                            Frame::new()
-                                .fill(theme.palette.depth_tint(p.card, 0.04))
+                            // The recessed footer fill is painted by hand rather
+                            // than via the frame's own `.fill`. A plain frame
+                            // fill is a square-cornered rectangle flush with the
+                            // card edges, so it paints over the card's rounded
+                            // bottom corners and bottom border — the non-round
+                            // corners reported in issue #7. Instead we lay the
+                            // footer out with no fill, then drop a rounded fill
+                            // into a slot reserved *behind* the content, tucked
+                            // one pixel inside the 1px border so the border (and
+                            // its rounded corners) stays unbroken all the way
+                            // around.
+                            let footer_fill = theme.palette.depth_tint(p.card, 0.04);
+                            let fill_idx = ui.painter().add(Shape::Noop);
+                            let footer_rect = Frame::new()
                                 .inner_margin(Margin::symmetric(pad as i8, pad as i8 * 3 / 4))
                                 .show(ui, |ui| {
                                     ui.horizontal(|ui| {
@@ -368,7 +381,30 @@ impl<'a> Modal<'a> {
                                             },
                                         );
                                     });
-                                });
+                                })
+                                .response
+                                .rect;
+                            // Round the bottom corners one pixel tighter than the
+                            // card so the fill follows the inside of the border's
+                            // curve; leave the top flush with the divider above.
+                            let r = (theme.card_radius - 1.0).max(0.0) as u8;
+                            let fill_rect = Rect::from_min_max(
+                                Pos2::new(footer_rect.left() + 1.0, footer_rect.top()),
+                                Pos2::new(footer_rect.right() - 1.0, footer_rect.bottom() - 1.0),
+                            );
+                            ui.painter().set(
+                                fill_idx,
+                                Shape::rect_filled(
+                                    fill_rect,
+                                    CornerRadius {
+                                        nw: 0,
+                                        ne: 0,
+                                        sw: r,
+                                        se: r,
+                                    },
+                                    footer_fill,
+                                ),
+                            );
                         }
                         body_result
                     })

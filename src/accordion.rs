@@ -98,7 +98,9 @@ impl Accordion {
 
         let exclusive_id = self.id_salt.with("__exclusive_open");
         let seeded_id = self.id_salt.with("__seeded");
+        let count_id = self.id_salt.with("__item_count");
         let prev_open: Option<usize> = ui.ctx().data(|d| d.get_temp(exclusive_id));
+        let prev_count: usize = ui.ctx().data(|d| d.get_temp(count_id).unwrap_or(0));
         let already_seeded: bool = ui
             .ctx()
             .data(|d| d.get_temp::<bool>(seeded_id).unwrap_or(false));
@@ -122,6 +124,7 @@ impl Accordion {
                     flush: self.flush,
                     next_index: 0,
                     item_count: 0,
+                    total_hint: prev_count,
                     prev_open_exclusive: prev_open,
                     next_open_exclusive: prev_open,
                     seeded: already_seeded,
@@ -133,6 +136,12 @@ impl Accordion {
                 let any_items = handle.next_index > 0;
                 let chain = std::mem::take(&mut handle.focus_chain);
                 let ctx = handle.ui.ctx().clone();
+
+                // Carry this frame's item count forward so the next frame can
+                // recognise the last row (see `AccordionUi::total_hint`).
+                if handle.next_index != prev_count {
+                    ctx.data_mut(|d| d.insert_temp(count_id, handle.next_index));
+                }
 
                 if self.exclusive && final_open != prev_open {
                     ctx.data_mut(|d| match final_open {
@@ -170,6 +179,13 @@ pub struct AccordionUi<'u> {
     flush: bool,
     next_index: usize,
     item_count: usize,
+    /// Total item count from the *previous* frame, used to recognise the last
+    /// row (so its highlight can round the card's bottom corners). The count
+    /// isn't known until the body closure finishes declaring items, so we
+    /// carry it forward a frame — standard immediate-mode bookkeeping. Zero on
+    /// the very first frame, which only leaves the last row's bottom corners
+    /// momentarily square if it happens to be hovered before the second frame.
+    total_hint: usize,
     prev_open_exclusive: Option<usize>,
     next_open_exclusive: Option<usize>,
     seeded: bool,
@@ -381,18 +397,45 @@ impl<'a, 'u> AccordionItem<'a, 'u> {
             owner.focus_chain.push(row_resp.id);
         }
 
+        // The row highlight and focus ring span the full row, so on the first
+        // and last rows their corners coincide with the card's rounded corners
+        // (non-flush mode). Round just those corners to match — otherwise a
+        // square fill / ring squares off the card's curve (issue #7's pattern).
+        let is_first = index == 0;
+        // The last row only abuts the card's rounded bottom corners when it is
+        // the final item *and* closed; an open last item puts its (fill-less)
+        // body there instead, so its header stays interior (square).
+        let is_last = !is_open && owner.total_hint > 0 && index + 1 == owner.total_hint;
+        let card_r = if owner.flush {
+            0
+        } else {
+            theme.card_radius as u8
+        };
+        let outer_corners = |r: u8| CornerRadius {
+            nw: if is_first { r } else { 0 },
+            ne: if is_first { r } else { 0 },
+            sw: if is_last { r } else { 0 },
+            se: if is_last { r } else { 0 },
+        };
+
         if owner.ui.is_rect_visible(row_rect) {
-            // Hover / focus background lift.
+            // Hover / focus background lift. Matches the card radius exactly at
+            // the outer corners so the (faint) fill tracks the card's curve.
             if !disabled && (row_resp.hovered() || row_resp.has_focus()) {
                 let alpha = if row_resp.has_focus() { 12 } else { 8 };
                 let lift =
                     Color32::from_rgba_unmultiplied(p.text.r(), p.text.g(), p.text.b(), alpha);
-                owner.ui.painter().rect_filled(row_rect, 0.0, lift);
+                owner
+                    .ui
+                    .painter()
+                    .rect_filled(row_rect, outer_corners(card_r), lift);
             }
             if row_resp.has_focus() {
+                // The ring sits 1px inside the row, so its outer corners curve
+                // one pixel tighter than the card to stay concentric with it.
                 owner.ui.painter().rect(
                     row_rect.shrink(1.0),
-                    CornerRadius::ZERO,
+                    outer_corners(card_r.saturating_sub(1)),
                     Color32::TRANSPARENT,
                     Stroke::new(2.0, with_alpha(p.focus, 180)),
                     StrokeKind::Inside,
