@@ -17,11 +17,12 @@ use elegance::{
     Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
     CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
-    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, PairItem, Pairing,
-    PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge, RangeSlider,
-    RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
-    Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps,
-    StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip, TooltipSide,
+    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem,
+    Pairing, PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge,
+    RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl,
+    SegmentedSize, Select, Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard,
+    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip,
+    TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -45,6 +46,30 @@ fn snap_with_setup(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui), setup: fn
     harness.fit_contents();
     harness.run();
     setup(&harness);
+    harness.run();
+    harness.snapshot(name);
+}
+
+/// Like [`snap`] but keeps a fixed canvas instead of shrinking to fit the
+/// content. Needed for overlay widgets (e.g. [`Modal`]) that paint into a
+/// screen-sized `Area` rather than into the central `Ui`, so `fit_contents`
+/// would collapse the canvas out from under them. Runs a couple of extra
+/// frames so any deferred `Area` sizing and cross-frame bookkeeping settles.
+fn snap_fixed(name: &str, theme: Theme, size: egui::Vec2, ui_fn: fn(&mut egui::Ui)) {
+    let mut harness = Harness::builder()
+        .with_size(size)
+        .with_pixels_per_point(2.0)
+        .wgpu()
+        .build_ui(move |ui| {
+            theme.clone().install(ui.ctx());
+            let t = Theme::current(ui.ctx());
+            // Fill the whole canvas so an overlay's dimmed backdrop sits over a
+            // uniform themed background rather than stray central-panel content.
+            let screen = ui.ctx().content_rect();
+            ui.painter().rect_filled(screen, 0.0, t.palette.bg);
+            ui_fn(ui);
+        });
+    harness.run();
     harness.run();
     harness.snapshot(name);
 }
@@ -1992,3 +2017,125 @@ interact_tests!(button_focused, single_button_ui, focus_deploy);
 interact_tests!(switch_hovered_off, single_switch_off_ui, hover_notify);
 interact_tests!(text_input_focused, single_text_input_ui, focus_email);
 interact_tests!(text_input_dirty_focused, dirty_text_input_ui, focus_dirty);
+
+// ---------------------------------------------------------------------------
+// Rounded-corner regression tests (issue #7). A footer / row fill must follow
+// the surface's rounded corners rather than square them off. The modal is an
+// overlay (fixed canvas); the accordion focus ring is exercised on the last,
+// closed row, whose bottom edge abuts the card's rounded bottom corners.
+// ---------------------------------------------------------------------------
+
+fn modal_with_footer_ui(ui: &mut egui::Ui) {
+    let ctx = ui.ctx().clone();
+    let theme = Theme::current(&ctx);
+    // The modal is never dismissed in the test, so fresh locals each frame are
+    // fine — `open` stays true and the field text/checkbox stay constant.
+    let mut open = true;
+    let mut text = String::from("elegance-");
+    let mut export = false;
+    Modal::new("vis_modal", &mut open)
+        .heading("Delete workspace")
+        .subtitle("This will remove all 38 projects, 214 dashboards, and 7 team members.")
+        .header_icon("!")
+        .header_accent(Accent::Red)
+        .max_width(480.0)
+        .alert(true)
+        .footer_left(|ui| {
+            ui.add(Checkbox::new(&mut export, "Export data before deletion"));
+        })
+        .footer(|ui| {
+            let _ = ui.add(
+                Button::new("Delete workspace")
+                    .accent(Accent::Red)
+                    .enabled(false),
+            );
+            let _ = ui.add(Button::new("Cancel").outline());
+        })
+        .show(&ctx, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.add(egui::Label::new(theme.muted_text("Type")));
+                ui.add(egui::Label::new(
+                    egui::RichText::new("elegance-labs")
+                        .monospace()
+                        .color(theme.palette.red),
+                ));
+                ui.add(egui::Label::new(theme.muted_text("to confirm.")));
+            });
+            ui.add_space(6.0);
+            ui.add(
+                TextInput::new(&mut text)
+                    .desired_width(f32::INFINITY)
+                    .id_salt("vis_modal_phrase"),
+            );
+        });
+}
+
+fn single_accordion_ui(ui: &mut egui::Ui) {
+    ui.set_min_width(420.0);
+    Accordion::new("vis_acc_focus").show(ui, |acc| {
+        acc.item("Invite teammates")
+            .subtitle("Members and roles")
+            .show(|_| {});
+        acc.item("Archive a project").show(|_| {});
+        acc.item("Delete account").show(|_| {});
+    });
+}
+
+fn focus_last_accordion_row(h: &Harness) {
+    h.get_by_label("Delete account").focus();
+}
+
+macro_rules! fixed_theme_tests {
+    ($name:ident, $size:expr, $ui_fn:expr) => {
+        mod $name {
+            use super::*;
+            #[test]
+            fn slate() {
+                snap_fixed(
+                    &format!("{}_slate", stringify!($name)),
+                    Theme::slate(),
+                    $size,
+                    $ui_fn,
+                );
+            }
+            #[test]
+            fn charcoal() {
+                snap_fixed(
+                    &format!("{}_charcoal", stringify!($name)),
+                    Theme::charcoal(),
+                    $size,
+                    $ui_fn,
+                );
+            }
+            #[test]
+            fn frost() {
+                snap_fixed(
+                    &format!("{}_frost", stringify!($name)),
+                    Theme::frost(),
+                    $size,
+                    $ui_fn,
+                );
+            }
+            #[test]
+            fn paper() {
+                snap_fixed(
+                    &format!("{}_paper", stringify!($name)),
+                    Theme::paper(),
+                    $size,
+                    $ui_fn,
+                );
+            }
+        }
+    };
+}
+
+fixed_theme_tests!(
+    modal_footer,
+    egui::Vec2::new(640.0, 440.0),
+    modal_with_footer_ui
+);
+interact_tests!(
+    accordion_row_focused,
+    single_accordion_ui,
+    focus_last_accordion_row
+);
