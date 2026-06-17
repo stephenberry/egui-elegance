@@ -56,6 +56,12 @@ LUCIDE_GLYPHS = [
     ("power", 0xE009),
     ("trash-2", 0xE00A),
     ("pencil", 0xE00B),
+    ("plus", 0xE00C),
+    ("terminal", 0xE00D),
+    ("key-round", 0xE00E),
+    ("refresh-cw", 0xE00F),
+    ("arrow-up", 0xE010),
+    ("arrow-down", 0xE011),
     ("check", 0x2713),
     ("x", 0x2717),
 ]

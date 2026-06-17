@@ -185,6 +185,18 @@ pub mod glyphs {
     pub const TRASH: char = '\u{E00A}';
     /// Pencil / edit icon. Source: [Lucide `pencil`](https://lucide.dev/icons/pencil).
     pub const PENCIL: char = '\u{E00B}';
+    /// Plus / add icon, for "new" / "create" actions. Source: [Lucide `plus`](https://lucide.dev/icons/plus).
+    pub const PLUS: char = '\u{E00C}';
+    /// Terminal / console icon, for opening a shell session. Source: [Lucide `terminal`](https://lucide.dev/icons/terminal).
+    pub const TERMINAL: char = '\u{E00D}';
+    /// Key icon, for keys / credentials / secrets. Source: [Lucide `key-round`](https://lucide.dev/icons/key-round).
+    pub const KEY: char = '\u{E00E}';
+    /// Refresh / reload icon, for re-fetch or re-scan. Source: [Lucide `refresh-cw`](https://lucide.dev/icons/refresh-cw).
+    pub const REFRESH: char = '\u{E00F}';
+    /// Up-arrow icon, for ascending sort, "move up", or navigation. Source: [Lucide `arrow-up`](https://lucide.dev/icons/arrow-up).
+    pub const ARROW_UP: char = '\u{E010}';
+    /// Down-arrow icon, for descending sort, "move down", or navigation. Source: [Lucide `arrow-down`](https://lucide.dev/icons/arrow-down).
+    pub const ARROW_DOWN: char = '\u{E011}';
     /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
     /// also pick up the elegance treatment.
     /// Source: [Lucide `check`](https://lucide.dev/icons/check).
