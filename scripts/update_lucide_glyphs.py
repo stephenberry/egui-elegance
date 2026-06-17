@@ -62,6 +62,27 @@ LUCIDE_GLYPHS = [
     ("refresh-cw", 0xE00F),
     ("arrow-up", 0xE010),
     ("arrow-down", 0xE011),
+    # Status family — back CalloutTone's per-tone marks.
+    ("info", 0xE012),
+    ("triangle-alert", 0xE013),
+    ("circle-x", 0xE014),
+    ("circle-check", 0xE015),
+    # Broadly useful actions / navigation.
+    ("settings", 0xE016),
+    ("menu", 0xE017),
+    ("arrow-left", 0xE018),
+    ("arrow-right", 0xE019),
+    ("external-link", 0xE01A),
+    ("chevron-right", 0xE01B),
+    ("chevron-down", 0xE01C),
+    # Situational. `funnel`/`house` are the Lucide names for the icons
+    # exposed as FILTER / HOME (intent-named, like check / x).
+    ("funnel", 0xE01D),
+    ("eye", 0xE01E),
+    ("eye-off", 0xE01F),
+    ("house", 0xE020),
+    ("lock", 0xE021),
+    ("save", 0xE022),
     ("check", 0x2713),
     ("x", 0x2717),
 ]

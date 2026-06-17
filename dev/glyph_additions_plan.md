@@ -1,5 +1,7 @@
 # Glyph Additions — Proposal
 
+> **Status:** shipped, and then expanded. This document proposed the first six action glyphs (`U+E00C`–`U+E011`). A follow-up batch added 17 more at `U+E012`–`U+E022` — a Status family (`info`, `triangle-alert`, `circle-x`, `circle-check`) that also rewires `CalloutTone`'s per-tone marks, plus broadly-useful nav/action icons (`settings`, `menu`, `arrow-left`/`right`, `external-link`, `chevron-right`/`down`) and situational ones (`funnel`→`FILTER`, `eye`, `eye-off`, `house`→`HOME`, `lock`, `save`). The conventions and process below applied unchanged to both batches.
+
 A proposal to extend the bundled Elegance Symbols icon set with six common action glyphs. The current set covers transfer (`upload`/`download`), search/zoom, status (`circle-alert`, `check`, `x`), and a few object icons (`pin`, `copy`, `network`, `power`, `trash-2`, `pencil`), but downstream apps keep reaching for a small group of everyday action icons that aren't there yet and have to fall back to text-only buttons or base-font literals.
 
 ---

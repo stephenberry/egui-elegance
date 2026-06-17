@@ -1998,19 +1998,44 @@ fn render_glyphs() {
                     let icons = |chars: &[char]| -> String {
                         chars.iter().map(|c| format!("{c} ")).collect::<String>().trim_end().to_string()
                     };
-                    let rows: [(&str, String); 12] = [
+                    let rows: [(&str, String); 13] = [
                         ("Arrows", "← ↑ → ↓ ↩ ↲ ↵".to_string()),
                         ("Ellipsis", "⋮ ⋯".to_string()),
                         ("Modifier keys", "⌃ ⌘ ⌥ ⇧ ⇪".to_string()),
                         ("Editing keys", "⌫ ⌦ ⌧ ⏎ ⇥".to_string()),
                         ("Triangles", "▴ ▸ ▾ ◂".to_string()),
-                        ("Status", "✓ ✗".to_string()),
+                        (
+                            "Status",
+                            icons(&[
+                                g::CHECK,
+                                g::X,
+                                g::INFO,
+                                g::CIRCLE_CHECK,
+                                g::TRIANGLE_ALERT,
+                                g::CIRCLE_X,
+                                g::CIRCLE_ALERT,
+                            ]),
+                        ),
                         ("Transfer", icons(&[g::UPLOAD, g::DOWNLOAD, g::REFRESH])),
-                        ("Search", icons(&[g::SEARCH, g::ZOOM_IN, g::ZOOM_OUT])),
-                        ("Edit", icons(&[g::PLUS, g::PENCIL, g::COPY, g::TRASH])),
-                        ("System", icons(&[g::TERMINAL, g::KEY, g::POWER, g::NETWORK])),
-                        ("Markers", icons(&[g::PIN, g::CIRCLE_ALERT])),
-                        ("Direction", icons(&[g::ARROW_UP, g::ARROW_DOWN])),
+                        ("Search", icons(&[g::SEARCH, g::ZOOM_IN, g::ZOOM_OUT, g::FILTER])),
+                        ("Visibility", icons(&[g::EYE, g::EYE_OFF])),
+                        ("Edit", icons(&[g::PLUS, g::PENCIL, g::COPY, g::TRASH, g::SAVE])),
+                        (
+                            "System",
+                            icons(&[g::TERMINAL, g::SETTINGS, g::KEY, g::LOCK, g::POWER, g::NETWORK]),
+                        ),
+                        (
+                            "Direction",
+                            icons(&[
+                                g::ARROW_UP,
+                                g::ARROW_DOWN,
+                                g::ARROW_LEFT,
+                                g::ARROW_RIGHT,
+                                g::CHEVRON_RIGHT,
+                                g::CHEVRON_DOWN,
+                            ]),
+                        ),
+                        ("Navigation", icons(&[g::HOME, g::MENU, g::EXTERNAL_LINK, g::PIN])),
                     ];
                     for (label, glyphs) in &rows {
                         ui.add(egui::Label::new(theme.muted_text(*label)));

@@ -58,13 +58,16 @@ impl CalloutTone {
         }
     }
 
-    fn default_icon(self) -> &'static str {
+    fn default_icon(self) -> char {
+        use crate::glyphs;
         match self {
-            Self::Info => "ℹ",
-            Self::Success => "✓",
-            Self::Warning => "⚠",
-            Self::Danger => "×",
-            Self::Neutral => "•",
+            Self::Info => glyphs::INFO,
+            Self::Success => glyphs::CIRCLE_CHECK,
+            Self::Warning => glyphs::TRIANGLE_ALERT,
+            Self::Danger => glyphs::CIRCLE_X,
+            // No Lucide mark for a tone with no urgency; a plain dot reads
+            // as "just an announcement".
+            Self::Neutral => '•',
         }
     }
 }
