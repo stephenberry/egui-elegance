@@ -41,6 +41,7 @@ struct App {
     text_hint: String,
     text_dirty: String,
     text_pw: String,
+    text_reveal: String,
     area_body: String,
     area_mono: String,
     tag_recipients: Vec<String>,
@@ -193,6 +194,7 @@ impl Default for App {
             text_hint: String::new(),
             text_dirty: "3000.0".into(),
             text_pw: "hunter2".into(),
+            text_reveal: "correct-horse-battery".into(),
             area_body: "Short note.\nA second line.".into(),
             area_mono: "{\n  \"id\": 42,\n  \"ok\": true\n}".into(),
             tag_recipients: vec!["thomas@example.com".into(), "team@orbit.dev".into()],
@@ -578,6 +580,16 @@ impl App {
                         .password(true)
                         .desired_width(220.0)
                         .id_salt("ref_t_pw"),
+                );
+            });
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextInput::new(&mut self.text_reveal)
+                        .label("Passphrase (revealable)")
+                        .revealable(true)
+                        .desired_width(220.0)
+                        .id_salt("ref_t_reveal"),
                 );
             });
 

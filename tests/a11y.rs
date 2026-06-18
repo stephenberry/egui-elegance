@@ -107,6 +107,38 @@ fn modal_close_button_has_close_label() {
     let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Close");
 }
 
+#[test]
+fn revealable_input_exposes_operable_toggle() {
+    // The reveal toggle must be a real, queryable control: a screen-reader
+    // user (or automation) has to be able to find it and operate it. It also
+    // announces its current state, so the label flip is proof the masking
+    // toggled.
+    let mut pw = String::from("hunter2");
+    let mut harness = new_harness(move |ui| {
+        Theme::slate().install(ui.ctx());
+        ui.add(
+            TextInput::new(&mut pw)
+                .label("Passphrase")
+                .revealable(true)
+                .id_salt("a11y_reveal"),
+        );
+    });
+
+    // The field itself is still exposed by its label — the reveal layout
+    // must not swallow the input's own accessibility.
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::TextInput, "Passphrase");
+
+    // Masked by default: the toggle offers to reveal.
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "Reveal password")
+        .click();
+    harness.run();
+    harness.run();
+
+    // After activating it, the toggle now offers to hide — the state flipped.
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Hide password");
+}
+
 #[derive(Clone)]
 struct FocusTestState {
     open: bool,

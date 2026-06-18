@@ -336,6 +336,7 @@ fn render_text_inputs() {
     let mut hint = String::new();
     let mut dirty = "3000.0".to_string();
     let mut pw = "hunter2".to_string();
+    let mut reveal = "correct-horse".to_string();
 
     render("text_inputs", move |ui| {
         background(ui, |ui| {
@@ -370,6 +371,15 @@ fn render_text_inputs() {
                         .password(true)
                         .desired_width(240.0)
                         .id_salt("r_pw"),
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextInput::new(&mut reveal)
+                        .label("Passphrase (revealable)")
+                        .revealable(true)
+                        .desired_width(240.0)
+                        .id_salt("r_reveal"),
                 );
             });
         });
