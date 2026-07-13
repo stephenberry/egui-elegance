@@ -7,7 +7,6 @@
 //! Inbox / Calendar). Each segment can carry a label, an icon, a status
 //! dot, and a count badge.
 
-use std::hash::Hash;
 use std::sync::Arc;
 
 use egui::{
@@ -469,7 +468,7 @@ impl<'a> SegmentedControl<'a> {
     /// id-based diagnostics stay attached to the same control across
     /// frames.
     #[inline]
-    pub fn id_salt(mut self, id: impl Hash) -> Self {
+    pub fn id_salt(mut self, id: impl crate::IdSalt) -> Self {
         self.id_salt = Some(Id::new(id));
         self
     }

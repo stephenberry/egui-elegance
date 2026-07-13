@@ -59,7 +59,7 @@ impl<'a> ThemeSwitcher<'a> {
 
     /// Override the id salt. Only needed if multiple switchers coexist
     /// in the same UI.
-    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, id_salt: impl crate::IdSalt) -> Self {
         self.id_salt = Id::new(id_salt);
         self
     }

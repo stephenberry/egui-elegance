@@ -53,8 +53,6 @@
 //! directly: it integrates with the surrounding layout so the main content
 //! resizes around it. `Drawer` is for the modal slide-in case.
 
-use std::hash::Hash;
-
 use egui::{
     Align, Area, Color32, Context, CornerRadius, Frame, Id, Key, Layout, Margin, Order, Pos2, Rect,
     Response, Sense, Stroke, Ui, WidgetInfo, WidgetText, WidgetType, accesskit, emath,
@@ -109,7 +107,7 @@ impl<'a> Drawer<'a> {
     /// Create a drawer keyed by `id_salt` whose visibility is bound to `open`.
     /// Defaults: anchored to the right, 420 pt wide, no title, dismisses on
     /// `Esc` and backdrop click.
-    pub fn new(id_salt: impl Hash, open: &'a mut bool) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, open: &'a mut bool) -> Self {
         Self {
             id_salt: Id::new(id_salt),
             open,

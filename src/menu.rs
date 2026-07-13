@@ -25,8 +25,6 @@
 //! pressing `Esc`. Keyboard navigation (arrows + Enter) is not implemented
 //! in this version.
 
-use std::hash::Hash;
-
 use egui::{
     CornerRadius, Id, Popup, PopupCloseBehavior, Pos2, Response, Sense, Ui, Vec2, Widget,
     WidgetInfo, WidgetText, WidgetType,
@@ -49,7 +47,7 @@ impl Menu {
     /// Create a menu keyed by `id_salt`. The salt is used to persist the
     /// open/closed state across frames and must be stable for the trigger
     /// it's attached to.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Id::new(("elegance::menu", Id::new(id_salt))),
             min_width: 180.0,

@@ -42,7 +42,7 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         Theme::slate().install(ui.ctx()); // cheap to call every frame — skips work when unchanged
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             Card::new().heading("Account").show(ui, |ui| {
                 ui.add(
                     TextInput::new(&mut self.email)

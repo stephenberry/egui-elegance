@@ -2,8 +2,6 @@
 //!
 //! See [`SortableList`] for the full interaction model and an example.
 
-use std::hash::Hash;
-
 use egui::{
     Align2, Color32, CornerRadius, FontId, Id, LayerId, Order, Pos2, Rect, Response, Sense, Stroke,
     StrokeKind, Ui, Vec2, WidgetInfo, WidgetType,
@@ -160,7 +158,7 @@ impl<'a> SortableList<'a> {
     ///   Different `SortableList` widgets in the same window must use
     ///   distinct salts.
     /// * `items` — caller-owned list of rows. Reordered in place on drop.
-    pub fn new(id_salt: impl Hash, items: &'a mut Vec<SortableItem>) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, items: &'a mut Vec<SortableItem>) -> Self {
         Self {
             id_salt: Id::new(("elegance_sortable_list", id_salt)),
             items,

@@ -74,7 +74,7 @@ impl<'a> std::fmt::Debug for Modal<'a> {
 
 impl<'a> Modal<'a> {
     /// Create a modal keyed by `id_salt` whose visibility is bound to `open`.
-    pub fn new(id_salt: impl std::hash::Hash, open: &'a mut bool) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, open: &'a mut bool) -> Self {
         Self {
             id_salt: Id::new(id_salt),
             heading: None,

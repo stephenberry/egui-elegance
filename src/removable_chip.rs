@@ -7,8 +7,6 @@
 //! `×` or pressing Escape on an empty input. For multi-value tag inputs,
 //! see [`TagInput`](crate::TagInput).
 
-use std::hash::Hash;
-
 use egui::{
     Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
@@ -123,7 +121,7 @@ impl<'a> RemovableChip<'a> {
 
     /// Stable id salt. Useful when several chips share a layout, or when
     /// you need to address the chip's state across frames.
-    pub fn id_salt(mut self, id: impl Hash) -> Self {
+    pub fn id_salt(mut self, id: impl crate::IdSalt) -> Self {
         self.id_salt = Some(Id::new(id));
         self
     }

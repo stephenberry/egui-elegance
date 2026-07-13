@@ -43,8 +43,6 @@
 //! # }
 //! ```
 
-use std::hash::Hash;
-
 use egui::{
     Color32, CornerRadius, FontId, FontSelection, Id, Rect, Response, RichText, Sense, Stroke,
     TextWrapMode, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
@@ -168,7 +166,7 @@ impl BrowserTabs {
     /// Create an empty strip. `id_salt` scopes the widget's interaction
     /// state in egui memory; two `BrowserTabs` strips on the same page
     /// need distinct salts.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Id::new(("elegance::browser_tabs", id_salt)),
             tabs: Vec::new(),

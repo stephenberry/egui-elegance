@@ -25,8 +25,6 @@
 //! user must respond before continuing; reach for a [`Popover`] for
 //! inline settings, confirmations, or rich hover-cards.
 
-use std::hash::Hash;
-
 use egui::{
     Color32, CornerRadius, Frame, Id, InnerResponse, Margin, Pos2, Rect, Response, Shape, Stroke,
     Ui, Vec2, WidgetText, emath::RectAlign,
@@ -82,7 +80,7 @@ impl Popover {
     /// Create a popover keyed by `id_salt`. The salt is used to persist
     /// the open/closed state across frames and must be stable for the
     /// trigger it's attached to.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Self::popup_id(id_salt),
             side: PopoverSide::Bottom,
@@ -99,7 +97,7 @@ impl Popover {
     /// Use this with [`egui::Popup::open_id`] / [`egui::Popup::close_id`]
     /// to open or close a popover programmatically (for example, from a
     /// keyboard shortcut or a test harness).
-    pub fn popup_id(id_salt: impl Hash) -> Id {
+    pub fn popup_id(id_salt: impl crate::IdSalt) -> Id {
         Id::new(("elegance::popover", Id::new(id_salt)))
     }
 

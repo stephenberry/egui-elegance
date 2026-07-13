@@ -29,7 +29,7 @@
 //!     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
 //!         Theme::slate().install(ui.ctx());
 //!         self.log.show(ui);
-//!         egui::CentralPanel::default().show_inside(ui, |ui| {
+//!         egui::CentralPanel::default().show(ui, |ui| {
 //!             if ui.button("Reload").clicked() {
 //!                 self.log.out("reload_config");
 //!                 self.log.recv("ok");
@@ -44,7 +44,6 @@
 //! responses, errors, and plain system messages.
 
 use std::collections::VecDeque;
-use std::hash::Hash;
 
 use egui::{
     Color32, CornerRadius, Id, Pos2, Response, Sense, Stroke, Vec2, WidgetInfo, WidgetType, pos2,
@@ -132,7 +131,7 @@ impl LogBar {
 
     /// Override the id used for the panel and collapse state. Set this if
     /// you want more than one `LogBar` in a single app.
-    pub fn id_salt(mut self, salt: impl Hash) -> Self {
+    pub fn id_salt(mut self, salt: impl crate::IdSalt) -> Self {
         self.id_salt = Id::new(("elegance::log_bar", salt));
         self
     }
@@ -211,7 +210,7 @@ impl LogBar {
             // frame itself carries no inner margin. Body content has its
             // own margin Frame below.
             .frame(egui::Frame::new().fill(fill))
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let theme = Theme::current(ui.ctx());
                 let count = self.entries.len();
                 let label = if count == 0 {

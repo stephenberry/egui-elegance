@@ -6,7 +6,6 @@ use egui::{
     Align2, Color32, CornerRadius, FontId, Id, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, Vec2, epaint::CubicBezierShape,
 };
-use std::hash::Hash;
 
 use crate::theme::{Palette, Theme, Typography};
 
@@ -170,7 +169,7 @@ impl<'a> Pairing<'a> {
     /// * `pairs` — the caller-owned list of `(left_id, right_id)` tuples. It
     ///   is mutated when the user creates or removes a pairing.
     pub fn new(
-        id_salt: impl Hash,
+        id_salt: impl crate::IdSalt,
         left: &'a [PairItem],
         right: &'a [PairItem],
         pairs: &'a mut Vec<(String, String)>,

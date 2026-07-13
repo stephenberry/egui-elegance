@@ -182,7 +182,7 @@ impl<'a, T: Numeric> RangeSlider<'a, T> {
     /// multiple range sliders share a parent ui so their thumbs don't collide
     /// on focus or drag state.
     #[inline]
-    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, id_salt: impl crate::IdSalt) -> Self {
         self.id_salt = Some(Id::new(id_salt));
         self
     }

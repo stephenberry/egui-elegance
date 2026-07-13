@@ -36,8 +36,6 @@
 //! The popup is dismissed by clicking any item, clicking outside, or
 //! pressing `Esc`.
 
-use std::hash::Hash;
-
 use egui::{CornerRadius, Frame, Id, Margin, Popup, PopupCloseBehavior, Response, Stroke, Ui};
 
 use crate::theme::Theme;
@@ -57,7 +55,7 @@ impl ContextMenu {
     /// Create a context menu keyed by `id_salt`. The salt scopes the
     /// popup's open/closed state in egui memory and must be stable for
     /// the target it's attached to.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Id::new(("elegance::context_menu", Id::new(id_salt))),
             min_width: 200.0,
