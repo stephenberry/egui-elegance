@@ -40,7 +40,7 @@ impl<'a> std::fmt::Debug for CollapsingSection<'a> {
 impl<'a> CollapsingSection<'a> {
     /// Create a collapsing section keyed by `id_salt` with the given header label.
     /// The section is closed by default.
-    pub fn new(id_salt: impl std::hash::Hash, label: impl Into<WidgetText>) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, label: impl Into<WidgetText>) -> Self {
         Self {
             id_salt: Id::new(("elegance_collapsing", id_salt)),
             label: label.into(),

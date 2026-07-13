@@ -4,7 +4,6 @@
 //! input background, 1-px border, focus ring, and a matching chevron.
 
 use std::borrow::Cow;
-use std::hash::Hash;
 
 use egui::{
     Color32, ComboBox, CornerRadius, Pos2, Response, Sense, Stroke, Ui, Vec2, Widget, WidgetInfo,
@@ -70,7 +69,7 @@ impl<'a, T: PartialEq + Clone> std::fmt::Debug for Select<'a, T> {
 impl<'a, T: PartialEq + Clone> Select<'a, T> {
     /// Create a select keyed by `id_salt` and bound to `value`.
     /// Add selectable options via [`Select::options`].
-    pub fn new(id_salt: impl Hash, value: &'a mut T) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, value: &'a mut T) -> Self {
         Self {
             id_salt: egui::Id::new(id_salt),
             value,
@@ -126,7 +125,7 @@ impl<'a> Select<'a, String> {
     /// ui.add(Select::strings("unit", &mut unit, ["us", "ms", "s"]));
     /// # });
     /// ```
-    pub fn strings<I, S>(id_salt: impl Hash, value: &'a mut String, options: I) -> Self
+    pub fn strings<I, S>(id_salt: impl crate::IdSalt, value: &'a mut String, options: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<Cow<'a, str>>,

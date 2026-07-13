@@ -21,7 +21,7 @@
 //!         eframe::NativeOptions::default(),
 //!         |ui, _| {
 //!             Theme::slate().install(ui.ctx());
-//!             egui::CentralPanel::default().show_inside(ui, |ui| {
+//!             egui::CentralPanel::default().show(ui, |ui| {
 //!                 Card::new().heading("Hello").show(ui, |ui| {
 //!                     if ui.add(Button::new("Click me").accent(Accent::Blue))
 //!                         .clicked()
@@ -60,6 +60,7 @@ mod drawer;
 mod file_drop_zone;
 mod flash;
 mod gauge;
+mod id_salt;
 mod indicator;
 mod input;
 mod knob;
@@ -108,6 +109,7 @@ pub use drawer::{Drawer, DrawerSide};
 pub use file_drop_zone::{FileDropResponse, FileDropZone};
 pub use flash::{FLASH_DURATION, FlashKind, ResponseFlashExt, flash_error, flash_success};
 pub use gauge::{GaugeZones, LinearGauge, RadialGauge};
+pub use id_salt::IdSalt;
 pub use indicator::{Indicator, IndicatorState};
 pub use input::TextInput;
 pub use knob::{Knob, KnobScale, KnobSize};

@@ -112,7 +112,7 @@ impl<'a> TextArea<'a> {
 
     /// Supply a stable id salt. Required if you plan to flash this widget
     /// via [`ResponseFlashExt`](crate::ResponseFlashExt).
-    pub fn id_salt(mut self, id: impl std::hash::Hash) -> Self {
+    pub fn id_salt(mut self, id: impl crate::IdSalt) -> Self {
         self.id_salt = Some(egui::Id::new(id));
         self
     }

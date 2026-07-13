@@ -17,8 +17,6 @@
 //! # });
 //! ```
 
-use std::hash::Hash;
-
 use egui::{
     Align2, Color32, CornerRadius, FontId, Frame, Id, InnerResponse, Key, Margin, Pos2, Rect,
     Sense, Shape, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
@@ -65,7 +63,7 @@ impl Accordion {
     /// Create an accordion keyed by `id_salt`. Per-item open state lives in
     /// egui temp storage scoped under this salt, so different accordions on
     /// the same page must use distinct salts.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Id::new(("elegance_accordion", id_salt)),
             exclusive: false,

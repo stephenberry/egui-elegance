@@ -23,8 +23,6 @@
 //! # });
 //! ```
 
-use std::hash::Hash;
-
 use egui::{
     Color32, CornerRadius, FontSelection, Id, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, TextEdit, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
@@ -85,7 +83,7 @@ impl<'a> ColorPicker<'a> {
     /// Create a color picker keyed by `id_salt` and bound to `color`.
     /// Defaults: continuous picker on, alpha slider on, hex input on,
     /// recents tracked, opens below the trigger.
-    pub fn new(id_salt: impl Hash, color: &'a mut Color32) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, color: &'a mut Color32) -> Self {
         Self {
             id_salt: Id::new(id_salt),
             color,

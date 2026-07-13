@@ -45,8 +45,6 @@
 //! For a single click-to-open menu attached to an arbitrary trigger button,
 //! use [`Menu`](crate::Menu) directly.
 
-use std::hash::Hash;
-
 use egui::{
     Align, Color32, CornerRadius, Frame, Id, ImageSource, Layout, Margin, Popup,
     PopupCloseBehavior, Pos2, Rect, Sense, SetOpenCommand, Stroke, Ui, Vec2, WidgetInfo,
@@ -131,7 +129,7 @@ pub struct MenuBar {
 impl MenuBar {
     /// Create a new menu bar keyed by `id_salt`. The salt scopes per-menu
     /// open state in egui memory and must be stable across frames.
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt) -> Self {
         Self {
             id_salt: Id::new(("elegance::menu_bar", Id::new(id_salt))),
             brand: None,

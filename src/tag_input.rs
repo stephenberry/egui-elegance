@@ -13,8 +13,6 @@
 //! buffer, armed flag, last validation error) lives in egui memory keyed
 //! by the supplied `id_salt`.
 
-use std::hash::Hash;
-
 use egui::{
     Color32, CornerRadius, Event, FontId, FontSelection, Id, Key, Rect, Response, Sense, Stroke,
     StrokeKind, TextEdit, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
@@ -96,7 +94,7 @@ impl<'a> TagInput<'a> {
     /// Create a tag input bound to `tags`. The `id_salt` keys the buffer,
     /// armed flag, and last-error in egui memory. Use a unique salt per
     /// instance.
-    pub fn new(id_salt: impl Hash, tags: &'a mut Vec<String>) -> Self {
+    pub fn new(id_salt: impl crate::IdSalt, tags: &'a mut Vec<String>) -> Self {
         Self {
             id_salt: Id::new(id_salt),
             tags,

@@ -114,9 +114,9 @@ impl eframe::App for App {
                     .fill(Theme::current(ui.ctx()).palette.bg)
                     .inner_margin(egui::Margin::symmetric(16, 12)),
             )
-            .show_inside(ui, |ui| self.header(ui));
+            .show(ui, |ui| self.header(ui));
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.spacing_mut().item_spacing = egui::vec2(8.0, 10.0);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])

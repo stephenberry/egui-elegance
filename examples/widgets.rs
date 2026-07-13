@@ -393,7 +393,7 @@ impl eframe::App for App {
                     .fill(bg)
                     .inner_margin(egui::Margin::symmetric(16, 10)),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let theme = Theme::current(ui.ctx());
                 ui.horizontal(|ui| {
                     ui.add(egui::Label::new(
@@ -410,7 +410,7 @@ impl eframe::App for App {
 
         self.log.show(ui);
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.add_space(8.0);
             ui.add(TabBar::new(
                 &mut self.category,
