@@ -39,6 +39,8 @@ pub struct Modal<'a> {
     subtitle: Option<WidgetText>,
     header_icon: Option<WidgetText>,
     header_accent: Option<Accent>,
+    backdrop_order: Order,
+    content_order: Order,
     open: &'a mut bool,
     max_width: f32,
     closable: bool,
@@ -57,6 +59,8 @@ impl<'a> std::fmt::Debug for Modal<'a> {
             .field("subtitle", &self.subtitle.as_ref().map(|h| h.text()))
             .field("header_icon", &self.header_icon.as_ref().map(|h| h.text()))
             .field("header_accent", &self.header_accent)
+            .field("backdrop_order", &self.backdrop_order)
+            .field("content_order", &self.content_order)
             .field("open", &*self.open)
             .field("max_width", &self.max_width)
             .field("closable", &self.closable)
@@ -81,6 +85,8 @@ impl<'a> Modal<'a> {
             subtitle: None,
             header_icon: None,
             header_accent: None,
+            backdrop_order: Order::Middle,
+            content_order: Order::Foreground,
             open,
             max_width: 440.0,
             closable: true,
@@ -117,6 +123,18 @@ impl<'a> Modal<'a> {
     /// [`Modal::header_icon`].
     pub fn header_accent(mut self, accent: Accent) -> Self {
         self.header_accent = Some(accent);
+        self
+    }
+
+    /// Override the [Order] used for the backdrop of the modal
+    pub fn backdrop_order(mut self, order: Order) -> Self {
+        self.backdrop_order = order;
+        self
+    }
+
+    /// Override the [Order] used for the content of the modal
+    pub fn content_order(mut self, order: Order) -> Self {
+        self.content_order = order;
         self
     }
 
@@ -232,7 +250,7 @@ impl<'a> Modal<'a> {
         let backdrop_id = Id::new("elegance_modal_backdrop").with(self.id_salt);
         let backdrop = Area::new(backdrop_id)
             .fixed_pos(screen.min)
-            .order(Order::Middle)
+            .order(self.backdrop_order)
             .show(ctx, |ui| {
                 ui.painter().rect_filled(
                     screen,
@@ -250,7 +268,7 @@ impl<'a> Modal<'a> {
         let alert = self.alert;
         let heading_text: Option<String> = self.heading.as_ref().map(|h| h.text().to_string());
         let result = Area::new(window_id)
-            .order(Order::Foreground)
+            .order(self.content_order)
             .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
             .show(ctx, |ui| {
                 // Upgrade this Ui's accesskit role from `GenericContainer`
