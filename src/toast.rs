@@ -664,10 +664,7 @@ fn paint_toast(
         Vec2::new(text_width, title_size_y),
     );
     let title_text = egui::RichText::new(&entry.title).color(p.text).size(t.body);
-    ui.put(
-        title_rect,
-        egui::Label::new(title_text).selectable(true).wrap(),
-    );
+    put_wrapped_label(ui, title_rect, title_text);
 
     if let Some(desc) = &entry.description {
         let desc_galley = ui.ctx().fonts_mut(|f| {
@@ -686,16 +683,28 @@ fn paint_toast(
             Vec2::new(text_width, desc_galley.size().y),
         );
         let desc_text = egui::RichText::new(desc).color(p.text_muted).size(t.small);
-        ui.put(
-            desc_rect,
-            egui::Label::new(desc_text).selectable(true).wrap(),
-        );
+        put_wrapped_label(ui, desc_rect, desc_text);
     }
 
     ToastPaint {
         close_clicked: close_resp.clicked(),
         hovered,
     }
+}
+
+/// Place a wrapping, selectable label in `rect`.
+///
+/// Not `Ui::put`: that imposes `Layout::centered_and_justified`, which `Label`
+/// copies into `LayoutJob::justify`. Justification stretches every row but the
+/// last out to the full wrap width, so a row holding one long word (a path, a
+/// URL) comes back letter-spaced.
+fn put_wrapped_label(ui: &mut Ui, rect: Rect, text: egui::RichText) {
+    ui.scope_builder(
+        egui::UiBuilder::new()
+            .max_rect(rect)
+            .layout(egui::Layout::top_down(egui::Align::LEFT)),
+        |ui| ui.add(egui::Label::new(text).selectable(true).wrap()),
+    );
 }
 
 /// Paint the "Clear all" pill that sits above (or below) the toast
