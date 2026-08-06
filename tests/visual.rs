@@ -310,6 +310,8 @@ fn text_areas_ui(ui: &mut egui::Ui) {
 fn selects_ui(ui: &mut egui::Ui) {
     let mut unit = "ms".to_string();
     let mut env = "Production".to_string();
+    let mut region = "eu-west-1".to_string();
+    let saved_region = "us-east-1".to_string();
     ui.horizontal(|ui| {
         ui.add(
             Select::strings("s_unit", &mut unit, ["us", "ms", "s"])
@@ -321,6 +323,13 @@ fn selects_ui(ui: &mut egui::Ui) {
             Select::strings("s_env", &mut env, ["Production", "Staging", "Development"])
                 .label("Environment")
                 .width(180.0),
+        );
+        ui.add_space(16.0);
+        ui.add(
+            Select::strings("s_region", &mut region, ["eu-west-1", "us-east-1"])
+                .label("Region")
+                .saved(&saved_region)
+                .width(140.0),
         );
     });
 }

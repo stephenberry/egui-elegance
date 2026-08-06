@@ -184,7 +184,7 @@ if let Some(value) = suffix.as_mut() {
 
 ![Selects](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/selects.png)
 
-Themed combo-box generic over any `PartialEq + Clone` value type.
+Themed combo-box generic over any `PartialEq + Clone` value type. Hand it the last committed value with `.saved(…)` and a *staged* select — one whose selection has moved but not yet been saved — marks itself with the same focus-accent dot `BrowserTab` uses for unsaved work, so it reads as pending beside a dirty `TextInput` in the same form.
 
 ```rust
 use elegance::Select;
@@ -199,6 +199,13 @@ ui.add(
 
 // Shorthand for string-valued selects:
 ui.add(Select::strings("env", &mut env, ["Production", "Staging", "Development"]));
+
+// Mark a staged selection as unsaved. The dot rides the label, so `.label(…)` is required:
+ui.add(
+    Select::strings("region", &mut region, ["eu-west-1", "us-east-1"])
+        .label("Region")
+        .saved(&saved_region),
+);
 
 // Disable inline — no need to wrap in `ui.add_enabled_ui`:
 ui.add(Select::strings("env", &mut env, ["Production", "Staging"]).enabled(false));
