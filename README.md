@@ -523,7 +523,7 @@ ui.add(
 
 ![ColorPicker](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/color_picker.png)
 
-Bound to a `Color32`. Renders as a compact swatch-and-hex trigger; clicking opens a popover containing any combination of a curated palette grid, an auto-tracked recents row, a continuous saturation/value plane plus hue slider, an alpha slider, and a hex input. Builder toggles let you mix-and-match: a palette-only picker for status colors, a continuous picker for free-form brand colors, or both stacked. Recent picks are persisted in egui context memory keyed by `id_salt`. Hex parsing accepts `#RGB`, `#RRGGBB`, `#RRGGBBAA` (with or without `#`).
+Bound to a `Color32`. Renders as a compact swatch-and-hex trigger; clicking opens a popover containing any combination of a curated palette grid, an auto-tracked recents row, a continuous saturation/value plane plus hue slider, an alpha slider, and a hex input. Builder toggles let you mix-and-match: a palette-only picker for status colors, a continuous picker for free-form brand colors, or both stacked. Recent picks are persisted in egui context memory keyed by `id_salt`. Hex parsing accepts `#RGB`, `#RRGGBB`, `#RRGGBBAA` (with or without `#`). The three continuous surfaces are keyboard-operable: `Tab` to one and the SV plane takes `←`/`→` for saturation and `↑`/`↓` for value, while the hue and alpha strips take `←`/`→` plus `Home`/`End`, with `Shift` for a 10x nudge. Grabbing a surface with the pointer focuses it, and a keyboard adjustment records to recents exactly as a pointer release does.
 
 ```rust
 use elegance::ColorPicker;

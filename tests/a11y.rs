@@ -530,3 +530,26 @@ fn menu_item_radio_reports_selected_state() {
         "selected radio menu item should report toggled=True"
     );
 }
+
+#[test]
+fn color_picker_continuous_surfaces_expose_slider_roles() {
+    // The SV plane, hue strip, and alpha strip are keyboard-operable, so each
+    // has to announce itself and what it adjusts. Before they carried widget
+    // info a screen reader saw three unlabelled targets that Tab landed on and
+    // could say nothing about.
+    let id = "a11y_color_picker";
+    let harness = new_harness(move |ui| {
+        Theme::slate().install(ui.ctx());
+        egui::Popup::open_id(
+            &ui.ctx().clone(),
+            elegance::Popover::popup_id(("elegance::color_picker", egui::Id::new(id))),
+        );
+        let mut color = egui::Color32::from_rgba_unmultiplied(0x38, 0xbd, 0xf8, 0x80);
+        ui.set_min_size(egui::vec2(360.0, 400.0));
+        ui.add(elegance::ColorPicker::new(id, &mut color));
+    });
+
+    for label in ["Saturation and value", "Hue", "Alpha"] {
+        let _ = harness.get_by_role_and_label(egui::accesskit::Role::Slider, label);
+    }
+}

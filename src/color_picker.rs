@@ -24,8 +24,8 @@
 //! ```
 
 use egui::{
-    Color32, CornerRadius, FontSelection, Id, Pos2, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, TextEdit, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    Color32, CornerRadius, Event, EventFilter, FontSelection, Id, Key, Pos2, Rect, Response, Sense,
+    Shape, Stroke, StrokeKind, TextEdit, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
     ecolor::{Hsva, HsvaGamma},
     epaint::Mesh,
     lerp, pos2, vec2,
@@ -627,13 +627,102 @@ fn paint_dashed_rect(
 
 // --- continuous picker -----------------------------------------------------
 
+/// One arrow-key step on a `0..=1` colour channel, as a fraction of the
+/// channel. `Shift` multiplies it by ten, the same 10x the crate's sliders use.
+const CHANNEL_STEP: f32 = 0.01;
+
+/// One arrow-key step on hue, which reads in degrees rather than as a fraction
+/// of an arbitrary range: one press is one degree, `Shift` a ten-degree jump.
+const HUE_STEP: f32 = 1.0 / 360.0;
+
+/// Focus ring for a continuous surface, drawn just outside it.
+///
+/// Outside rather than as an accented border because these surfaces paint
+/// saturated gradients edge to edge: an inset ring on the 14pt hue strip
+/// disappears into the rainbow behind it. This sits in the 8pt gap between
+/// controls, on the popover surface, where it reads against every theme — and
+/// it is where [`Knob`](crate::Knob) already puts its ring.
+fn paint_focus_ring(
+    painter: &egui::Painter,
+    rect: Rect,
+    radius: f32,
+    p: &crate::theme::Palette,
+    response: &Response,
+) {
+    if !response.has_focus() {
+        return;
+    }
+    const GAP: f32 = 2.0;
+    painter.rect_stroke(
+        rect.expand(GAP),
+        CornerRadius::same((radius + GAP) as u8),
+        Stroke::new(2.0, p.focus),
+        StrokeKind::Outside,
+    );
+}
+
+/// Arrow-key handling for a horizontal `0..=1` strip.
+///
+/// Claims only the horizontal arrows, leaving the vertical pair to egui's focus
+/// navigation so the user can move between the stacked controls — the same
+/// split the crate's sliders make, and the opposite of the SV plane above,
+/// which needs all four. `Home` / `End` jump to the ends.
+///
+/// Returns whether the channel moved.
+fn strip_keys(ui: &mut Ui, response: &Response, channel: &mut f32, step: f32) -> bool {
+    if !response.has_focus() {
+        return false;
+    }
+    ui.memory_mut(|m| {
+        m.set_focus_lock_filter(
+            response.id,
+            EventFilter {
+                horizontal_arrows: true,
+                ..Default::default()
+            },
+        );
+    });
+
+    let mut next = *channel;
+    for ev in ui.input(|i| i.events.clone()) {
+        if let Event::Key {
+            key,
+            pressed: true,
+            modifiers,
+            ..
+        } = ev
+        {
+            let d = if modifiers.shift { step * 10.0 } else { step };
+            match key {
+                Key::ArrowRight => next += d,
+                Key::ArrowLeft => next -= d,
+                Key::Home => next = 0.0,
+                Key::End => next = 1.0,
+                _ => {}
+            }
+        }
+    }
+
+    // Clamped, not wrapped, including for hue: the strip draws a line with two
+    // ends, and the pointer path clamps, so the keyboard matching it keeps the
+    // two ways of driving the same control honest.
+    let next = next.clamp(0.0, 1.0);
+    if (next - *channel).abs() <= f32::EPSILON {
+        return false;
+    }
+    *channel = next;
+    crate::commit::mark_commit(ui.ctx(), response.id);
+    true
+}
+
 fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bool) {
     let p = &theme.palette;
     let avail = ui.available_width();
     let height = 150.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.committed();
+
+    crate::focus::focus_on_press(&response);
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()
@@ -644,6 +733,63 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
         hsv.v = v;
         changed = true;
     }
+
+    // The one two-dimensional surface here: horizontal arrows move saturation,
+    // vertical arrows move value. Both axes have to be claimed or egui routes
+    // the key to spatial focus navigation as well and the plane hands focus to
+    // a neighbour after one press. `Home` / `End` are deliberately unbound —
+    // "the end" of a plane is a corner, not a value, and the strips below use
+    // them for something unambiguous.
+    if response.has_focus() {
+        ui.memory_mut(|m| {
+            m.set_focus_lock_filter(
+                response.id,
+                EventFilter {
+                    horizontal_arrows: true,
+                    vertical_arrows: true,
+                    ..Default::default()
+                },
+            );
+        });
+
+        let (mut s, mut v) = (hsv.s, hsv.v);
+        // Read `Shift` off each key event rather than `InputState::modifiers`,
+        // which only tracks `ModifiersChanged`. Same as the crate's sliders.
+        for ev in ui.input(|i| i.events.clone()) {
+            if let Event::Key {
+                key,
+                pressed: true,
+                modifiers,
+                ..
+            } = ev
+            {
+                let d = if modifiers.shift {
+                    CHANNEL_STEP * 10.0
+                } else {
+                    CHANNEL_STEP
+                };
+                match key {
+                    Key::ArrowRight => s += d,
+                    Key::ArrowLeft => s -= d,
+                    Key::ArrowUp => v += d,
+                    Key::ArrowDown => v -= d,
+                    _ => {}
+                }
+            }
+        }
+        let (s, v) = (s.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
+        if (s - hsv.s).abs() > f32::EPSILON || (v - hsv.v).abs() > f32::EPSILON {
+            hsv.s = s;
+            hsv.v = v;
+            changed = true;
+            crate::commit::mark_commit(ui.ctx(), response.id);
+        }
+    }
+
+    // Read after the keyboard block: a nudge reports its own commit through
+    // `mark_commit`, and `committed()` has to see it in the same pass for the
+    // colour to reach the recents row.
+    let committed = response.committed();
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -682,6 +828,7 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
         // surface so the rounded shape reads cleanly.
         paint_rounded_corner_mask(painter, rect, 6.0, p.card);
         painter.rect_stroke(rect, radius, Stroke::new(1.0, p.border), StrokeKind::Inside);
+        paint_focus_ring(painter, rect, 6.0, p, &response);
 
         // Reticle.
         let cx = lerp(rect.left()..=rect.right(), hsv.s);
@@ -700,6 +847,10 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
         );
     }
 
+    // Two channels, so there is no single value to announce; the label carries
+    // what the surface adjusts.
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Slider, true, "Saturation and value"));
+
     (changed, committed)
 }
 
@@ -709,7 +860,8 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.committed();
+
+    crate::focus::focus_on_press(&response);
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()
@@ -718,6 +870,9 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
         hsv.h = h;
         changed = true;
     }
+
+    changed |= strip_keys(ui, &response, &mut hsv.h, HUE_STEP);
+    let committed = response.committed();
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -746,6 +901,7 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
         painter.add(Shape::mesh(mesh));
         paint_rounded_corner_mask(painter, rect, rect.height() * 0.5, p.card);
         painter.rect_stroke(rect, radius, Stroke::new(1.0, p.border), StrokeKind::Inside);
+        paint_focus_ring(painter, rect, rect.height() * 0.5, p, &response);
 
         let thumb_x = lerp(rect.left()..=rect.right(), hsv.h);
         let thumb_center = pos2(thumb_x, rect.center().y);
@@ -769,6 +925,10 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
         );
     }
 
+    // Degrees, which is how hue is read everywhere else.
+    let degrees = (hsv.h * 360.0).round() as f64;
+    response.widget_info(|| WidgetInfo::slider(true, degrees, "Hue"));
+
     (changed, committed)
 }
 
@@ -778,7 +938,8 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.committed();
+
+    crate::focus::focus_on_press(&response);
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()
@@ -787,6 +948,9 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
         hsv.a = a;
         changed = true;
     }
+
+    changed |= strip_keys(ui, &response, &mut hsv.a, CHANNEL_STEP);
+    let committed = response.committed();
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -816,11 +980,16 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
         painter.add(Shape::mesh(mesh));
         paint_rounded_corner_mask(painter, rect, rect.height() * 0.5, p.card);
         painter.rect_stroke(rect, radius, Stroke::new(1.0, p.border), StrokeKind::Inside);
+        paint_focus_ring(painter, rect, rect.height() * 0.5, p, &response);
 
         let thumb_x = lerp(rect.left()..=rect.right(), hsv.a);
         let thumb_center = pos2(thumb_x, rect.center().y);
         painter.circle(thumb_center, 7.0, p.text, Stroke::new(2.0, p.card));
     }
+
+    // Percent, matching how the alpha strip reads to a sighted user.
+    let percent = (hsv.a * 100.0).round() as f64;
+    response.widget_info(|| WidgetInfo::slider(true, percent, "Alpha"));
 
     (changed, committed)
 }

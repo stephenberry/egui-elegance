@@ -1979,6 +1979,16 @@ fn hover_deploy(h: &Harness) {
     h.get_by_label("Deploy").hover();
 }
 
+fn focus_sv_plane(h: &Harness) {
+    h.get_by_role_and_label(egui::accesskit::Role::Slider, "Saturation and value")
+        .focus();
+}
+
+fn focus_hue_strip(h: &Harness) {
+    h.get_by_role_and_label(egui::accesskit::Role::Slider, "Hue")
+        .focus();
+}
+
 fn focus_deploy(h: &Harness) {
     h.get_by_label("Deploy").focus();
 }
@@ -2051,6 +2061,16 @@ interact_tests!(button_focused, single_button_ui, focus_deploy);
 interact_tests!(switch_hovered_off, single_switch_off_ui, hover_notify);
 interact_tests!(text_input_focused, single_text_input_ui, focus_email);
 interact_tests!(text_input_dirty_focused, dirty_text_input_ui, focus_dirty);
+interact_tests!(
+    color_picker_sv_plane_focused,
+    color_picker_continuous_open_ui,
+    focus_sv_plane
+);
+interact_tests!(
+    color_picker_hue_strip_focused,
+    color_picker_continuous_open_ui,
+    focus_hue_strip
+);
 interact_tests!(
     revealable_input_focused,
     revealable_text_input_ui,
