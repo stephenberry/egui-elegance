@@ -21,7 +21,7 @@ use elegance::{
     PercentSlider, ProgressBar, ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment,
     SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select, Slider, SortableItem,
     SortableList, Spinner, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea,
-    TextInput, Theme,
+    TextInput, Theme, glyphs,
 };
 
 const OUTPUT_DIR: &str = "docs/images";
@@ -1317,13 +1317,15 @@ fn render_pairing() {
     let clients = vec![
         PairItem::new("c1", "worker-pool-a")
             .detail("24 instances")
-            .icon("▸"),
+            .icon(glyphs::CIRCLE_CHECK)
+            .icon_tone(BadgeTone::Ok),
         PairItem::new("c2", "edge-proxy-01")
             .detail("8 instances")
             .icon("▸"),
         PairItem::new("c3", "cache-layer")
-            .detail("4 instances")
-            .icon("▸"),
+            .detail("unreachable")
+            .icon(glyphs::CIRCLE_X)
+            .icon_tone(BadgeTone::Danger),
         PairItem::new("c4", "batch-workers")
             .detail("12 instances")
             .icon("▸"),
