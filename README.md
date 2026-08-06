@@ -1005,12 +1005,20 @@ One-to-one pairing between two lists, drawn as bezier curves between port circle
 
 Pairs are stored as `(left_id, right_id)` tuples in a caller-owned `Vec`; transient selection state lives in egui memory keyed by the widget's id salt. Each side supports up to 64 items — layout uses fixed-size stack buffers so there is zero heap allocation per frame.
 
+Each node takes an optional leading icon glyph. `.icon_tone(BadgeTone)` tints that glyph with a status tone resolved against the palette at paint time — so a column of nodes can read green/red for healthy/unreachable in the same vocabulary as the app's badges — and `.icon_color(impl Into<Color32>)` sets an explicit colour for tints outside that vocabulary. Untinted icons stay in the muted icon colour.
+
 ```rust
-use elegance::{PairItem, Pairing};
+use elegance::{BadgeTone, PairItem, Pairing, glyphs};
 
 let clients = vec![
-    PairItem::new("c1", "worker-pool-a").detail("24 instances"),
-    PairItem::new("c2", "edge-proxy-01").detail("8 instances"),
+    PairItem::new("c1", "worker-pool-a")
+        .detail("24 instances")
+        .icon(glyphs::CIRCLE_CHECK)
+        .icon_tone(BadgeTone::Ok),
+    PairItem::new("c2", "cache-layer")
+        .detail("unreachable")
+        .icon(glyphs::CIRCLE_X)
+        .icon_tone(BadgeTone::Danger),
 ];
 let servers = vec![
     PairItem::new("s1", "api-east-01").detail("10.0.1.5 · us-east"),

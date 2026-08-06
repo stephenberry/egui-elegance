@@ -6,7 +6,7 @@ use egui::{
     WidgetText, WidgetType,
 };
 
-use crate::theme::{Theme, with_alpha};
+use crate::theme::{Palette, Theme, with_alpha};
 
 /// Colour tones for a [`Badge`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -24,15 +24,44 @@ pub enum BadgeTone {
 }
 
 impl BadgeTone {
+    /// The tone's foreground colour — the badge label, and the tint used by
+    /// other widgets that mark status with this vocabulary (for example
+    /// [`PairItem::icon_tone`](crate::PairItem::icon_tone)).
+    ///
+    /// These are the colours to paint a glyph or label *on* a surface with;
+    /// [`Palette::accent_fill`](crate::Palette::accent_fill) is for painting a
+    /// filled shape with content on top. The two coincide in the light
+    /// palettes, but the dark ones lighten `success` / `warning` / `danger`
+    /// away from their button fills so a thin stroke still reads against a
+    /// card.
+    ///
+    /// ```
+    /// # use elegance::{BadgeTone, Theme};
+    /// let palette = Theme::slate().palette;
+    /// assert_eq!(BadgeTone::Ok.foreground(&palette), palette.success);
+    /// // `Neutral` is the muted default an untinted mark already paints in.
+    /// assert_eq!(BadgeTone::Neutral.foreground(&palette), palette.text_muted);
+    /// ```
+    pub fn foreground(self, palette: &Palette) -> Color32 {
+        match self {
+            BadgeTone::Ok => palette.success,
+            BadgeTone::Warning => palette.warning,
+            BadgeTone::Danger => palette.danger,
+            BadgeTone::Info => palette.focus,
+            BadgeTone::Neutral => palette.text_muted,
+        }
+    }
+
     fn colours(self, theme: &Theme) -> (Color32, Color32) {
         let p = &theme.palette;
-        match self {
-            BadgeTone::Ok => (with_alpha(p.green, 64), p.success),
-            BadgeTone::Warning => (with_alpha(p.amber, 64), p.warning),
-            BadgeTone::Danger => (with_alpha(p.red, 64), p.danger),
-            BadgeTone::Info => (with_alpha(p.focus, 64), p.focus),
-            BadgeTone::Neutral => (with_alpha(p.text_muted, 40), p.text_muted),
-        }
+        let bg = match self {
+            BadgeTone::Ok => with_alpha(p.green, 64),
+            BadgeTone::Warning => with_alpha(p.amber, 64),
+            BadgeTone::Danger => with_alpha(p.red, 64),
+            BadgeTone::Info => with_alpha(p.focus, 64),
+            BadgeTone::Neutral => with_alpha(p.text_muted, 40),
+        };
+        (bg, self.foreground(p))
     }
 }
 

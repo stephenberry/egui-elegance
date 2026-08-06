@@ -119,7 +119,7 @@ pub use menu::{Menu, MenuItem, MenuSection, SubMenuItem};
 pub use menu_bar::{BrandLogo, MenuBar, MenuBarUi};
 pub use metric_slider::MetricSlider;
 pub use modal::Modal;
-pub use pairing::{PairItem, Pairing};
+pub use pairing::{IconTint, PairItem, Pairing};
 pub use percent_slider::PercentSlider;
 pub use pill::StatusPill;
 pub use popover::{Popover, PopoverSide};

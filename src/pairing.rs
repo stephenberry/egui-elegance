@@ -7,6 +7,7 @@ use egui::{
     StrokeKind, Ui, Vec2, epaint::CubicBezierShape,
 };
 
+use crate::badge::BadgeTone;
 use crate::theme::{Palette, Theme, Typography};
 
 /// Maximum number of items supported per side. Layout uses fixed-size stack
@@ -14,8 +15,30 @@ use crate::theme::{Palette, Theme, Typography};
 /// this cap panics with a clear message.
 const MAX_ROWS: usize = 64;
 
+/// How a [`PairItem`]'s leading icon is tinted.
+///
+/// Set via [`PairItem::icon_tone`] or [`PairItem::icon_color`]; both write
+/// this one field, so the last call wins.
+///
+/// `#[non_exhaustive]` for the same reason [`PairItem`] is: a future tint
+/// kind should not break callers that match on this.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum IconTint {
+    /// A status tone, resolved through [`BadgeTone::foreground`] against the
+    /// palette in force when the node is painted.
+    Tone(BadgeTone),
+    /// An explicit colour, used as-is.
+    Solid(Color32),
+}
+
 /// A single item rendered in either column of a [`Pairing`] widget.
+///
+/// Build with [`PairItem::new`] and the chained setters. The struct is
+/// `#[non_exhaustive]`, so construct it that way rather than with a struct
+/// literal.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct PairItem {
     /// Stable identifier. Used as the link key when pairing items across sides.
     pub id: String,
@@ -25,6 +48,9 @@ pub struct PairItem {
     pub detail: Option<String>,
     /// Optional leading-edge glyph rendered in a small rounded box.
     pub icon: Option<String>,
+    /// Optional tint for [`icon`](Self::icon). `None` paints it in the muted
+    /// icon colour.
+    pub icon_tint: Option<IconTint>,
 }
 
 impl PairItem {
@@ -35,6 +61,7 @@ impl PairItem {
             name: name.into(),
             detail: None,
             icon: None,
+            icon_tint: None,
         }
     }
 
@@ -46,13 +73,49 @@ impl PairItem {
 
     /// Set the leading icon glyph.
     ///
-    /// Rendered with the default proportional font. The bundled
-    /// `Elegance Symbols` fallback font only covers arrows (`← ↑ → ↓ ↩ ↲ ↵`),
-    /// ellipses (`⋮ ⋯`), modifier keys (`⌃ ⌘ ⌥ ⌫ ⌦`), triangles (`▴ ▸ ▾ ◂`)
-    /// and `✓ ✗`. Glyphs outside that set (e.g. `◈`, `↗`) may render as tofu
-    /// unless the host app has registered a font that covers them.
+    /// Rendered with the default proportional font; the glyph must be
+    /// available in a registered font. The bundled `Elegance Symbols`
+    /// fallback covers arrows (`← ↑ → ↓ ↩ ↲ ↵`), ellipses (`⋮ ⋯`), modifier
+    /// keys (`⌃ ⌘ ⌥ ⌫ ⌦`), triangles (`▴ ▸ ▾ ◂`), `✓ ✗`, and the UI icon set
+    /// in [`glyphs`](crate::glyphs) (including the status marks
+    /// `CIRCLE_CHECK` / `CIRCLE_X` / `CIRCLE_ALERT`). Glyphs outside that set
+    /// (e.g. `◈`, `↗`) may render as tofu unless the host app has registered
+    /// a font that covers them.
     pub fn icon(mut self, icon: impl Into<String>) -> Self {
         self.icon = Some(icon.into());
+        self
+    }
+
+    /// Tint the leading icon with a status tone.
+    ///
+    /// The tone is resolved against the palette when the node is painted, so
+    /// it tracks theme changes. Without this (or [`icon_color`]) the icon is
+    /// painted in the muted icon colour, which is also what
+    /// [`BadgeTone::Neutral`] resolves to.
+    ///
+    /// Pairs naturally with the bundled status glyphs:
+    ///
+    /// ```
+    /// # use elegance::{BadgeTone, PairItem, glyphs};
+    /// PairItem::new("c1", "worker-pool-a")
+    ///     .detail("24 instances")
+    ///     .icon(glyphs::CIRCLE_CHECK)
+    ///     .icon_tone(BadgeTone::Ok);
+    /// ```
+    ///
+    /// [`icon_color`]: Self::icon_color
+    pub fn icon_tone(mut self, tone: BadgeTone) -> Self {
+        self.icon_tint = Some(IconTint::Tone(tone));
+        self
+    }
+
+    /// Tint the leading icon with an explicit colour, bypassing the palette.
+    ///
+    /// Use for one-off colours outside the status vocabulary (a per-category
+    /// colour, say). Prefer [`icon_tone`](Self::icon_tone) for status, so the
+    /// tint follows the theme.
+    pub fn icon_color(mut self, color: impl Into<Color32>) -> Self {
+        self.icon_tint = Some(IconTint::Solid(color.into()));
         self
     }
 }
@@ -688,12 +751,17 @@ fn paint_node(
             Stroke::new(1.0, palette.border),
             StrokeKind::Inside,
         );
+        let icon_color = match item.icon_tint {
+            None => palette.text_muted,
+            Some(IconTint::Tone(tone)) => tone.foreground(palette),
+            Some(IconTint::Solid(color)) => color,
+        };
         painter.text(
             icon_rect.center(),
             Align2::CENTER_CENTER,
             icon,
             FontId::proportional(13.0),
-            palette.text_muted,
+            icon_color,
         );
         content_x += box_size + 12.0;
     }

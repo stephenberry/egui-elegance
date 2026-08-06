@@ -16,7 +16,7 @@ use elegance::{
     RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl, SegmentedSize, Select,
     Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard, StatusPill, Steps,
     StepsStyle, SubMenuItem, Switch, TabBar, TagInput, TextArea, TextInput, Theme, ThemeSwitcher,
-    Toast, Toasts, Tooltip, TooltipSide,
+    Toast, Toasts, Tooltip, TooltipSide, glyphs,
 };
 
 fn main() -> eframe::Result<()> {
@@ -279,13 +279,15 @@ impl Default for App {
             pairing_clients: vec![
                 PairItem::new("c1", "worker-pool-a")
                     .detail("24 instances")
-                    .icon("▸"),
+                    .icon(glyphs::CIRCLE_CHECK)
+                    .icon_tone(BadgeTone::Ok),
                 PairItem::new("c2", "edge-proxy-01")
                     .detail("8 instances")
                     .icon("▸"),
                 PairItem::new("c3", "cache-layer")
-                    .detail("4 instances")
-                    .icon("▸"),
+                    .detail("unreachable")
+                    .icon(glyphs::CIRCLE_X)
+                    .icon_tone(BadgeTone::Danger),
                 PairItem::new("c4", "batch-workers")
                     .detail("12 instances")
                     .icon("▸"),

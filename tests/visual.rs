@@ -22,7 +22,7 @@ use elegance::{
     ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton,
     SegmentedControl, SegmentedSize, Select, Slider, SliderHandle, SortableItem, SortableList,
     Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea,
-    TextInput, Theme, Tooltip, TooltipSide,
+    TextInput, Theme, Tooltip, TooltipSide, glyphs,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -1584,15 +1584,19 @@ fn file_drop_zone_ui(ui: &mut egui::Ui) {
 
 fn pairing_ui(ui: &mut egui::Ui) {
     let clients = vec![
+        // c1 / c3 exercise the tinted-icon path (tone-resolved), c2 / c4 the
+        // untinted default.
         PairItem::new("c1", "worker-pool-a")
             .detail("24 instances")
-            .icon("▸"),
+            .icon(glyphs::CIRCLE_CHECK)
+            .icon_tone(BadgeTone::Ok),
         PairItem::new("c2", "edge-proxy-01")
             .detail("8 instances")
             .icon("▸"),
         PairItem::new("c3", "cache-layer")
-            .detail("4 instances")
-            .icon("▸"),
+            .detail("unreachable")
+            .icon(glyphs::CIRCLE_X)
+            .icon_tone(BadgeTone::Danger),
         PairItem::new("c4", "batch-workers")
             .detail("12 instances")
             .icon("▸"),
@@ -1607,9 +1611,13 @@ fn pairing_ui(ui: &mut egui::Ui) {
         PairItem::new("s3", "api-west-01")
             .detail("10.0.2.4 · us-west")
             .icon("◂"),
+        // Same glyph as its neighbours, tinted with an explicit colour: the
+        // `Solid` path bypasses the palette, so this stays the same violet in
+        // all four themes while the tone-resolved icons above shift.
         PairItem::new("s4", "api-eu-01")
             .detail("10.0.3.2 · eu-west")
-            .icon("◂"),
+            .icon("◂")
+            .icon_color(egui::Color32::from_rgb(0xc0, 0x84, 0xfc)),
     ];
     let mut pairs = vec![
         ("c1".to_string(), "s3".to_string()),
