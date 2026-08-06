@@ -1099,7 +1099,11 @@ if resp.committed() {
 }
 ```
 
-Works on any value widget: `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, `Knob`. It reports that the *interaction* settled, not that the value differs from what you last persisted — grabbing a handle and releasing it without moving it still commits once, so compare against your last-written value if a redundant write is costly.
+Works on the value widgets: `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, `Knob`. That covers dragging, clicking, arrow keys, and the `Knob`'s scroll wheel, which commits once when the scroll settles rather than once per frame of its smoothed delta.
+
+The trait is implemented on `Response` itself, so the method is callable anywhere, but it is only meaningful where a gesture has an end. It is not for text widgets — a `TextInput` reports `changed()` per keystroke, so `committed()` would fire per keystroke too; use `lost_focus()` plus an Enter check there.
+
+It reports that the *interaction* settled, not that the value differs from what you last persisted. Grabbing a handle and releasing it without moving it still commits once, so compare against your last-written value if a redundant write is costly.
 
 ## Bundled glyphs
 

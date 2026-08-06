@@ -71,13 +71,16 @@ fn slider_harness() -> Harness<'static, Probe> {
     harness
 }
 
-/// The x coordinate a fraction of the way along the *track*, which is inset
-/// from the widget rect by half a thumb on each side.
+/// The x coordinate a fraction of the way along the *track*.
+///
+/// The track is inset from the widget rect by half a thumb on each side. That
+/// inset is private to `MetricSlider`, so rather than hardcode it these tests
+/// aim at the interior and assert on the resulting value: `track_x(rect, 0.5)`
+/// is the midpoint under any inset, and the endpoints clamp. A future change to
+/// the thumb diameter therefore cannot silently make these tests aim at the
+/// wrong stop while still passing.
 fn track_x(rect: Rect, frac: f32) -> f32 {
-    let thumb_pad = 7.0; // thumb_d * 0.5, per `MetricSlider::ui`
-    let left = rect.min.x + thumb_pad;
-    let right = rect.max.x - thumb_pad;
-    left + (right - left) * frac
+    rect.min.x + rect.width() * frac
 }
 
 fn release_at(harness: &Harness<'_, Probe>, pos: Pos2) {
@@ -217,32 +220,12 @@ fn idle_frames_signal_nothing() {
     assert_eq!(harness.state().committed, 0);
 }
 
-/// The trait is not `MetricSlider`-specific. `Knob` has the same
-/// live-`changed()`-during-drag pattern and picks the signal up for free.
-#[test]
-fn knob_drag_commits_once_on_release() {
-    struct KnobProbe {
-        value: f32,
-        changed: usize,
-        committed: usize,
-        rect: Rect,
-    }
-
-    impl Default for KnobProbe {
-        fn default() -> Self {
-            Self {
-                value: 0.0,
-                changed: 0,
-                committed: 0,
-                rect: Rect::ZERO,
-            }
-        }
-    }
-
+/// A harness holding a single `Knob`, reusing the same probe.
+fn knob_harness() -> Harness<'static, Probe> {
     let mut harness = Harness::builder()
         .with_size(egui::Vec2::new(300.0, 300.0))
         .build_ui_state(
-            |ui, probe: &mut KnobProbe| {
+            |ui, probe: &mut Probe| {
                 Theme::slate().install(ui.ctx());
                 let resp = ui.add(Knob::new(&mut probe.value, 0.0..=100.0));
                 probe.rect = resp.rect;
@@ -253,12 +236,18 @@ fn knob_drag_commits_once_on_release() {
                     probe.committed += 1;
                 }
             },
-            KnobProbe::default(),
+            Probe::default(),
         );
     harness.run();
-    harness.state_mut().changed = 0;
-    harness.state_mut().committed = 0;
+    harness.state_mut().reset_counts();
+    harness
+}
 
+/// The trait is not `MetricSlider`-specific. `Knob` has the same
+/// live-`changed()`-during-drag pattern and picks the signal up for free.
+#[test]
+fn knob_drag_commits_once_on_release() {
+    let mut harness = knob_harness();
     let center = harness.state().rect.center();
     harness.hover_at(center);
     harness.step();
@@ -288,4 +277,79 @@ fn knob_drag_commits_once_on_release() {
 
     assert_eq!(harness.state().committed, 1);
     assert!(harness.state().value > 0.0, "the drag should have raised it");
+}
+
+/// A wheel notch does not arrive as one event — egui smooths the delta across
+/// many frames — so without the widget-side settle a single notch would commit
+/// once per frame it lasted, which is the burst this signal exists to prevent.
+#[test]
+fn knob_scroll_notch_commits_once_when_it_stops() {
+    let mut harness = knob_harness();
+    let center = harness.state().rect.center();
+
+    harness.hover_at(center);
+    harness.step();
+    harness.state_mut().reset_counts();
+
+    harness.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Line,
+        delta: egui::vec2(0.0, 1.0),
+        modifiers: Modifiers::NONE,
+        phase: egui::TouchPhase::Move,
+    });
+    for _ in 0..30 {
+        harness.step();
+    }
+
+    assert!(
+        harness.state().changed >= 1,
+        "the notch should move the value"
+    );
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "one notch must commit exactly once, on the frame the scroll settles"
+    );
+    assert!(harness.state().value > 0.0);
+}
+
+/// Every elegance value widget gates its write on `is_pointer_button_down_on`,
+/// which is button-agnostic, so a non-primary click moves the value. `clicked()`
+/// is Primary-only, so without the explicit `clicked_by` terms that adjustment
+/// would be written and never committed.
+#[test]
+fn secondary_click_commits() {
+    for button in [PointerButton::Secondary, PointerButton::Middle] {
+        let mut harness = slider_harness();
+        let rect = harness.state().rect;
+        let target = Pos2::new(track_x(rect, 0.5), rect.center().y);
+
+        harness.hover_at(target);
+        harness.step();
+        harness.event(egui::Event::PointerButton {
+            pos: target,
+            button,
+            pressed: true,
+            modifiers: Modifiers::NONE,
+        });
+        harness.step();
+        harness.event(egui::Event::PointerButton {
+            pos: target,
+            button,
+            pressed: false,
+            modifiers: Modifiers::NONE,
+        });
+        harness.step();
+
+        assert_eq!(
+            harness.state().value,
+            16.0,
+            "{button:?} moves the value (the write gate is button-agnostic)"
+        );
+        assert_eq!(
+            harness.state().committed,
+            1,
+            "{button:?} must commit exactly once"
+        );
+    }
 }

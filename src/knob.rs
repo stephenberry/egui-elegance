@@ -509,6 +509,14 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                     }
                 }
 
+                // A wheel notch does not arrive as one event: egui smooths the
+                // delta across many frames, so the value moves on each of them.
+                // Track that a scroll is in flight and report a single commit on
+                // the frame it stops, rather than one per frame it lasted.
+                let scroll_pending_id = response.id.with("elegance::knob_scroll_pending");
+                let scrolling = ui.input(|i| i.smooth_scroll_delta.y.abs() > 0.5);
+                let mut scroll_moved_value = false;
+
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
 
@@ -533,7 +541,27 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                             current = new_v;
                             *value = T::from_f64(current);
                             response.mark_changed();
+                            scroll_moved_value = true;
                         }
+                    }
+                }
+
+                // Resolved outside the `hovered` block so a scroll that ends
+                // after the pointer has moved away still commits.
+                let scroll_was_pending: bool = ui
+                    .ctx()
+                    .data(|d| d.get_temp(scroll_pending_id).unwrap_or(false));
+                if scroll_moved_value {
+                    ui.ctx()
+                        .data_mut(|d| d.insert_temp(scroll_pending_id, true));
+                    // Guarantee a later frame in which to notice it stopped.
+                    ui.ctx().request_repaint();
+                } else if scroll_was_pending {
+                    if scrolling {
+                        ui.ctx().request_repaint();
+                    } else {
+                        ui.ctx().data_mut(|d| d.remove::<bool>(scroll_pending_id));
+                        crate::commit::mark_commit(ui.ctx(), response.id);
                     }
                 }
 
