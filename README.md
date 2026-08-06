@@ -19,7 +19,7 @@ or, in `Cargo.toml`:
 ```toml
 [dependencies]
 egui          = "0.36"
-egui-elegance = "0.14"
+egui-elegance = "0.15"
 ```
 
 The crate is published as `egui-elegance` but the library name is `elegance`, so imports look like `use elegance::Button;`.
