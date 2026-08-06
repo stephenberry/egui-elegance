@@ -378,7 +378,7 @@ ui.add(Slider::new(&mut port, 0u16..=65535u16).label("Port"));
 
 ![Metric sliders](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/metric_sliders.png)
 
-Single-value slider whose central UI element is the value itself, rendered large in the top-right. Generalised over an arbitrary `RangeInclusive<f32>` so it works for any metric: buffer size in GiB, latency budget in ms, refresh rate in Hz. Pair the headline with `.suffix("ms")` for a small muted unit baseline-aligned to the value, or replace the headline entirely with `.headline_fmt(|v| …)` when the value is a tier index or named category. Tick labels follow with `.tick_fmt(|v| …)`. Three snap modes: `.step(s)` for multiples of `s` relative to the range start; `.steps(n)` for `n` evenly-spaced positions including both endpoints; `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` (or 1% of the range span when continuous), `Shift`+`←`/`→` for a 10x nudge, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts. `PercentSlider` is the `0..=100` + `"%"` preset over this widget.
+Single-value slider whose central UI element is the value itself, rendered large in the top-right. Generalised over an arbitrary `RangeInclusive<f32>` so it works for any metric: buffer size in GiB, latency budget in ms, refresh rate in Hz. Pair the headline with `.suffix("ms")` for a small muted unit baseline-aligned to the value, or replace the headline entirely with `.headline_fmt(|v| …)` when the value is a tier index or named category. Tick labels follow with `.tick_fmt(|v| …)`. Three snap modes: `.step(s)` for multiples of `s` relative to the range start; `.steps(n)` for `n` evenly-spaced positions including both endpoints; `.stops([…])` for an explicit, possibly non-uniform list. When `steps` or `stops` is set, the tick row renders at exactly those positions and `←`/`→` jump between them. Keyboard on focus: `←`/`→` nudge by `step` (or 1% of the range span when continuous), `Shift`+`←`/`→` for a 10x nudge, `Home`/`End` jump to the bounds. Use `.show_ticks(false)` for compact layouts. `PercentSlider` is the `0..=100` + `"%"` preset over this widget. In `stops` mode a full-rail drag reports `changed()` once per stop crossed; gate expensive reactions on [`committed()`](#commit-signal) instead.
 
 ```rust
 use elegance::{Accent, MetricSlider};
@@ -1077,6 +1077,30 @@ if resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
 
 The tint fades out over `FLASH_DURATION` (~0.8 s). `resp.clear_flash()` dismisses it early.
 
+## Commit signal
+
+Value widgets report `changed()` on every intermediate value a drag passes through, which is what a live preview wants. It is the wrong signal for work you would not want to repeat dozens of times for one gesture — a network write, a disk persist, a device reprogram. A `MetricSlider` in `stops` mode is the clearest case: dragging the handle from one end of the rail to the other fires `changed()` once per stop crossed, each carrying a value the user never meant to commit.
+
+`ResponseCommitExt::committed()` reports the frame an adjustment settles instead: on pointer release after a drag or a click, and immediately on a keyboard nudge, which is already atomic.
+
+```rust
+use elegance::{MetricSlider, ResponseCommitExt};
+
+let resp = ui.add(
+    MetricSlider::new(&mut buffer, 0.0..=32.0)
+        .suffix("GiB")
+        .stops([4.0, 8.0, 16.0, 32.0]),
+);
+if resp.changed() {
+    preview.set_buffer(buffer); // live, every intermediate stop
+}
+if resp.committed() {
+    push_to_backend(buffer); // once per settled adjustment
+}
+```
+
+Works on any value widget: `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, `Knob`. It reports that the *interaction* settled, not that the value differs from what you last persisted — grabbing a handle and releasing it without moving it still commits once, so compare against your last-written value if a redundant write is costly.
+
 ## Bundled glyphs
 
 ![Bundled glyphs](https://raw.githubusercontent.com/stephenberry/egui-elegance/main/docs/images/glyphs.png)
@@ -1179,6 +1203,10 @@ An interactive showcase and a widget reference ship with the crate:
 cargo orbit      # a CI/CD deployment command center
 cargo widgets    # every widget in one place: a clean reference layout for screenshotting
 ```
+
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Contributing
 

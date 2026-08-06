@@ -1,0 +1,291 @@
+//! Interaction tests for [`elegance::ResponseCommitExt::committed`].
+//!
+//! Unlike the pixel tests in `visual.rs`, these assert *when* a signal fires,
+//! so they drive the harness one frame per input event and count the frames on
+//! which `changed()` and `committed()` were true.
+//!
+//! The invariant under test: `changed()` fires on every intermediate value,
+//! `committed()` fires exactly once per settled adjustment.
+
+use eframe::egui;
+use egui::{Key, Modifiers, PointerButton, Pos2, Rect};
+use egui_kittest::Harness;
+use elegance::{Knob, MetricSlider, ResponseCommitExt, Theme};
+
+/// Counts the frames each signal fired on, so a test can assert on timing
+/// rather than just on the final value.
+struct Probe {
+    value: f32,
+    changed: usize,
+    committed: usize,
+    /// The widget rect, captured each frame so tests can aim at the rail.
+    rect: Rect,
+}
+
+impl Default for Probe {
+    fn default() -> Self {
+        Self {
+            value: 0.0,
+            changed: 0,
+            committed: 0,
+            rect: Rect::ZERO,
+        }
+    }
+}
+
+impl Probe {
+    fn reset_counts(&mut self) {
+        self.changed = 0;
+        self.committed = 0;
+    }
+}
+
+const STOPS: [f32; 5] = [0.0, 8.0, 16.0, 24.0, 32.0];
+
+/// A harness holding a single `stops` slider — the configuration where the
+/// intermediate-value burst is most pronounced.
+fn slider_harness() -> Harness<'static, Probe> {
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 200.0))
+        .build_ui_state(
+            |ui, probe: &mut Probe| {
+                Theme::slate().install(ui.ctx());
+                let resp = ui.add(
+                    MetricSlider::new(&mut probe.value, 0.0..=32.0)
+                        .stops(STOPS)
+                        .desired_width(400.0),
+                );
+                probe.rect = resp.rect;
+                if resp.changed() {
+                    probe.changed += 1;
+                }
+                if resp.committed() {
+                    probe.committed += 1;
+                }
+            },
+            Probe::default(),
+        );
+    // Settle layout so `rect` is populated, then discard the setup frames.
+    harness.run();
+    harness.state_mut().reset_counts();
+    harness
+}
+
+/// The x coordinate a fraction of the way along the *track*, which is inset
+/// from the widget rect by half a thumb on each side.
+fn track_x(rect: Rect, frac: f32) -> f32 {
+    let thumb_pad = 7.0; // thumb_d * 0.5, per `MetricSlider::ui`
+    let left = rect.min.x + thumb_pad;
+    let right = rect.max.x - thumb_pad;
+    left + (right - left) * frac
+}
+
+fn release_at(harness: &Harness<'_, Probe>, pos: Pos2) {
+    harness.event(egui::Event::PointerButton {
+        pos,
+        button: PointerButton::Primary,
+        pressed: false,
+        modifiers: Modifiers::NONE,
+    });
+}
+
+#[test]
+fn drag_across_stops_commits_once_on_release() {
+    let mut harness = slider_harness();
+    let rect = harness.state().rect;
+    let y = rect.center().y;
+    let start = Pos2::new(track_x(rect, 0.0), y);
+    let end = Pos2::new(track_x(rect, 1.0), y);
+
+    harness.hover_at(start);
+    harness.step();
+    harness.drag_at(start);
+    harness.step();
+
+    // Sweep the full rail in quarters, crossing every stop. Each move is well
+    // past `max_click_dist`, so egui decides this is a drag and not a click.
+    for i in 1..=4 {
+        harness.hover_at(Pos2::new(track_x(rect, i as f32 / 4.0), y));
+        harness.step();
+    }
+
+    assert!(
+        harness.state().changed >= 4,
+        "expected `changed` on each crossed stop, got {}",
+        harness.state().changed
+    );
+    assert_eq!(
+        harness.state().committed,
+        0,
+        "must not commit mid-drag — that is the whole point"
+    );
+
+    release_at(&harness, end);
+    harness.step();
+
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "release after a drag must commit exactly once"
+    );
+    assert_eq!(
+        harness.state().value,
+        32.0,
+        "the committed value must be the settled one"
+    );
+}
+
+/// The regression this predicate exists for. A widget sensing both click and
+/// drag is not `dragged()` yet on the press frame, so a `changed() &&
+/// !dragged()` predicate would commit on press *and* again via `clicked()` on
+/// release.
+#[test]
+fn click_to_set_commits_once_on_release_not_on_press() {
+    let mut harness = slider_harness();
+    let rect = harness.state().rect;
+    let y = rect.center().y;
+    let target = Pos2::new(track_x(rect, 0.5), y);
+
+    harness.hover_at(target);
+    harness.step();
+
+    harness.drag_at(target);
+    harness.step();
+
+    assert_eq!(
+        harness.state().changed,
+        1,
+        "the press frame sets the value"
+    );
+    assert_eq!(
+        harness.state().committed,
+        0,
+        "the press frame must not commit — the interaction has not settled"
+    );
+
+    release_at(&harness, target);
+    harness.step();
+
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "a click must commit exactly once, on release"
+    );
+    assert_eq!(harness.state().value, 16.0);
+}
+
+#[test]
+fn keyboard_nudge_commits_immediately() {
+    let mut harness = slider_harness();
+    // Tab to the slider — the path a keyboard user takes. `key_press` queues a
+    // down and an up, so this advances two frames, which also covers egui's
+    // one-frame delay before a newly requested focus takes effect.
+    harness.key_press(Key::Tab);
+    harness.step();
+    harness.state_mut().reset_counts();
+    assert_eq!(harness.state().value, 0.0);
+
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+
+    assert_eq!(
+        harness.state().value,
+        8.0,
+        "ArrowRight should advance one stop"
+    );
+    assert_eq!(
+        harness.state().changed,
+        1,
+        "a keyboard nudge changes the value once"
+    );
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "a keyboard nudge is already atomic, so it commits on the same frame"
+    );
+}
+
+#[test]
+fn idle_frames_signal_nothing() {
+    let mut harness = slider_harness();
+
+    for _ in 0..3 {
+        harness.step();
+    }
+
+    assert_eq!(harness.state().changed, 0);
+    assert_eq!(harness.state().committed, 0);
+}
+
+/// The trait is not `MetricSlider`-specific. `Knob` has the same
+/// live-`changed()`-during-drag pattern and picks the signal up for free.
+#[test]
+fn knob_drag_commits_once_on_release() {
+    struct KnobProbe {
+        value: f32,
+        changed: usize,
+        committed: usize,
+        rect: Rect,
+    }
+
+    impl Default for KnobProbe {
+        fn default() -> Self {
+            Self {
+                value: 0.0,
+                changed: 0,
+                committed: 0,
+                rect: Rect::ZERO,
+            }
+        }
+    }
+
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(300.0, 300.0))
+        .build_ui_state(
+            |ui, probe: &mut KnobProbe| {
+                Theme::slate().install(ui.ctx());
+                let resp = ui.add(Knob::new(&mut probe.value, 0.0..=100.0));
+                probe.rect = resp.rect;
+                if resp.changed() {
+                    probe.changed += 1;
+                }
+                if resp.committed() {
+                    probe.committed += 1;
+                }
+            },
+            KnobProbe::default(),
+        );
+    harness.run();
+    harness.state_mut().changed = 0;
+    harness.state_mut().committed = 0;
+
+    let center = harness.state().rect.center();
+    harness.hover_at(center);
+    harness.step();
+    harness.drag_at(center);
+    harness.step();
+
+    // A knob tracks vertical drag distance.
+    for i in 1..=4 {
+        harness.hover_at(Pos2::new(center.x, center.y - (i as f32) * 12.0));
+        harness.step();
+    }
+
+    assert!(
+        harness.state().changed >= 2,
+        "expected several intermediate changes, got {}",
+        harness.state().changed
+    );
+    assert_eq!(harness.state().committed, 0, "must not commit mid-drag");
+
+    harness.event(egui::Event::PointerButton {
+        pos: Pos2::new(center.x, center.y - 48.0),
+        button: PointerButton::Primary,
+        pressed: false,
+        modifiers: Modifiers::NONE,
+    });
+    harness.step();
+
+    assert_eq!(harness.state().committed, 1);
+    assert!(harness.state().value > 0.0, "the drag should have raised it");
+}
