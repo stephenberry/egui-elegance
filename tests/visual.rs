@@ -1989,6 +1989,11 @@ fn focus_hue_strip(h: &Harness) {
         .focus();
 }
 
+fn focus_alpha_strip(h: &Harness) {
+    h.get_by_role_and_label(egui::accesskit::Role::Slider, "Alpha")
+        .focus();
+}
+
 fn focus_deploy(h: &Harness) {
     h.get_by_label("Deploy").focus();
 }
@@ -2070,6 +2075,13 @@ interact_tests!(
     color_picker_hue_strip_focused,
     color_picker_continuous_open_ui,
     focus_hue_strip
+);
+// The alpha strip's ring is the one drawn over a checkerboard rather than a
+// flat fill, so it is the one most worth a baseline.
+interact_tests!(
+    color_picker_alpha_strip_focused,
+    color_picker_continuous_open_ui,
+    focus_alpha_strip
 );
 interact_tests!(
     revealable_input_focused,

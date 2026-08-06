@@ -47,6 +47,24 @@ fn hsv(probe: &Probe) -> HsvaGamma {
     HsvaGamma::from(probe.color)
 }
 
+fn recents(harness: &Harness<'_, Probe>) -> Vec<Color32> {
+    harness
+        .ctx
+        .data(|d| d.get_temp::<Vec<Color32>>(egui::Id::new(ID).with("color_picker::recents")))
+        .unwrap_or_default()
+}
+
+fn shift_press(harness: &mut Harness<'_, Probe>, key: Key) {
+    harness.event(egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::SHIFT,
+    });
+    harness.step();
+}
+
 /// A mid-range colour: every channel has room to move in both directions.
 fn mid() -> Color32 {
     Color32::from_rgba_unmultiplied(0x38, 0xbd, 0xf8, 0x80)
@@ -148,35 +166,153 @@ fn alpha_strip_arrows_move_alpha() {
     );
 }
 
-/// `Shift` is a 10x nudge on these strips, matching the crate's sliders. Alpha
-/// is the channel where that arithmetic is legible in the bound value: one step
-/// is 1% of 255, so ten of them clear a byte's worth of rounding either way.
+/// `Shift` is a 10x nudge, matching the crate's sliders — exactly 10x, not
+/// merely larger. One shifted press has to land where ten plain ones do.
 #[test]
 fn shift_is_a_ten_times_nudge() {
     let mut harness = picker_harness(Color32::from_rgba_unmultiplied(0x38, 0xbd, 0xf8, 0x00));
 
     focus(&harness, "Alpha");
     harness.run();
-    harness.key_press(Key::ArrowRight);
-    harness.step();
-    let one_step = harness.state().color.a();
+    for _ in 0..10 {
+        harness.key_press(Key::ArrowRight);
+        harness.step();
+    }
+    let ten_plain = harness.state().color.a();
 
     // Back to zero, then a single shifted press.
     harness.key_press(Key::Home);
     harness.step();
-    harness.event(egui::Event::Key {
-        key: Key::ArrowRight,
-        physical_key: None,
-        pressed: true,
-        repeat: false,
-        modifiers: egui::Modifiers::SHIFT,
-    });
+    shift_press(&mut harness, Key::ArrowRight);
+    let one_shifted = harness.state().color.a();
+
+    assert_eq!(
+        ten_plain, one_shifted,
+        "Shift+ArrowRight should land exactly where ten plain presses do"
+    );
+}
+
+/// The same 10x, on the two surfaces whose step is not the strips' 1%: the hue
+/// strip counts in degrees, and the plane's vertical axis is its own binding.
+#[test]
+fn shift_is_a_ten_times_nudge_on_hue_and_the_plane() {
+    let mut harness = picker_harness(mid());
+
+    focus(&harness, "Hue");
+    harness.run();
+    let start = hsv(harness.state()).h;
+    for _ in 0..10 {
+        harness.key_press(Key::ArrowRight);
+        harness.step();
+    }
+    let ten_plain = hsv(harness.state()).h - start;
+
+    harness.key_press(Key::Home);
     harness.step();
-    let shifted = harness.state().color.a();
+    shift_press(&mut harness, Key::ArrowRight);
+    let one_shifted = hsv(harness.state()).h;
 
     assert!(
-        shifted > one_step * 5,
-        "Shift+ArrowRight should be far larger than a plain nudge: {one_step} vs {shifted}"
+        (ten_plain - one_shifted).abs() < 0.002,
+        "Shift on hue should be ten degrees: ten plain moved {ten_plain}, one shifted moved {one_shifted}"
+    );
+
+    let mut harness = picker_harness(mid());
+    focus(&harness, "Saturation and value");
+    harness.run();
+    let start = hsv(harness.state()).v;
+    for _ in 0..10 {
+        harness.key_press(Key::ArrowDown);
+        harness.step();
+    }
+    let ten_plain = start - hsv(harness.state()).v;
+
+    let mut harness = picker_harness(mid());
+    focus(&harness, "Saturation and value");
+    harness.run();
+    shift_press(&mut harness, Key::ArrowDown);
+    let one_shifted = start - hsv(harness.state()).v;
+
+    assert!(
+        (ten_plain - one_shifted).abs() < 0.005,
+        "Shift on the plane's vertical axis should be ten steps: {ten_plain} vs {one_shifted}"
+    );
+}
+
+/// The hue circle closes: 1.0 is the same red as 0.0. `End` jumping there would
+/// make it a synonym for `Home` and leave `ArrowRight` with nowhere to go, so it
+/// stops one step short, at the last hue distinct from the first.
+#[test]
+fn hue_end_is_not_a_second_home() {
+    let mut harness = picker_harness(mid());
+    focus(&harness, "Hue");
+    harness.run();
+
+    harness.key_press(Key::End);
+    harness.step();
+    let at_end = harness.state().color;
+
+    harness.key_press(Key::Home);
+    harness.step();
+    let at_home = harness.state().color;
+
+    assert_ne!(
+        at_end, at_home,
+        "End and Home should not name the same colour"
+    );
+
+    // And End parks at the top of the range, not the bottom: a nudge back down
+    // moves, where the same nudge at Home is already clamped.
+    harness.key_press(Key::ArrowLeft);
+    harness.step();
+    assert_eq!(
+        harness.state().color,
+        at_home,
+        "ArrowLeft at Home should be clamped"
+    );
+
+    harness.key_press(Key::End);
+    harness.step();
+    harness.key_press(Key::ArrowLeft);
+    harness.step();
+    assert!(
+        hsv(harness.state()).h < hsv(&Probe { color: at_end }).h,
+        "ArrowLeft should walk back down the strip from End"
+    );
+}
+
+/// The plane is the only surface in the crate that claims both arrow axes,
+/// which is the shape that traps a keyboard user if the filter ever grows a
+/// `tab` or `escape`. Both must still get out of it.
+#[test]
+fn tab_and_escape_still_leave_the_sv_plane() {
+    let mut harness = picker_harness(mid());
+    focus(&harness, "Saturation and value");
+    harness.run();
+
+    let plane = harness.ctx.memory(|m| m.focused());
+    assert!(plane.is_some(), "the plane should hold focus to start with");
+
+    harness.key_press(Key::Tab);
+    harness.step();
+    harness.run();
+    assert_ne!(
+        harness.ctx.memory(|m| m.focused()),
+        plane,
+        "Tab must still move focus off the plane"
+    );
+
+    focus(&harness, "Saturation and value");
+    harness.run();
+    assert_eq!(harness.ctx.memory(|m| m.focused()), plane);
+
+    harness.key_press(Key::Escape);
+    harness.step();
+    harness.run();
+    assert_ne!(
+        harness.ctx.memory(|m| m.focused()),
+        plane,
+        "Escape must still surrender the plane's focus"
     );
 }
 
@@ -215,12 +351,8 @@ fn a_keyboard_adjustment_reaches_the_recents_row() {
     focus(&harness, "Hue");
     harness.run();
 
-    let recents_before = harness
-        .ctx
-        .data(|d| d.get_temp::<Vec<Color32>>(egui::Id::new(ID).with("color_picker::recents")))
-        .unwrap_or_default();
     assert!(
-        recents_before.is_empty(),
+        recents(&harness).is_empty(),
         "nothing should be recorded before any adjustment"
     );
 
@@ -228,13 +360,93 @@ fn a_keyboard_adjustment_reaches_the_recents_row() {
     harness.step();
     harness.run();
 
-    let recents_after = harness
-        .ctx
-        .data(|d| d.get_temp::<Vec<Color32>>(egui::Id::new(ID).with("color_picker::recents")))
-        .unwrap_or_default();
+    let after = recents(&harness);
     assert_eq!(
-        recents_after.first().copied(),
+        after.first().copied(),
         Some(harness.state().color),
-        "the nudged colour should head the recents row, got {recents_after:?}"
+        "the nudged colour should head the recents row, got {after:?}"
+    );
+}
+
+/// A key press settles the value the instant it lands, so a run of them would
+/// push one recents entry each: a held arrow key at auto-repeat speed fills the
+/// row with shades no one can tell apart and evicts everything the user had
+/// collected. A run is one gesture and leaves one entry, just as a pointer drag
+/// leaves one on release.
+#[test]
+fn a_run_of_nudges_leaves_one_recents_entry() {
+    let mut harness = picker_harness(mid());
+    focus(&harness, "Hue");
+    harness.run();
+
+    for _ in 0..12 {
+        harness.key_press(Key::ArrowRight);
+        harness.step();
+    }
+    harness.run();
+
+    assert_eq!(
+        recents(&harness).as_slice(),
+        &[harness.state().color],
+        "twelve nudges should leave the one colour they reached"
+    );
+}
+
+/// The run ends when its surface loses focus, so moving on and adjusting again
+/// builds history rather than overwriting the entry already there.
+#[test]
+fn moving_focus_starts_a_new_recents_entry() {
+    let mut harness = picker_harness(mid());
+
+    focus(&harness, "Hue");
+    harness.run();
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+    harness.run();
+    let from_hue = harness.state().color;
+
+    focus(&harness, "Alpha");
+    harness.run();
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+    harness.run();
+    let from_alpha = harness.state().color;
+
+    assert_eq!(
+        recents(&harness).as_slice(),
+        &[from_alpha, from_hue],
+        "each surface's run should hold its own entry, newest first"
+    );
+}
+
+/// Coming back to a surface starts a second run, not a continuation of the
+/// first: leaving it is what ends the run, so the entry already recorded stays
+/// put instead of being amended by an adjustment made minutes later.
+#[test]
+fn returning_to_a_surface_starts_a_new_recents_entry() {
+    let mut harness = picker_harness(mid());
+
+    focus(&harness, "Hue");
+    harness.run();
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+    harness.run();
+    let first = harness.state().color;
+
+    // Away and back, without adjusting anything in between.
+    focus(&harness, "Alpha");
+    harness.run();
+    focus(&harness, "Hue");
+    harness.run();
+
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+    harness.run();
+    let second = harness.state().color;
+
+    assert_eq!(
+        recents(&harness).as_slice(),
+        &[second, first],
+        "the second visit should record beside the first, not over it"
     );
 }

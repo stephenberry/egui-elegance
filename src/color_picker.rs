@@ -38,6 +38,7 @@ use crate::theme::{Theme, with_alpha};
 const HEX_BUF_SUFFIX: &str = "color_picker::hex_buf";
 const HSV_CACHE_SUFFIX: &str = "color_picker::hsv_cache";
 const RECENTS_SUFFIX: &str = "color_picker::recents";
+const KEY_RUN_SUFFIX: &str = "color_picker::key_run";
 
 /// A click-to-open color picker bound to a [`Color32`].
 ///
@@ -247,15 +248,25 @@ impl<'a> Widget for ColorPicker<'a> {
             // `discrete_pick` is set when the user makes a deliberate choice
             // (palette swatch, recents swatch, hex committed). `continuous_pick`
             // is set while a continuous control (SV plane / hue / alpha) is
-            // being dragged. `continuous_committed` is set on the frame the
-            // user releases the pointer on a continuous control — a
-            // pointer-up after a click *or* a drag. Recents are pushed on
-            // discrete picks and on continuous commits, but not on each
-            // intermediate frame of a drag — otherwise a single SV-plane
-            // sweep would carpet-bomb the recents row.
+            // being dragged. `settled` says how a continuous control finished
+            // this frame, if it did. Recents are pushed on discrete picks and
+            // on continuous settles, but not on each intermediate frame of a
+            // drag — otherwise a single SV-plane sweep would carpet-bomb the
+            // recents row.
             let mut discrete_pick: Option<Color32> = None;
             let mut continuous_pick: Option<Color32> = None;
-            let mut continuous_committed = false;
+            let mut settled = Settled::No;
+
+            // Close an open keyboard run once its surface has lost focus, so
+            // the next nudge opens a fresh recents entry rather than amending
+            // one the user has since moved on from.
+            let focused = ui.ctx().memory(|m| m.focused());
+            if let Some(surface) = ui.ctx().data(|d| d.get_temp::<Id>(key_run_id(id_salt)))
+                && Some(surface) != focused
+            {
+                end_key_run(ui.ctx(), id_salt);
+            }
+
             Popover::new(("elegance::color_picker", id_salt))
                 .side(side)
                 .arrow(false)
@@ -294,24 +305,30 @@ impl<'a> Widget for ColorPicker<'a> {
                     }
 
                     if show_continuous {
-                        let (changed, ended) = paint_sv_plane(ui, &theme, &mut hsv);
+                        let (changed, how) = paint_sv_plane(ui, &theme, &mut hsv);
                         if changed {
                             continuous_pick = Some(Color32::from(hsv));
                         }
-                        continuous_committed |= ended;
-                        let (changed, ended) = paint_hue_strip(ui, &theme, &mut hsv);
+                        if how != Settled::No {
+                            settled = how;
+                        }
+                        let (changed, how) = paint_hue_strip(ui, &theme, &mut hsv);
                         if changed {
                             continuous_pick = Some(Color32::from(hsv));
                         }
-                        continuous_committed |= ended;
+                        if how != Settled::No {
+                            settled = how;
+                        }
                     }
 
                     if show_alpha {
-                        let (changed, ended) = paint_alpha_slider(ui, &theme, &mut hsv);
+                        let (changed, how) = paint_alpha_slider(ui, &theme, &mut hsv);
                         if changed {
                             continuous_pick = Some(Color32::from(hsv));
                         }
-                        continuous_committed |= ended;
+                        if how != Settled::No {
+                            settled = how;
+                        }
                     }
 
                     if show_hex_input
@@ -339,12 +356,24 @@ impl<'a> Widget for ColorPicker<'a> {
                 *self.color = picked;
                 response.mark_changed();
             }
-            // Push to recents on a deliberate commit: a discrete pick this
-            // frame, or the moment a continuous control releases (after a
-            // click or a drag). The current bound color is the right value
-            // to record either way.
-            if discrete_pick.is_some() || continuous_committed {
-                push_recent(ui.ctx(), id_salt, *self.color, recents_max);
+            // Push to recents on a deliberate commit. A discrete pick and a
+            // pointer release are each one whole gesture, so each gets its own
+            // entry; a keyboard run gets one entry between all of its presses.
+            // The current bound color is the right value to record either way.
+            let settled = if discrete_pick.is_some() {
+                Settled::Gesture
+            } else {
+                settled
+            };
+            match settled {
+                Settled::No => {}
+                Settled::Gesture => {
+                    end_key_run(ui.ctx(), id_salt);
+                    push_recent(ui.ctx(), id_salt, *self.color, recents_max);
+                }
+                Settled::KeyRun(surface) => {
+                    record_key_run(ui.ctx(), id_salt, surface, *self.color, recents_max);
+                }
             }
 
             let label_text = label
@@ -629,6 +658,26 @@ fn paint_dashed_rect(
 
 /// One arrow-key step on a `0..=1` colour channel, as a fraction of the
 /// channel. `Shift` multiplies it by ten, the same 10x the crate's sliders use.
+/// How a continuous surface settled on a value this pass, as the recents row
+/// needs to see it.
+///
+/// A pointer gesture settles once, on release, so it stands alone. A key press
+/// settles the instant it lands — right for
+/// [`committed()`](crate::ResponseCommitExt::committed), whose job is to mark
+/// every value worth reacting to, but wrong for a history list: at a typical
+/// auto-repeat rate a held arrow key would push tens of near-identical entries
+/// per second and evict everything the user had collected. Carrying the
+/// surface's id lets a run of presses amend the one entry it opened.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Settled {
+    /// Not this pass.
+    No,
+    /// A whole gesture: a pointer release, or a discrete pick.
+    Gesture,
+    /// One press in a keyboard run on the surface with this id.
+    KeyRun(Id),
+}
+
 const CHANNEL_STEP: f32 = 0.01;
 
 /// One arrow-key step on hue, which reads in degrees rather than as a fraction
@@ -666,10 +715,12 @@ fn paint_focus_ring(
 /// Claims only the horizontal arrows, leaving the vertical pair to egui's focus
 /// navigation so the user can move between the stacked controls — the same
 /// split the crate's sliders make, and the opposite of the SV plane above,
-/// which needs all four. `Home` / `End` jump to the ends.
+/// which needs all four. `Home` jumps to 0; `End` jumps to `end`, which is 1 for
+/// a channel whose two ends differ and one step short of it for hue, where 1 and
+/// 0 are both red and `End` would otherwise be a synonym for `Home`.
 ///
 /// Returns whether the channel moved.
-fn strip_keys(ui: &mut Ui, response: &Response, channel: &mut f32, step: f32) -> bool {
+fn strip_keys(ui: &mut Ui, response: &Response, channel: &mut f32, step: f32, end: f32) -> bool {
     if !response.has_focus() {
         return false;
     }
@@ -697,7 +748,7 @@ fn strip_keys(ui: &mut Ui, response: &Response, channel: &mut f32, step: f32) ->
                 Key::ArrowRight => next += d,
                 Key::ArrowLeft => next -= d,
                 Key::Home => next = 0.0,
-                Key::End => next = 1.0,
+                Key::End => next = end,
                 _ => {}
             }
         }
@@ -715,12 +766,27 @@ fn strip_keys(ui: &mut Ui, response: &Response, channel: &mut f32, step: f32) ->
     true
 }
 
-fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bool) {
+/// Classify a surface's settle for the recents row. `by_key` says the keyboard
+/// moved the value this pass; a key nudge marks its own commit, so
+/// [`committed()`](crate::ResponseCommitExt::committed) is true either way and
+/// the keyboard has to be asked about first.
+fn settled_by(response: &Response, by_key: bool) -> Settled {
+    if by_key {
+        Settled::KeyRun(response.id)
+    } else if response.committed() {
+        Settled::Gesture
+    } else {
+        Settled::No
+    }
+}
+
+fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, Settled) {
     let p = &theme.palette;
     let avail = ui.available_width();
     let height = 150.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
+    let mut by_key = false;
 
     crate::focus::focus_on_press(&response);
 
@@ -782,14 +848,15 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
             hsv.s = s;
             hsv.v = v;
             changed = true;
+            by_key = true;
             crate::commit::mark_commit(ui.ctx(), response.id);
         }
     }
 
-    // Read after the keyboard block: a nudge reports its own commit through
-    // `mark_commit`, and `committed()` has to see it in the same pass for the
-    // colour to reach the recents row.
-    let committed = response.committed();
+    // Classified after the keyboard block: a nudge reports its own commit
+    // through `mark_commit`, and `committed()` has to see it in the same pass
+    // for the colour to reach the recents row.
+    let settled = settled_by(&response, by_key);
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -851,10 +918,10 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
     // what the surface adjusts.
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Slider, true, "Saturation and value"));
 
-    (changed, committed)
+    (changed, settled)
 }
 
-fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bool) {
+fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, Settled) {
     let p = &theme.palette;
     let avail = ui.available_width();
     let height = 14.0;
@@ -871,8 +938,11 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
         changed = true;
     }
 
-    changed |= strip_keys(ui, &response, &mut hsv.h, HUE_STEP);
-    let committed = response.committed();
+    // `End` stops one step short of 1: the hue circle joins there, so 1 is the
+    // same red as 0, and jumping to it would leave `ArrowRight` dead as well.
+    let by_key = strip_keys(ui, &response, &mut hsv.h, HUE_STEP, 1.0 - HUE_STEP);
+    changed |= by_key;
+    let settled = settled_by(&response, by_key);
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -925,14 +995,15 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
         );
     }
 
-    // Degrees, which is how hue is read everywhere else.
-    let degrees = (hsv.h * 360.0).round() as f64;
+    // Degrees, which is how hue is read everywhere else. The far end of the
+    // strip is 360, which names the same red as 0, so report it as 0.
+    let degrees = (hsv.h * 360.0).round() as f64 % 360.0;
     response.widget_info(|| WidgetInfo::slider(true, degrees, "Hue"));
 
-    (changed, committed)
+    (changed, settled)
 }
 
-fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bool) {
+fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, Settled) {
     let p = &theme.palette;
     let avail = ui.available_width();
     let height = 14.0;
@@ -949,8 +1020,9 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
         changed = true;
     }
 
-    changed |= strip_keys(ui, &response, &mut hsv.a, CHANNEL_STEP);
-    let committed = response.committed();
+    let by_key = strip_keys(ui, &response, &mut hsv.a, CHANNEL_STEP, 1.0);
+    changed |= by_key;
+    let settled = settled_by(&response, by_key);
 
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
@@ -991,7 +1063,7 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
     let percent = (hsv.a * 100.0).round() as f64;
     response.widget_info(|| WidgetInfo::slider(true, percent, "Alpha"));
 
-    (changed, committed)
+    (changed, settled)
 }
 
 // --- hex input -------------------------------------------------------------
@@ -1229,6 +1301,38 @@ fn set_hsv(ctx: &egui::Context, id_salt: Id, hsv: HsvaGamma) {
 
 fn recents_id(id_salt: Id) -> Id {
     id_salt.with(RECENTS_SUFFIX)
+}
+
+fn key_run_id(id_salt: Id) -> Id {
+    id_salt.with(KEY_RUN_SUFFIX)
+}
+
+/// Record a keyboard nudge in the recents row, amending the entry this run has
+/// already opened rather than adding a second one beside it.
+///
+/// Without this a run of presses would push one entry each: at auto-repeat
+/// speed a single held arrow key fills the whole row with shades a user cannot
+/// tell apart and evicts everything they had collected. The pointer path
+/// records one entry per gesture, and a keyboard run is one gesture too.
+fn record_key_run(ctx: &egui::Context, id_salt: Id, surface: Id, color: Color32, max: usize) {
+    let run = key_run_id(id_salt);
+    if ctx.data(|d| d.get_temp::<Id>(run)) == Some(surface) {
+        // Drop the head this run put there; the re-push below replaces it with
+        // the colour the run has now reached.
+        let id = recents_id(id_salt);
+        let mut list: Vec<Color32> = ctx.data(|d| d.get_temp(id)).unwrap_or_default();
+        if !list.is_empty() {
+            list.remove(0);
+            ctx.data_mut(|d| d.insert_temp(id, list));
+        }
+    } else {
+        ctx.data_mut(|d| d.insert_temp(run, surface));
+    }
+    push_recent(ctx, id_salt, color, max);
+}
+
+fn end_key_run(ctx: &egui::Context, id_salt: Id) {
+    ctx.data_mut(|d| d.remove::<Id>(key_run_id(id_salt)));
 }
 
 fn push_recent(ctx: &egui::Context, id_salt: Id, color: Color32, max: usize) {
