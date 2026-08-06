@@ -1,0 +1,56 @@
+# Changelog
+
+Notable changes to `egui-elegance`. Where a version has [GitHub release notes](https://github.com/stephenberry/egui-elegance/releases), its heading links to them for the full detail including migration examples.
+
+Versions before 0.11.0 predate tagging; see the git history for those.
+
+## Unreleased
+
+Next version is 0.16.0: the `PairItem` change below is breaking.
+
+### Added
+
+- **Commit signal.** New `ResponseCommitExt::committed()` reports the frame a value adjustment settles: on pointer release after a drag or a click, and immediately on a keyboard nudge. `changed()` still fires on every intermediate value, which is what a live preview wants; `committed()` is for reactions you would not want to repeat dozens of times for one gesture, such as a network write or a disk persist. A `MetricSlider` in `stops` mode previously fired `changed()` once per stop a drag crossed, with no affordance to tell an intermediate value from a settled one. Works on `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, and `Knob`.
+- **Per-item icon tint on `Pairing`.** `PairItem::icon_tone(BadgeTone)` tints a node's leading icon with the crate's status vocabulary; `PairItem::icon_color(impl Into<Color32>)` takes an explicit colour. Untinted icons are unchanged.
+- `BadgeTone::foreground(&Palette)` is now public — the resolver behind badge labels and icon tones.
+
+### Changed
+
+- **Breaking:** `PairItem` gained a public `icon_tint` field and is now `#[non_exhaustive]`, as is the new `IconTint` enum. Construct with `PairItem::new(...)` plus the builder methods; struct literals, functional record update (`..other`), and destructuring without `..` no longer compile. Doing this once now avoids a second break the next time the struct grows.
+
+## [0.15.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.15.0) — 2026-08-06
+
+- **Breaking:** targets egui 0.36, so your app must move to 0.36 as well. MSRV 1.92 → 1.95.
+- **Breaking:** `FileDropResponse::dropped_files` is now `Vec<egui::DroppedFileHandle>`; `path` and `bytes` are methods rather than fields.
+- Fixed overlay layering: a foreground `egui::Window` rendered above an open `Modal`'s backdrop and stayed clickable ([#13](https://github.com/stephenberry/egui-elegance/issues/13)). `Esc` now dismisses only the topmost overlay, and focus restoration works when the overlay is drawn before the widget that held focus.
+- `Toast` no longer justifies wrapped title and description text.
+
+## [0.14.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.14.0) — 2026-07-13
+
+- **Breaking:** targets egui 0.35, so your app must move to 0.35 as well.
+- Added the `IdSalt` trait, blanket-implemented over every `Hash + Debug` type, so the id-salt bound lives in one place. Additive: existing id-salt arguments still compile.
+
+## [0.13.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.13.0) — 2026-06-18
+
+- Added `TextInput::revealable(bool)`: a masked field with a trailing eye toggle, operable by mouse, keyboard, and screen reader. Implies masking, so `.password(true)` is not also needed.
+
+## [0.12.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.12.0) — 2026-06-17
+
+- Added 23 Lucide glyphs to the bundled Elegance Symbols font (U+E00C–U+E022) covering actions, navigation, status, and editing. All are exposed as `glyphs` constants.
+- `Callout`'s per-tone icons now use a uniform Lucide set, replacing base-font marks that sat on a different baseline and weight.
+
+## [0.11.2](https://github.com/stephenberry/egui-elegance/releases/tag/v0.11.2) — 2026-06-17
+
+- Fixed filled sub-frames painting square corners over rounded cards: the modal footer fill and accordion row highlight/focus ring both squared off the card they sat in ([#7](https://github.com/stephenberry/egui-elegance/issues/7)).
+- Fixed `Modal` focus restoration for callers that drop the modal the instant it closes.
+- A disabled `Select` now reports as disabled to screen readers.
+- Added `Modal::closable(bool)` and `Select::enabled(bool)`.
+
+## 0.11.1 — 2026-06-01
+
+- Added the `trash` and `pencil` glyphs to the Symbols font.
+
+## [0.11.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.11.0) — 2026-05-30
+
+- **Breaking:** `Palette::sky` renamed to `Palette::focus`. It drives every structural focus, active, and selection treatment, and the old name collided with the unrelated `Accent::Sky` button variant. Migration: replace `palette.sky` with `palette.focus`. The `Accent::Sky`, `AvatarTone::Sky`, and `SegmentDot::Sky` variants are unchanged.
+- Documented the two accent roles: the structural `palette.focus` field versus the semantic `Accent` enum, with a worked re-theming example.
