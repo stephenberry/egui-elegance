@@ -16,13 +16,13 @@ use egui_kittest::kittest::Queryable;
 use elegance::{
     Accent, Accordion, Avatar, AvatarGroup, AvatarPresence, AvatarSize, AvatarTone, Badge,
     BadgeTone, BrowserTab, BrowserTabs, Button, ButtonSize, Callout, CalloutTone, Card, Checkbox,
-    CollapsingSection, ColorPicker, FileDropZone, GaugeZones, Indicator, IndicatorState, Knob,
-    KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection, MetricSlider, Modal, PairItem,
-    Pairing, PercentSlider, Popover, PopoverSide, ProgressBar, ProgressRing, RadialGauge,
-    RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton, SegmentedControl,
-    SegmentedSize, Select, Slider, SliderHandle, SortableItem, SortableList, Spinner, StatCard,
-    StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea, TextInput, Theme, Tooltip,
-    TooltipSide,
+    CollapsingSection, ColorPicker, Drawer, DrawerSide, FileDropZone, GaugeZones, Indicator,
+    IndicatorState, Knob, KnobSize, LinearGauge, LogBar, MenuBar, MenuItem, MenuSection,
+    MetricSlider, Modal, PairItem, Pairing, PercentSlider, Popover, PopoverSide, ProgressBar,
+    ProgressRing, RadialGauge, RangeSlider, RemovableChip, Segment, SegmentDot, SegmentedButton,
+    SegmentedControl, SegmentedSize, Select, Slider, SliderHandle, SortableItem, SortableList,
+    Spinner, StatCard, StatusPill, Steps, StepsStyle, Switch, TabBar, TagInput, TextArea,
+    TextInput, Theme, Tooltip, TooltipSide,
 };
 
 fn snap(name: &str, theme: Theme, ui_fn: fn(&mut egui::Ui)) {
@@ -2101,6 +2101,38 @@ fn modal_with_footer_ui(ui: &mut egui::Ui) {
         });
 }
 
+fn drawer_ui(ui: &mut egui::Ui) {
+    // Something behind the panel, so the backdrop's dimming and the panel's
+    // inner-edge divider both have content to read against.
+    ui.heading("Incidents");
+    ui.add(egui::Label::new(
+        Theme::current(ui.ctx()).muted_text("3 open, 1 acknowledged"),
+    ));
+
+    let ctx = ui.ctx().clone();
+    // Never dismissed in the test, so fresh locals each frame are fine.
+    let mut open = true;
+    let mut owner = String::from("api-west-02");
+    Drawer::new("vis_drawer", &mut open)
+        .side(DrawerSide::Right)
+        .width(360.0)
+        .title("INC-2187")
+        .subtitle("api-west-02 latency spike")
+        .show(&ctx, |ui| {
+            ui.add(egui::Label::new(
+                Theme::current(ui.ctx()).muted_text("Owner"),
+            ));
+            ui.add_space(4.0);
+            ui.add(
+                TextInput::new(&mut owner)
+                    .desired_width(f32::INFINITY)
+                    .id_salt("vis_drawer_owner"),
+            );
+            ui.add_space(12.0);
+            let _ = ui.add(Button::new("Acknowledge").accent(Accent::Blue));
+        });
+}
+
 fn single_accordion_ui(ui: &mut egui::Ui) {
     ui.set_min_width(420.0);
     Accordion::new("vis_acc_focus").show(ui, |acc| {
@@ -2165,6 +2197,7 @@ fixed_theme_tests!(
     egui::Vec2::new(640.0, 440.0),
     modal_with_footer_ui
 );
+fixed_theme_tests!(drawer, egui::Vec2::new(760.0, 440.0), drawer_ui);
 interact_tests!(
     accordion_row_focused,
     single_accordion_ui,

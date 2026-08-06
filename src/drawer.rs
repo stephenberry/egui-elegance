@@ -54,12 +54,11 @@
 //! resizes around it. `Drawer` is for the modal slide-in case.
 
 use egui::{
-    Align, Area, Color32, Context, CornerRadius, Frame, Id, Key, Layout, Margin, Order, Pos2, Rect,
-    Response, Sense, Stroke, Ui, WidgetInfo, WidgetText, WidgetType, accesskit, emath,
-    epaint::Shadow,
+    Align, Area, Color32, Context, CornerRadius, Frame, Id, Layout, Margin, Pos2, Rect, Sense,
+    Stroke, Ui, UiBuilder, WidgetText, accesskit, emath, epaint::Shadow,
 };
 
-use crate::{Button, ButtonSize, theme::Theme};
+use crate::{overlay, theme::Theme};
 
 /// Which edge of the viewport the drawer slides in from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,6 +75,18 @@ pub enum DrawerSide {
 /// `true` the panel slides in from its anchored edge; the reverse plays in
 /// reverse. Pressing `Esc`, clicking the dimmed backdrop, or clicking the
 /// built-in close "×" button flips it back to `false`.
+///
+/// A drawer is modal for as long as it is on screen: the backdrop swallows
+/// clicks meant for anything beneath it (an [`egui::Window`] included), and
+/// keeps doing so while the panel slides shut. A [`Modal`](crate::Modal)
+/// opened over a drawer takes precedence for `Esc`, and dismissing it hands
+/// the key back to the drawer; the press is consumed either way, unless the
+/// drawer has opted out via [`Drawer::close_on_escape`].
+/// [`Toasts`](crate::Toasts) stay above and remain clickable throughout.
+///
+/// Keyboard focus moves into the panel on open and returns to the previously
+/// focused widget on close, but `Tab` is not fenced in: it can still reach
+/// widgets behind the drawer.
 #[must_use = "Call `.show(ctx, |ui| { ... })` to render the drawer."]
 pub struct Drawer<'a> {
     id_salt: Id,
@@ -169,12 +180,12 @@ impl<'a> Drawer<'a> {
     ///
     /// The closure is invoked every frame the panel is on-screen, including
     /// while it slides in or out. Treat the body as ordinary layout — the
-    /// slide animation is applied by translating the parent `Area`.
+    /// slide is applied by moving the panel's rect within a viewport-sized
+    /// surface, and content that runs past the edge is clipped.
     pub fn show<R>(self, ctx: &Context, add_contents: impl FnOnce(&mut Ui) -> R) -> Option<R> {
         // --- Lifecycle: track open/closed transitions for focus restoration. ---
         let focus_storage = Id::new(("elegance_drawer_focus", self.id_salt));
-        let mut focus_state: DrawerFocusState =
-            ctx.data(|d| d.get_temp(focus_storage).unwrap_or_default());
+        let mut focus_state = overlay::FocusState::load(ctx, focus_storage);
         let is_open = *self.open;
         let was_open = focus_state.was_open;
         let just_opened = is_open && !was_open;
@@ -193,9 +204,14 @@ impl<'a> Drawer<'a> {
         }
         if just_closed && let Some(prev) = focus_state.prev_focus.take() {
             ctx.memory_mut(|m| m.request_focus(prev));
+            // Stage one of two: last frame's modal-layer claim can undo this
+            // request, so re-assert next frame. See [`crate::overlay`].
+            focus_state.pending_restore = Some(prev);
+        } else if let Some(prev) = focus_state.pending_restore.take() {
+            ctx.memory_mut(|m| m.request_focus(prev));
         }
         focus_state.was_open = is_open;
-        ctx.data_mut(|d| d.insert_temp(focus_storage, focus_state));
+        focus_state.store(ctx, focus_storage);
 
         // Skip painting entirely when fully closed and not animating.
         if !is_open && progress < 0.001 {
@@ -222,118 +238,147 @@ impl<'a> Drawer<'a> {
             ),
         };
 
-        // --- Backdrop ----------------------------------------------------
-        let backdrop_id = Id::new("elegance_drawer_backdrop").with(self.id_salt);
-        let backdrop_alpha = (progress * 150.0).round() as u8;
-        let backdrop = Area::new(backdrop_id)
-            .fixed_pos(screen.min)
-            .order(Order::Middle)
-            .constrain(false)
-            .show(ctx, |ui| {
-                ui.painter().rect_filled(
-                    screen,
-                    CornerRadius::ZERO,
-                    Color32::from_rgba_premultiplied(0, 0, 0, backdrop_alpha),
-                );
-                ui.allocate_rect(screen, Sense::click())
-            });
-        if self.close_on_backdrop && backdrop.inner.clicked() {
-            should_close = true;
-        }
+        // Popups close themselves on `Esc`; remember whether one was open
+        // before the body runs so a single press doesn't also take the drawer.
+        let popup_was_open = egui::Popup::is_any_open(ctx);
 
-        // --- Panel -------------------------------------------------------
-        let panel_id = Id::new("elegance_drawer_panel").with(self.id_salt);
+        // --- Surface ------------------------------------------------------
+        // Backdrop and panel share one area. See `crate::overlay` for why the
+        // backdrop doesn't get a lower-order area of its own.
+        let area_id = Id::new("elegance_drawer").with(self.id_salt);
+        let backdrop_alpha = (progress * 150.0).round() as u8;
         let title_text = self.title.as_ref().map(|t| t.text().to_string());
         let title = self.title;
         let subtitle = self.subtitle;
         let side = self.side;
 
-        let result = Area::new(panel_id)
-            .order(Order::Foreground)
-            .fixed_pos(panel_rect.min)
-            // Without this, egui constrains the Area to stay on-screen, which
-            // snaps the content back into view during the slide-out animation
-            // even though our manually painted background is sliding off.
+        let outer = Area::new(area_id)
+            .order(overlay::ORDER)
+            .fixed_pos(screen.min)
+            // This surface is positioned entirely by us: it is pinned to the
+            // viewport origin and the panel inside it is laid out at absolute
+            // coordinates that deliberately run off-screen mid-slide. Leaving
+            // egui's constraining on would invite it to nudge the area back
+            // when the panel's rect pokes past the edge.
             .constrain(false)
             .show(ctx, |ui| {
-                ui.set_min_size(panel_rect.size());
-                ui.set_max_size(panel_rect.size());
+                // --- Backdrop ---
+                ui.painter().rect_filled(
+                    screen,
+                    CornerRadius::ZERO,
+                    Color32::from_rgba_premultiplied(0, 0, 0, backdrop_alpha),
+                );
+                let backdrop = ui.interact(screen, ui.id().with("backdrop"), Sense::click());
 
-                // Clip body content to the panel rect — the Area defaults to
-                // clipping at the screen edge, but we want content that would
-                // overflow the panel to be clipped to the panel itself, and
-                // content that is partly off-screen during the slide to skip
-                // tessellation outside the panel's bounds.
-                ui.set_clip_rect(panel_rect);
+                // --- Panel ---
+                // Sensed as well, so clicks landing on the panel are consumed
+                // here rather than falling through to the backdrop behind it —
+                // widgets registered later win hit-testing within a layer.
+                let panel = ui.scope_builder(
+                    UiBuilder::new().sense(Sense::click()).max_rect(panel_rect),
+                    |ui| {
+                        ui.set_min_size(panel_rect.size());
 
-                // Promote the Ui to a dialog node so screen readers announce
-                // it as a window-like surface and Tab navigates within it.
-                ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
-                    node.set_role(accesskit::Role::Dialog);
-                    if let Some(label) = title_text {
-                        node.set_label(label);
-                    }
-                });
+                        // Clip body content to the panel rect — the area
+                        // defaults to clipping at the screen edge, but we want
+                        // content that would overflow the panel to be clipped
+                        // to the panel itself, and content that is partly
+                        // off-screen during the slide to skip tessellation
+                        // outside the panel's bounds.
+                        ui.set_clip_rect(panel_rect);
 
-                // Paint shadow + background fill at the full panel rect.
-                // Frame::fill would paint only as tall as its content, which
-                // leaves an unfilled gap at the bottom whenever the body
-                // closure is shorter than the viewport — drawers are full-
-                // height, so we want the fill regardless of content height.
-                let shadow = Shadow {
-                    offset: match side {
-                        DrawerSide::Right => [-12, 0],
-                        DrawerSide::Left => [12, 0],
+                        // Promote the Ui to a dialog node so screen readers
+                        // announce it as a window-like surface and Tab
+                        // navigates within it.
+                        ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+                            node.set_role(accesskit::Role::Dialog);
+                            if let Some(label) = title_text {
+                                node.set_label(label);
+                            }
+                        });
+
+                        // Paint shadow + background fill at the full panel
+                        // rect. Frame::fill would paint only as tall as its
+                        // content, which leaves an unfilled gap at the bottom
+                        // whenever the body closure is shorter than the
+                        // viewport — drawers are full-height, so we want the
+                        // fill regardless of content height.
+                        let shadow = Shadow {
+                            offset: match side {
+                                DrawerSide::Right => [-12, 0],
+                                DrawerSide::Left => [12, 0],
+                            },
+                            blur: 28,
+                            spread: 0,
+                            color: Color32::from_black_alpha(110),
+                        };
+                        ui.painter()
+                            .add(shadow.as_shape(panel_rect, CornerRadius::ZERO));
+                        ui.painter()
+                            .rect_filled(panel_rect, CornerRadius::ZERO, p.card);
+
+                        let pad = theme.card_padding as i8;
+                        let inner = Frame::new()
+                            .inner_margin(Margin::same(pad))
+                            .show(ui, |ui| {
+                                if title.is_some() {
+                                    paint_header(
+                                        ui,
+                                        &theme,
+                                        title.as_ref(),
+                                        subtitle.as_ref(),
+                                        &mut should_close,
+                                        &mut close_btn_id,
+                                    );
+                                    ui.separator();
+                                    ui.add_space(8.0);
+                                }
+                                add_contents(ui)
+                            })
+                            .inner;
+
+                        // Inner-edge divider — paint last so it sits on top of
+                        // the Frame fill. The other three sides of the panel
+                        // touch the viewport edges and don't need a border.
+                        let inner_x = match side {
+                            DrawerSide::Right => panel_rect.left(),
+                            DrawerSide::Left => panel_rect.right(),
+                        };
+                        ui.painter().line_segment(
+                            [
+                                Pos2::new(inner_x, panel_rect.top()),
+                                Pos2::new(inner_x, panel_rect.bottom()),
+                            ],
+                            Stroke::new(1.0, p.border),
+                        );
+
+                        inner
                     },
-                    blur: 28,
-                    spread: 0,
-                    color: Color32::from_black_alpha(110),
-                };
-                ui.painter()
-                    .add(shadow.as_shape(panel_rect, CornerRadius::ZERO));
-                ui.painter()
-                    .rect_filled(panel_rect, CornerRadius::ZERO, p.card);
-
-                let pad = theme.card_padding as i8;
-                let inner = Frame::new()
-                    .inner_margin(Margin::same(pad))
-                    .show(ui, |ui| {
-                        if title.is_some() {
-                            paint_header(
-                                ui,
-                                &theme,
-                                title.as_ref(),
-                                subtitle.as_ref(),
-                                &mut should_close,
-                                &mut close_btn_id,
-                            );
-                            ui.separator();
-                            ui.add_space(8.0);
-                        }
-                        add_contents(ui)
-                    })
-                    .inner;
-
-                // Inner-edge divider — paint last so it sits on top of the
-                // Frame fill. The other three sides of the panel touch the
-                // viewport edges and don't need a border.
-                let inner_x = match side {
-                    DrawerSide::Right => panel_rect.left(),
-                    DrawerSide::Left => panel_rect.right(),
-                };
-                ui.painter().line_segment(
-                    [
-                        Pos2::new(inner_x, panel_rect.top()),
-                        Pos2::new(inner_x, panel_rect.bottom()),
-                    ],
-                    Stroke::new(1.0, p.border),
                 );
 
-                inner
+                (panel.inner, backdrop)
             });
 
-        if self.close_on_escape && ctx.input(|i| i.key_pressed(Key::Escape)) {
+        let (result, backdrop) = outer.inner;
+        if self.close_on_backdrop && backdrop.clicked() {
             should_close = true;
+        }
+
+        // Announce this drawer as open and find out whether it's the overlay on
+        // top, which decides who gets `Esc` when overlays are stacked. Only
+        // while genuinely open: a drawer mid slide-out is still painted, but it
+        // has already handed control back and must not claim the key.
+        let layer = overlay::layer_id(area_id);
+        let is_topmost = is_open && overlay::register_open(ctx, layer);
+        if self.close_on_escape && overlay::escape_dismisses(ctx, is_topmost, popup_was_open) {
+            should_close = true;
+        }
+
+        // Hold the modal layer for the next frame, but only while genuinely
+        // open: the claim is what keeps windows from raising themselves over
+        // the drawer, and one that outlives it costs the background its focus.
+        if is_open && !should_close {
+            overlay::claim_modal_layer(ctx, layer);
         }
 
         // On the first frame the drawer opens, move keyboard focus into it
@@ -348,25 +393,13 @@ impl<'a> Drawer<'a> {
             *self.open = false;
         }
 
-        Some(result.inner)
+        Some(result)
     }
 }
 
 /// Animation time for the slide transition, in seconds. Chosen to match
 /// the mockup's 260 ms cubic-bezier feel (eased via [`emath::easing::cubic_in_out`]).
 const ANIMATION_DURATION: f32 = 0.26;
-
-/// Persistent focus-lifecycle state for a single drawer, keyed by the
-/// drawer's `id_salt`. Stored via `ctx.data_mut`.
-#[derive(Clone, Copy, Default, Debug)]
-struct DrawerFocusState {
-    /// Whether the drawer was rendered open last frame. Used to detect
-    /// open/close transitions.
-    was_open: bool,
-    /// Which widget (if any) had keyboard focus at the moment the drawer
-    /// opened. Restored on close.
-    prev_focus: Option<Id>,
-}
 
 /// Paint the header row: title (strong) + optional muted subtitle on the
 /// left, close "×" button on the right.
@@ -388,26 +421,11 @@ fn paint_header(
             }
         });
         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-            let resp = drawer_close_button(ui);
+            let resp = overlay::close_button(ui, "elegance_drawer_close");
             if resp.clicked() {
                 *should_close = true;
             }
             *close_btn_id = Some(resp.id);
         });
     });
-}
-
-/// Render the drawer's close button. Returns its `Response` so the caller
-/// can route focus to it and observe `clicked()`. The accesskit label is
-/// set to `"Close"` explicitly so screen readers don't announce the "×"
-/// glyph as "multiplication sign."
-fn drawer_close_button(ui: &mut Ui) -> Response {
-    let inner = ui
-        .push_id("elegance_drawer_close", |ui| {
-            ui.add(Button::new("×").outline().size(ButtonSize::Small))
-        })
-        .inner;
-    let enabled = inner.enabled();
-    inner.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, "Close"));
-    inner
 }
