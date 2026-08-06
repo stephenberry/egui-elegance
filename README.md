@@ -18,13 +18,13 @@ or, in `Cargo.toml`:
 
 ```toml
 [dependencies]
-egui          = "0.34"
-egui-elegance = "0.10"
+egui          = "0.36"
+egui-elegance = "0.14"
 ```
 
 The crate is published as `egui-elegance` but the library name is `elegance`, so imports look like `use elegance::Button;`.
 
-MSRV: Rust 1.92.
+MSRV: Rust 1.95.
 
 ## Quick start
 
@@ -555,8 +555,8 @@ if drop.response.clicked() {
     // open file picker
 }
 for file in &drop.dropped_files {
-    // file.path on native, file.bytes on web
-    let _ = file;
+    // file.path() everywhere; file.bytes() on native, file.bytes_async() on web
+    let _ = file.path();
 }
 ```
 

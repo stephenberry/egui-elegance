@@ -38,8 +38,14 @@ fn toast_text_is_never_justified() {
         Toasts::new().render(ui.ctx());
     };
     // Two frames: the first enqueues and lets the toast Area settle.
-    let _ = ctx.run_ui(input.clone(), frame);
-    let output = ctx.run_ui(input, frame);
+    //
+    // `TexturesDelta` asserts on drop that its deltas were applied — a real
+    // integration uploads them to the GPU. This test only inspects shapes, so
+    // discard them explicitly instead.
+    let mut output = ctx.run_ui(input.clone(), frame);
+    output.textures_delta.clear();
+    let mut output = ctx.run_ui(input, frame);
+    output.textures_delta.clear();
 
     let mut wrapped = false;
     for clipped in &output.shapes {

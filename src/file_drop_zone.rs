@@ -8,7 +8,7 @@
 //! own app state.
 
 use egui::{
-    Color32, CornerRadius, DroppedFile, FontSelection, Pos2, Rect, Response, Sense, Stroke,
+    Color32, CornerRadius, DroppedFileHandle, FontSelection, Pos2, Rect, Response, Sense, Stroke,
     StrokeKind, Ui, Vec2, WidgetInfo, WidgetText, WidgetType, pos2, vec2,
 };
 
@@ -25,8 +25,9 @@ use crate::theme::{Theme, with_alpha};
 ///     // Open a native file picker, e.g. via the `rfd` crate.
 /// }
 /// for file in &drop.dropped_files {
-///     // Handle file.path / file.bytes.
-///     let _ = file;
+///     // Inspect `file.path()`, or read the contents with `file.bytes()`
+///     // (`file.bytes_async()` on the web).
+///     let _ = file.path();
 /// }
 /// # });
 /// ```
@@ -185,7 +186,11 @@ pub struct FileDropResponse {
     pub response: Response,
     /// Files dropped on the zone this frame. Empty when nothing was
     /// dropped or the drop landed outside the zone's rect.
-    pub dropped_files: Vec<DroppedFile>,
+    ///
+    /// Each handle is an `Arc<dyn DroppedFile>` owned by the integration:
+    /// read the contents with [`egui::DroppedFile::bytes`] on native, or
+    /// `bytes_async` on the web.
+    pub dropped_files: Vec<DroppedFileHandle>,
 }
 
 #[allow(clippy::too_many_arguments)]
