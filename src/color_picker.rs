@@ -633,10 +633,6 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
     let height = 150.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    // `changed` is a local returned to the caller; this `response` is never
-    // `mut` and so never marks itself changed. `committed()`'s keyboard term
-    // is therefore inert here. Keep it that way: calling `mark_changed` on
-    // this response would start pushing extra entries to the recents list.
     let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()
@@ -713,10 +709,6 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    // `changed` is a local returned to the caller; this `response` is never
-    // `mut` and so never marks itself changed. `committed()`'s keyboard term
-    // is therefore inert here. Keep it that way: calling `mark_changed` on
-    // this response would start pushing extra entries to the recents list.
     let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()
@@ -786,10 +778,6 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    // `changed` is a local returned to the caller; this `response` is never
-    // `mut` and so never marks itself changed. `committed()`'s keyboard term
-    // is therefore inert here. Keep it that way: calling `mark_changed` on
-    // this response would start pushing extra entries to the recents list.
     let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()

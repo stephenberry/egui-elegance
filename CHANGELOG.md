@@ -10,12 +10,13 @@ Next version is 0.16.0: the `PairItem` change below is breaking.
 
 ### Added
 
-- **Commit signal.** New `ResponseCommitExt::committed()` reports the frame a value adjustment settles: on pointer release after a drag or a click, and immediately on a keyboard nudge. `changed()` still fires on every intermediate value, which is what a live preview wants; `committed()` is for reactions you would not want to repeat dozens of times for one gesture, such as a network write or a disk persist. A `MetricSlider` in `stops` mode previously fired `changed()` once per stop a drag crossed, with no affordance to tell an intermediate value from a settled one. Works on `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, and `Knob`.
+- **Commit signal.** New `ResponseCommitExt::committed()` reports the frame a value adjustment settles: on pointer release after a drag or a click (any mouse button, plus touch long-press), immediately on a keyboard nudge, and — for the `Knob`'s scroll wheel — once when the scroll stops rather than once per frame of its smoothed delta. `changed()` still fires on every intermediate value, which is what a live preview wants; `committed()` is for reactions you would not want to repeat dozens of times for one gesture, such as a network write or a disk persist. A `MetricSlider` in `stops` mode previously fired `changed()` once per stop a drag crossed, with no affordance to tell an intermediate value from a settled one. Works on `MetricSlider`, `PercentSlider`, `Slider`, `RangeSlider`, and `Knob`.
 - **Per-item icon tint on `Pairing`.** `PairItem::icon_tone(BadgeTone)` tints a node's leading icon with the crate's status vocabulary; `PairItem::icon_color(impl Into<Color32>)` takes an explicit colour. Untinted icons are unchanged.
 - `BadgeTone::foreground(&Palette)` is now public — the resolver behind badge labels and icon tones.
 
 ### Changed
 
+- `ColorPicker` now adds to its recents list on a non-primary click or a touch long-press of the SV plane, hue strip, or alpha slider, matching what those controls already did for a primary click or drag.
 - **Breaking:** `PairItem` gained a public `icon_tint` field and is now `#[non_exhaustive]`, as is the new `IconTint` enum. Construct with `PairItem::new(...)` plus the builder methods; struct literals, functional record update (`..other`), and destructuring without `..` no longer compile. Doing this once now avoids a second break the next time the struct grows.
 
 ## [0.15.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.15.0) — 2026-08-06

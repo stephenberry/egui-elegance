@@ -400,6 +400,9 @@ impl<'a> Widget for MetricSlider<'a> {
                             current = next;
                             *self.value = current;
                             response.mark_changed();
+                            // A key press is a discrete adjustment: already
+                            // settled the moment it lands.
+                            crate::commit::mark_commit(ui.ctx(), response.id);
                         }
                     }
                 }

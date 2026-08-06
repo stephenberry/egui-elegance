@@ -10,7 +10,7 @@
 use eframe::egui;
 use egui::{Key, Modifiers, PointerButton, Pos2, Rect};
 use egui_kittest::Harness;
-use elegance::{Knob, MetricSlider, ResponseCommitExt, Theme};
+use elegance::{Knob, MetricSlider, RangeSlider, ResponseCommitExt, Slider, Theme};
 
 /// Counts the frames each signal fired on, so a test can assert on timing
 /// rather than just on the final value.
@@ -312,13 +312,20 @@ fn knob_scroll_notch_commits_once_when_it_stops() {
     assert!(harness.state().value > 0.0);
 }
 
-/// Every elegance value widget gates its write on `is_pointer_button_down_on`,
-/// which is button-agnostic, so a non-primary click moves the value. `clicked()`
-/// is Primary-only, so without the explicit `clicked_by` terms that adjustment
-/// would be written and never committed.
+/// The sliders gate their write on `is_pointer_button_down_on`, which is
+/// button-agnostic, so a click with *any* button moves the value. `clicked()`
+/// is primary-only, so every other button needs covering explicitly or the
+/// adjustment is written and never committed. `Extra1`/`Extra2` are the side
+/// buttons; they were the gap an earlier version of this list left open.
 #[test]
-fn secondary_click_commits() {
-    for button in [PointerButton::Secondary, PointerButton::Middle] {
+fn every_pointer_button_commits() {
+    for button in [
+        PointerButton::Primary,
+        PointerButton::Secondary,
+        PointerButton::Middle,
+        PointerButton::Extra1,
+        PointerButton::Extra2,
+    ] {
         let mut harness = slider_harness();
         let rect = harness.state().rect;
         let target = Pos2::new(track_x(rect, 0.5), rect.center().y);
@@ -351,4 +358,133 @@ fn secondary_click_commits() {
             "{button:?} must commit exactly once"
         );
     }
+}
+
+/// A scroll settle is reported by `Knob` itself rather than inferred from the
+/// response, so unrelated input on the same frame cannot be mistaken for it.
+/// While the predicate still read `changed()`, an unrelated key press during
+/// the smoothed scroll added a second commit for one notch.
+#[test]
+fn unrelated_key_during_scroll_commits_once() {
+    let mut harness = knob_harness();
+    let center = harness.state().rect.center();
+    harness.hover_at(center);
+    harness.step();
+    harness.state_mut().reset_counts();
+
+    harness.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Line,
+        delta: egui::vec2(0.0, 1.0),
+        modifiers: Modifiers::NONE,
+        phase: egui::TouchPhase::Move,
+    });
+    harness.step();
+    // A key the knob does not own, pressed while the smoothed delta is still
+    // moving the value. Nothing has focus.
+    harness.event(egui::Event::Key {
+        key: Key::A,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::NONE,
+    });
+    for _ in 0..30 {
+        harness.step();
+    }
+
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "one notch must commit once regardless of unrelated input"
+    );
+}
+
+/// `Slider` picks the signal up from the same widget-side report.
+#[test]
+fn slider_keyboard_commits_once() {
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 200.0))
+        .build_ui_state(
+            |ui, probe: &mut Probe| {
+                Theme::slate().install(ui.ctx());
+                let resp = ui.add(Slider::new(&mut probe.value, 0.0..=100.0));
+                probe.rect = resp.rect;
+                if resp.changed() {
+                    probe.changed += 1;
+                }
+                if resp.committed() {
+                    probe.committed += 1;
+                }
+            },
+            Probe::default(),
+        );
+    harness.run();
+    harness.state_mut().reset_counts();
+
+    harness.key_press(Key::Tab);
+    harness.step();
+    harness.state_mut().reset_counts();
+
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+
+    assert!(harness.state().value > 0.0, "ArrowRight should raise it");
+    assert_eq!(harness.state().committed, 1);
+}
+
+/// `RangeSlider` returns `bg | thumb[0] | thumb[1]`, and `Response::union` keeps
+/// only the left id, so focus lives on a thumb id the combined response does not
+/// carry. Any id-based focus check in the predicate would silently stop
+/// committing here, which is exactly why this test exists.
+#[test]
+fn range_slider_keyboard_commits_once() {
+    struct RangeProbe {
+        low: f32,
+        high: f32,
+        committed: usize,
+    }
+
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(600.0, 200.0))
+        .build_ui_state(
+            |ui, probe: &mut RangeProbe| {
+                Theme::slate().install(ui.ctx());
+                let resp = ui.add(RangeSlider::new(
+                    &mut probe.low,
+                    &mut probe.high,
+                    0.0..=100.0,
+                ));
+                if resp.committed() {
+                    probe.committed += 1;
+                }
+            },
+            RangeProbe {
+                low: 20.0,
+                high: 80.0,
+                committed: 0,
+            },
+        );
+    harness.run();
+    harness.state_mut().committed = 0;
+
+    // Two tabs: the widget, then its first thumb.
+    harness.key_press(Key::Tab);
+    harness.step();
+    harness.key_press(Key::Tab);
+    harness.step();
+    harness.state_mut().committed = 0;
+
+    harness.key_press(Key::ArrowRight);
+    harness.step();
+
+    assert!(
+        harness.state().low > 20.0,
+        "ArrowRight should raise the low endpoint, got {}",
+        harness.state().low
+    );
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "a keyboard nudge on a thumb must commit exactly once"
+    );
 }

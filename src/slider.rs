@@ -360,6 +360,9 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                                 current = new_value;
                                 *self.value = T::from_f64(current);
                                 response.mark_changed();
+                                // A key press is a discrete adjustment: already
+                                // settled the moment it lands.
+                                crate::commit::mark_commit(ui.ctx(), response.id);
                             }
                         }
                     }
