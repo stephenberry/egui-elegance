@@ -1,17 +1,20 @@
 //! Modal dialog — a centered themed card over a dimmed backdrop.
 //!
-//! Painted in two layers: a full-viewport dimmed backdrop that swallows
-//! clicks (and closes the modal when clicked), and a centered [`Card`]-
-//! like window with an optional heading row and a close "×" button.
-//! Press `Esc` to dismiss.
+//! A full-viewport dimmed backdrop swallows clicks (and closes the modal when
+//! clicked) beneath a centered [`Card`]-like window with an optional heading
+//! row and a close "×" button. Press `Esc` to dismiss.
+//!
+//! Both are painted in a single [`Area`], and the modal blocks interaction
+//! with everything below it for as long as it is open — see
+//! [`crate::overlay`] for the layering rules that make that hold even against
+//! an [`egui::Window`] of the same order.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Key, Layout, Margin,
-    Order, Pos2, Rect, Response, Sense, Shape, Stroke, Ui, Vec2, WidgetInfo, WidgetText,
-    WidgetType, accesskit,
+    Align, Align2, Area, Color32, Context, CornerRadius, FontId, Frame, Id, Layout, Margin, Pos2,
+    Rect, Sense, Shape, Stroke, Ui, UiBuilder, Vec2, WidgetText, accesskit,
 };
 
-use crate::{Accent, Button, ButtonSize, theme::Theme};
+use crate::{Accent, overlay, theme::Theme};
 
 /// Boxed `FnOnce(&mut Ui)` callback used by the footer slots.
 type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;
@@ -21,6 +24,21 @@ type UiFn<'a> = Box<dyn FnOnce(&mut Ui) + 'a>;
 /// The `open` flag drives visibility: when it's `false` on entry to
 /// [`Modal::show`], nothing is rendered; when the user clicks the backdrop,
 /// presses `Esc`, or clicks the "×" button, it's flipped to `false`.
+///
+/// While open, the backdrop swallows clicks meant for anything beneath it —
+/// including an [`egui::Window`], a [`Drawer`] and the panels behind them.
+/// Stack several overlays and each `Esc` dismisses only the topmost, consuming
+/// the key so application-level `Esc` handlers don't also fire. (A modal that
+/// has opted out of `Esc` via [`Modal::close_on_escape`] or
+/// [`Modal::closable`] leaves the key alone for the app to handle.)
+/// [`Toasts`](crate::Toasts) deliberately stay above and remain clickable, so
+/// a notification can still surface while a dialog is up.
+///
+/// Keyboard focus is moved into the dialog on open and returned to the
+/// previously focused widget on close, but `Tab` is not fenced in: it can still
+/// reach widgets behind the modal.
+///
+/// [`Drawer`]: crate::Drawer
 ///
 /// ```no_run
 /// # use elegance::Modal;
@@ -197,16 +215,23 @@ impl<'a> Modal<'a> {
         // visually eclipsed by the modal but structurally remains behind it —
         // Tab would navigate widgets on the underlying page.
         let focus_storage = Id::new(("elegance_modal_focus", self.id_salt));
-        let mut focus_state: ModalFocusState =
-            ctx.data(|d| d.get_temp(focus_storage).unwrap_or_default());
+        let mut focus_state = overlay::FocusState::load(ctx, focus_storage);
         let is_open = *self.open;
+
+        // Second half of the two-stage restore described in `crate::overlay`.
+        // This is the first frame with no modal-layer claim in force, so this
+        // is the attempt that sticks.
+        if let Some(prev) = focus_state.pending_restore.take() {
+            ctx.memory_mut(|m| m.request_focus(prev));
+            focus_state.store(ctx, focus_storage);
+        }
 
         if focus_state.was_open && !is_open {
             // Just closed this frame — return focus to whatever had it before.
             if let Some(prev) = focus_state.prev_focus {
                 ctx.memory_mut(|m| m.request_focus(prev));
             }
-            ctx.data_mut(|d| d.insert_temp(focus_storage, ModalFocusState::default()));
+            overlay::FocusState::default().store(ctx, focus_storage);
             return None;
         }
 
@@ -218,7 +243,7 @@ impl<'a> Modal<'a> {
         if just_opened {
             focus_state.prev_focus = ctx.memory(|m| m.focused());
             focus_state.was_open = true;
-            ctx.data_mut(|d| d.insert_temp(focus_storage, focus_state));
+            focus_state.store(ctx, focus_storage);
         }
 
         let theme = Theme::current(ctx);
@@ -227,191 +252,230 @@ impl<'a> Modal<'a> {
         let mut close_btn_id: Option<Id> = None;
         let closable = self.closable;
 
-        // --- Backdrop ----------------------------------------------------
-        let screen = ctx.content_rect();
-        let backdrop_id = Id::new("elegance_modal_backdrop").with(self.id_salt);
-        let backdrop = Area::new(backdrop_id)
-            .fixed_pos(screen.min)
-            .order(Order::Middle)
+        // Popups close themselves on `Esc`; remember whether one was open
+        // before the body runs so a single press doesn't also take the modal.
+        let popup_was_open = egui::Popup::is_any_open(ctx);
+
+        // --- Surface ------------------------------------------------------
+        // Backdrop and card share one area. See `crate::overlay` for why the
+        // backdrop doesn't get a lower-order area of its own.
+        let area_id = Id::new("elegance_modal").with(self.id_salt);
+        let alert = self.alert;
+        let heading_text: Option<String> = self.heading.as_ref().map(|h| h.text().to_string());
+        let max_width = self.max_width;
+        let outer = Area::new(area_id)
+            .order(overlay::ORDER)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
             .show(ctx, |ui| {
+                // --- Backdrop ---
+                // Painted and sensed at absolute viewport coordinates. It is
+                // sensed via `interact` rather than allocated: the enclosing
+                // area is sized by the card so it stays centred, and a
+                // full-viewport allocation here would stretch it.
+                let screen = ui.ctx().content_rect();
                 ui.painter().rect_filled(
                     screen,
                     CornerRadius::ZERO,
                     Color32::from_rgba_premultiplied(0, 0, 0, 150),
                 );
-                ui.allocate_rect(screen, Sense::click())
-            });
-        if closable && self.close_on_backdrop && backdrop.inner.clicked() {
-            should_close = true;
-        }
+                let backdrop = ui.interact(screen, ui.id().with("backdrop"), Sense::click());
 
-        // --- Content -----------------------------------------------------
-        let window_id = Id::new("elegance_modal_window").with(self.id_salt);
-        let alert = self.alert;
-        let heading_text: Option<String> = self.heading.as_ref().map(|h| h.text().to_string());
-        let result = Area::new(window_id)
-            .order(Order::Foreground)
-            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
-            .show(ctx, |ui| {
-                // Upgrade this Ui's accesskit role from `GenericContainer`
-                // (set automatically by `Ui::new`) to a dialog role, so
-                // screen readers announce the modal correctly and
-                // platforms that support dialog focus tracking (AT-SPI)
-                // treat it as a window-like surface.
-                let role = if alert {
-                    accesskit::Role::AlertDialog
-                } else {
-                    accesskit::Role::Dialog
-                };
-                let heading_for_label = heading_text.clone();
-                ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
-                    node.set_role(role);
-                    if let Some(label) = heading_for_label {
-                        node.set_label(label);
-                    }
-                });
+                // --- Card ---
+                // Sensed as well, so clicks that land on the card are consumed
+                // here instead of falling through to the backdrop behind it —
+                // widgets registered later win hit-testing within a layer.
+                let card = ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+                    // Upgrade this Ui's accesskit role from `GenericContainer`
+                    // (set automatically by `Ui::new`) to a dialog role, so
+                    // screen readers announce the modal correctly and
+                    // platforms that support dialog focus tracking (AT-SPI)
+                    // treat it as a window-like surface.
+                    let role = if alert {
+                        accesskit::Role::AlertDialog
+                    } else {
+                        accesskit::Role::Dialog
+                    };
+                    ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+                        node.set_role(role);
+                        if let Some(label) = heading_text {
+                            node.set_label(label);
+                        }
+                    });
 
-                ui.set_max_width(self.max_width);
-                Frame::new()
-                    .fill(p.card)
-                    .stroke(Stroke::new(1.0, p.border))
-                    .corner_radius(CornerRadius::same(theme.card_radius as u8))
-                    .show(ui, |ui| {
-                        let pad = theme.card_padding;
-                        let has_heading = self.heading.is_some();
-                        let has_icon = self.header_icon.is_some();
-                        if has_heading || has_icon {
-                            // Header band — same horizontal padding as body,
-                            // tighter bottom so the optional separator + body
-                            // continue to read as one block.
-                            Frame::new()
+                    ui.set_max_width(max_width);
+                    Frame::new()
+                        .fill(p.card)
+                        .stroke(Stroke::new(1.0, p.border))
+                        .corner_radius(CornerRadius::same(theme.card_radius as u8))
+                        .show(ui, |ui| {
+                            let pad = theme.card_padding;
+                            let has_heading = self.heading.is_some();
+                            let has_icon = self.header_icon.is_some();
+                            if has_heading || has_icon {
+                                // Header band — same horizontal padding as body,
+                                // tighter bottom so the optional separator + body
+                                // continue to read as one block.
+                                Frame::new()
+                                    .inner_margin(Margin {
+                                        left: pad as i8,
+                                        right: pad as i8,
+                                        top: pad as i8,
+                                        bottom: 0,
+                                    })
+                                    .show(ui, |ui| {
+                                        ui.horizontal_top(|ui| {
+                                            if let Some(icon) = &self.header_icon {
+                                                paint_icon_halo(
+                                                    ui,
+                                                    icon.text(),
+                                                    self.header_accent.unwrap_or(Accent::Sky),
+                                                    &theme,
+                                                );
+                                                ui.add_space(10.0);
+                                            }
+                                            ui.vertical(|ui| {
+                                                if let Some(h) = &self.heading {
+                                                    ui.add(egui::Label::new(
+                                                        theme.heading_text(h.text()),
+                                                    ));
+                                                }
+                                                if let Some(sub) = &self.subtitle {
+                                                    ui.add(egui::Label::new(
+                                                        theme.muted_text(sub.text()),
+                                                    ));
+                                                }
+                                            });
+                                            ui.with_layout(
+                                                Layout::right_to_left(Align::Min),
+                                                |ui| {
+                                                    // A non-closable modal shows no "×":
+                                                    // there's no user-driven way out, so
+                                                    // an affordance would only mislead.
+                                                    if closable {
+                                                        let resp = overlay::close_button(
+                                                            ui,
+                                                            "elegance_modal_close",
+                                                        );
+                                                        if resp.clicked() {
+                                                            should_close = true;
+                                                        }
+                                                        close_btn_id = Some(resp.id);
+                                                    }
+                                                },
+                                            );
+                                        });
+                                    });
+                                ui.add_space(6.0);
+                                ui.separator();
+                                ui.add_space(10.0);
+                            }
+                            // --- Body ---
+                            let body_result = Frame::new()
                                 .inner_margin(Margin {
                                     left: pad as i8,
                                     right: pad as i8,
-                                    top: pad as i8,
-                                    bottom: 0,
-                                })
-                                .show(ui, |ui| {
-                                    ui.horizontal_top(|ui| {
-                                        if let Some(icon) = &self.header_icon {
-                                            paint_icon_halo(
-                                                ui,
-                                                icon.text(),
-                                                self.header_accent.unwrap_or(Accent::Sky),
-                                                &theme,
-                                            );
-                                            ui.add_space(10.0);
-                                        }
-                                        ui.vertical(|ui| {
-                                            if let Some(h) = &self.heading {
-                                                ui.add(egui::Label::new(
-                                                    theme.heading_text(h.text()),
-                                                ));
-                                            }
-                                            if let Some(sub) = &self.subtitle {
-                                                ui.add(egui::Label::new(
-                                                    theme.muted_text(sub.text()),
-                                                ));
-                                            }
-                                        });
-                                        ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                                            // A non-closable modal shows no "×":
-                                            // there's no user-driven way out, so
-                                            // an affordance would only mislead.
-                                            if closable {
-                                                let resp = close_button(ui);
-                                                if resp.clicked() {
-                                                    should_close = true;
-                                                }
-                                                close_btn_id = Some(resp.id);
-                                            }
-                                        });
-                                    });
-                                });
-                            ui.add_space(6.0);
-                            ui.separator();
-                            ui.add_space(10.0);
-                        }
-                        // --- Body ---
-                        let body_result = Frame::new()
-                            .inner_margin(Margin {
-                                left: pad as i8,
-                                right: pad as i8,
-                                top: if has_heading || has_icon {
-                                    0
-                                } else {
-                                    pad as i8
-                                },
-                                bottom: if self.footer.is_some() {
-                                    pad as i8 / 2
-                                } else {
-                                    pad as i8
-                                },
-                            })
-                            .show(ui, |ui| add_contents(ui))
-                            .inner;
-
-                        // --- Footer ---
-                        if let Some(footer) = self.footer {
-                            ui.separator();
-                            // The recessed footer fill is painted by hand rather
-                            // than via the frame's own `.fill`. A plain frame
-                            // fill is a square-cornered rectangle flush with the
-                            // card edges, so it paints over the card's rounded
-                            // bottom corners and bottom border — the non-round
-                            // corners reported in issue #7. Instead we lay the
-                            // footer out with no fill, then drop a rounded fill
-                            // into a slot reserved *behind* the content, tucked
-                            // one pixel inside the 1px border so the border (and
-                            // its rounded corners) stays unbroken all the way
-                            // around.
-                            let footer_fill = theme.palette.depth_tint(p.card, 0.04);
-                            let fill_idx = ui.painter().add(Shape::Noop);
-                            let footer_rect = Frame::new()
-                                .inner_margin(Margin::symmetric(pad as i8, pad as i8 * 3 / 4))
-                                .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        if let Some(left) = self.footer_left {
-                                            left(ui);
-                                        }
-                                        ui.with_layout(
-                                            Layout::right_to_left(Align::Center),
-                                            |ui| {
-                                                footer(ui);
-                                            },
-                                        );
-                                    });
-                                })
-                                .response
-                                .rect;
-                            // Round the bottom corners one pixel tighter than the
-                            // card so the fill follows the inside of the border's
-                            // curve; leave the top flush with the divider above.
-                            let r = (theme.card_radius - 1.0).max(0.0) as u8;
-                            let fill_rect = Rect::from_min_max(
-                                Pos2::new(footer_rect.left() + 1.0, footer_rect.top()),
-                                Pos2::new(footer_rect.right() - 1.0, footer_rect.bottom() - 1.0),
-                            );
-                            ui.painter().set(
-                                fill_idx,
-                                Shape::rect_filled(
-                                    fill_rect,
-                                    CornerRadius {
-                                        nw: 0,
-                                        ne: 0,
-                                        sw: r,
-                                        se: r,
+                                    top: if has_heading || has_icon {
+                                        0
+                                    } else {
+                                        pad as i8
                                     },
-                                    footer_fill,
-                                ),
-                            );
-                        }
-                        body_result
-                    })
+                                    bottom: if self.footer.is_some() {
+                                        pad as i8 / 2
+                                    } else {
+                                        pad as i8
+                                    },
+                                })
+                                .show(ui, |ui| add_contents(ui))
+                                .inner;
+
+                            // --- Footer ---
+                            if let Some(footer) = self.footer {
+                                ui.separator();
+                                // The recessed footer fill is painted by hand rather
+                                // than via the frame's own `.fill`. A plain frame
+                                // fill is a square-cornered rectangle flush with the
+                                // card edges, so it paints over the card's rounded
+                                // bottom corners and bottom border — the non-round
+                                // corners reported in issue #7. Instead we lay the
+                                // footer out with no fill, then drop a rounded fill
+                                // into a slot reserved *behind* the content, tucked
+                                // one pixel inside the 1px border so the border (and
+                                // its rounded corners) stays unbroken all the way
+                                // around.
+                                let footer_fill = theme.palette.depth_tint(p.card, 0.04);
+                                let fill_idx = ui.painter().add(Shape::Noop);
+                                let footer_rect = Frame::new()
+                                    .inner_margin(Margin::symmetric(pad as i8, pad as i8 * 3 / 4))
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            if let Some(left) = self.footer_left {
+                                                left(ui);
+                                            }
+                                            ui.with_layout(
+                                                Layout::right_to_left(Align::Center),
+                                                |ui| {
+                                                    footer(ui);
+                                                },
+                                            );
+                                        });
+                                    })
+                                    .response
+                                    .rect;
+                                // Round the bottom corners one pixel tighter than the
+                                // card so the fill follows the inside of the border's
+                                // curve; leave the top flush with the divider above.
+                                let r = (theme.card_radius - 1.0).max(0.0) as u8;
+                                let fill_rect = Rect::from_min_max(
+                                    Pos2::new(footer_rect.left() + 1.0, footer_rect.top()),
+                                    Pos2::new(
+                                        footer_rect.right() - 1.0,
+                                        footer_rect.bottom() - 1.0,
+                                    ),
+                                );
+                                ui.painter().set(
+                                    fill_idx,
+                                    Shape::rect_filled(
+                                        fill_rect,
+                                        CornerRadius {
+                                            nw: 0,
+                                            ne: 0,
+                                            sw: r,
+                                            se: r,
+                                        },
+                                        footer_fill,
+                                    ),
+                                );
+                            }
+                            body_result
+                        })
+                        .inner
+                });
+
+                (card.inner, backdrop)
             });
 
-        if closable && self.close_on_escape && ctx.input(|i| i.key_pressed(Key::Escape)) {
+        let (result, backdrop) = outer.inner;
+        if closable && self.close_on_backdrop && backdrop.clicked() {
             should_close = true;
+        }
+
+        // Announce this modal as open and find out whether it's the one on
+        // top, which decides who gets `Esc` when overlays are stacked.
+        let layer = overlay::layer_id(area_id);
+        let is_topmost = overlay::register_open(ctx, layer);
+        if closable
+            && self.close_on_escape
+            && overlay::escape_dismisses(ctx, is_topmost, popup_was_open)
+        {
+            should_close = true;
+        }
+
+        // Hold the modal layer for the next frame, but not on the frame we
+        // close: the claim is what keeps windows from raising themselves over
+        // the modal, and letting it outlive the modal would cost the
+        // background its focus.
+        if !should_close {
+            overlay::claim_modal_layer(ctx, layer);
         }
 
         // On the first frame a modal is open, move keyboard focus into it so
@@ -437,41 +501,18 @@ impl<'a> Modal<'a> {
             if let Some(prev) = focus_state.prev_focus {
                 ctx.memory_mut(|m| m.request_focus(prev));
             }
-            ctx.data_mut(|d| d.insert_temp(focus_storage, ModalFocusState::default()));
+            // Stage one of two: last frame's modal-layer claim can undo this
+            // request, so leave a note for the next `show()` to re-assert it.
+            // See [`crate::overlay`].
+            overlay::FocusState {
+                pending_restore: focus_state.prev_focus,
+                ..Default::default()
+            }
+            .store(ctx, focus_storage);
         }
 
-        Some(result.inner.inner)
+        Some(result)
     }
-}
-
-/// Persistent focus-lifecycle state for a single `Modal`, keyed by the
-/// modal's `id_salt`. Stored via `ctx.data_mut`.
-#[derive(Clone, Copy, Default, Debug)]
-struct ModalFocusState {
-    /// Whether the modal was rendered open last frame. Used to detect
-    /// open/close transitions.
-    was_open: bool,
-    /// Which widget (if any) had keyboard focus at the moment the modal
-    /// opened. Restored on close.
-    prev_focus: Option<Id>,
-}
-
-/// Render the modal's close button. Returns its `Response` so the caller
-/// can route focus to it and check `clicked()`. The accesskit label is
-/// set to `"Close"` explicitly — without this, screen readers announce
-/// the "×" glyph literally as "multiplication sign."
-///
-/// The button is scoped under a stable id (`"elegance_modal_close"`) so
-/// focus requests targeting it survive layout changes.
-fn close_button(ui: &mut Ui) -> Response {
-    let inner = ui
-        .push_id("elegance_modal_close", |ui| {
-            ui.add(Button::new("×").outline().size(ButtonSize::Small))
-        })
-        .inner;
-    let enabled = inner.enabled();
-    inner.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, "Close"));
-    inner
 }
 
 /// Paint a circular tinted halo with a centered glyph. The fg uses the full

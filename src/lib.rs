@@ -69,6 +69,7 @@ mod menu;
 mod menu_bar;
 mod metric_slider;
 mod modal;
+mod overlay;
 mod pairing;
 mod percent_slider;
 mod pill;
