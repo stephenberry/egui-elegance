@@ -357,6 +357,10 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
             let mut new_low = low_v;
             let mut new_high = high_v;
             let mut changed = false;
+            // Tracked apart from `changed` because only the keyboard path is a
+            // discrete, already-settled adjustment; the pointer paths settle on
+            // release and are detected from the response.
+            let mut keyboard_changed = false;
 
             // 1. Per-thumb pointer drag takes priority.
             let mut handled_thumb_drag = false;
@@ -451,6 +455,7 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
                                 let v = snap(v);
                                 apply_to_endpoint(&mut new_low, &mut new_high, i, v);
                                 changed = true;
+                                keyboard_changed = true;
                             }
                         }
                     }
@@ -599,6 +604,12 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
             combined |= thumb_resp[1].clone();
             if changed {
                 combined.mark_changed();
+            }
+            if keyboard_changed {
+                // Keyed to `combined.id`, which `union` takes from `bg_resp`:
+                // that is the id the caller sees, and focus living on a thumb
+                // makes any id-based check on `combined` unreliable.
+                crate::commit::mark_commit(ui.ctx(), combined.id);
             }
             combined
         })

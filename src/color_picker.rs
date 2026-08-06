@@ -31,6 +31,7 @@ use egui::{
     lerp, pos2, vec2,
 };
 
+use crate::commit::ResponseCommitExt;
 use crate::popover::{Popover, PopoverSide};
 use crate::theme::{Theme, with_alpha};
 
@@ -632,7 +633,7 @@ fn paint_sv_plane(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, boo
     let height = 150.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.drag_stopped() || response.clicked();
+    let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()
@@ -708,7 +709,7 @@ fn paint_hue_strip(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool, bo
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.drag_stopped() || response.clicked();
+    let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()
@@ -777,7 +778,7 @@ fn paint_alpha_slider(ui: &mut Ui, theme: &Theme, hsv: &mut HsvaGamma) -> (bool,
     let height = 14.0;
     let (rect, response) = ui.allocate_exact_size(vec2(avail, height), Sense::click_and_drag());
     let mut changed = false;
-    let committed = response.drag_stopped() || response.clicked();
+    let committed = response.committed();
 
     if let Some(pos) = response.interact_pointer_pos()
         && response.is_pointer_button_down_on()

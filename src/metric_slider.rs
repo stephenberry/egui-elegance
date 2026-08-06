@@ -20,6 +20,13 @@
 //! explicit, possibly non-uniform list of positions. When `steps` or `stops`
 //! is set, the tick row renders at exactly those positions and the arrow
 //! keys jump between them.
+//!
+//! The returned [`Response`] reports `changed()` on every intermediate value a
+//! drag passes through, which is what a live preview wants. In `stops` mode
+//! that means a full-rail drag fires once per stop crossed. When the reaction
+//! to a change is expensive or outward-facing, gate it on
+//! [`ResponseCommitExt::committed`](crate::ResponseCommitExt::committed)
+//! instead, which fires once per settled adjustment.
 
 use std::ops::RangeInclusive;
 
@@ -393,6 +400,9 @@ impl<'a> Widget for MetricSlider<'a> {
                             current = next;
                             *self.value = current;
                             response.mark_changed();
+                            // A key press is a discrete adjustment: already
+                            // settled the moment it lands.
+                            crate::commit::mark_commit(ui.ctx(), response.id);
                         }
                     }
                 }
