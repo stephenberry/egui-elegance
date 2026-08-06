@@ -155,11 +155,7 @@ fn click_to_set_commits_once_on_release_not_on_press() {
     harness.drag_at(target);
     harness.step();
 
-    assert_eq!(
-        harness.state().changed,
-        1,
-        "the press frame sets the value"
-    );
+    assert_eq!(harness.state().changed, 1, "the press frame sets the value");
     assert_eq!(
         harness.state().committed,
         0,
@@ -276,7 +272,10 @@ fn knob_drag_commits_once_on_release() {
     harness.step();
 
     assert_eq!(harness.state().committed, 1);
-    assert!(harness.state().value > 0.0, "the drag should have raised it");
+    assert!(
+        harness.state().value > 0.0,
+        "the drag should have raised it"
+    );
 }
 
 /// A wheel notch does not arrive as one event — egui smooths the delta across
