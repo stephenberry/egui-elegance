@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   # Match the crate's `rust-version` in Cargo.toml. Bump both together.
-  MSRV: "1.92.0"
+  MSRV: "1.95.0"
 
 jobs:
   fmt:

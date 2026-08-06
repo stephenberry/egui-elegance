@@ -1468,13 +1468,12 @@ impl App {
                 self.log.sys("FileDropZone clicked (open file picker here)");
             }
             for f in &drop.dropped_files {
-                let label = f
-                    .path
-                    .as_ref()
-                    .and_then(|p| p.file_name())
+                let path = f.path();
+                let label = path
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .map(str::to_string)
-                    .unwrap_or_else(|| f.name.clone());
+                    .unwrap_or_else(|| path.display().to_string());
                 self.log.recv(format!("dropped: {label}"));
             }
         });
