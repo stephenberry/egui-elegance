@@ -364,15 +364,20 @@ impl<'a, T: Numeric> Widget for RangeSlider<'a, T> {
 
             // 1. Per-thumb pointer drag takes priority.
             let mut handled_thumb_drag = false;
-            for (i, resp) in thumb_resp.iter().enumerate() {
-                if self.enabled
-                    && resp.is_pointer_button_down_on()
-                    && let Some(pos) = resp.interact_pointer_pos()
-                {
-                    let v = snap(to_value(pos.x));
-                    apply_to_endpoint(&mut new_low, &mut new_high, i, v);
-                    changed = true;
-                    handled_thumb_drag = true;
+            if self.enabled {
+                for (i, resp) in thumb_resp.iter().enumerate() {
+                    // A press that lands on a thumb focuses that thumb here.
+                    // The background branch below focuses the thumb it picks,
+                    // but it only ever runs for presses that missed both.
+                    crate::focus::focus_on_press(resp);
+                    if resp.is_pointer_button_down_on()
+                        && let Some(pos) = resp.interact_pointer_pos()
+                    {
+                        let v = snap(to_value(pos.x));
+                        apply_to_endpoint(&mut new_low, &mut new_high, i, v);
+                        changed = true;
+                        handled_thumb_drag = true;
+                    }
                 }
             }
 

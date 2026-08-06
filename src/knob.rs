@@ -11,8 +11,10 @@
 //! Interaction: drag combines horizontal and vertical motion (right and
 //! up both increase, left and down both decrease, so a diagonal flick reads
 //! as a single gesture); `Shift` slows the drag for fine control. Scroll
-//! wheel, arrow keys / Page Up / Page Down / Home / End all nudge.
-//! Alt+click or double-click resets to a configured default. Bipolar knobs
+//! wheel, arrow keys / Page Up / Page Down / Home / End all nudge. Grabbing
+//! the knob gives it keyboard focus, so a drag can be refined with the arrow
+//! keys without tabbing to it first.
+//! Alt+click, double-click, or `0` resets to a configured default. Bipolar knobs
 //! fill from the centre of the range outward toward the current value,
 //! suited to signed offsets (DC bias, pan, balance).
 
@@ -259,8 +261,8 @@ impl<'a, T: Numeric> Knob<'a, T> {
         self
     }
 
-    /// Value to reset to on Alt+click or double-click. If unset, the reset
-    /// gesture is a no-op.
+    /// Value to reset to on Alt+click, double-click, or `0` while focused. If
+    /// unset, the reset gesture is a no-op.
     pub fn default(mut self, default: T) -> Self {
         self.default_value = Some(default.to_f64());
         self
@@ -464,6 +466,8 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
 
             // ---- interaction ----
             if enabled {
+                crate::focus::focus_on_press(&response);
+
                 if response.double_clicked()
                     && let Some(d) = default_value
                 {
@@ -566,6 +570,23 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                 }
 
                 if response.has_focus() {
+                    // Claim every arrow for the value. Unlike the sliders, which
+                    // bind only the horizontal pair and leave the vertical one
+                    // to egui's spatial focus navigation, a knob reads all four
+                    // (up and right increase, down and left decrease), so
+                    // without this an arrow would nudge once and then hand focus
+                    // to a neighbour. `Tab` and `Esc` still move focus away.
+                    ui.memory_mut(|m| {
+                        m.set_focus_lock_filter(
+                            response.id,
+                            egui::EventFilter {
+                                horizontal_arrows: true,
+                                vertical_arrows: true,
+                                ..Default::default()
+                            },
+                        );
+                    });
+
                     let (up, down, page_up, page_down, home, end_, reset) = ui.input(|i| {
                         (
                             i.key_pressed(egui::Key::ArrowUp)
@@ -576,7 +597,11 @@ impl<'a, T: Numeric> Widget for Knob<'a, T> {
                             i.key_pressed(egui::Key::PageDown),
                             i.key_pressed(egui::Key::Home),
                             i.key_pressed(egui::Key::End),
-                            i.key_pressed(egui::Key::Num0) || i.key_pressed(egui::Key::Space),
+                            // Deliberately not Space: egui synthesises a click
+                            // from it on any focused widget, and a knob is now
+                            // focused by the pointer, so Space would wipe the
+                            // value of the knob you had just set by hand.
+                            i.key_pressed(egui::Key::Num0),
                         )
                     });
                     let fine = ui.input(|i| i.modifiers.shift);

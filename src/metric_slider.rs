@@ -333,6 +333,8 @@ impl<'a> Widget for MetricSlider<'a> {
             Pos2::new(rect.max.x, track_y + track_h * 0.5),
         );
 
+        crate::focus::focus_on_press(&response);
+
         if response.is_pointer_button_down_on()
             && let Some(pos) = response.interact_pointer_pos()
         {
