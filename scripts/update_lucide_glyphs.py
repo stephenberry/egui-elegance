@@ -83,6 +83,8 @@ LUCIDE_GLYPHS = [
     ("house", 0xE020),
     ("lock", 0xE021),
     ("save", 0xE022),
+    ("folder", 0xE023),
+    ("folder-open", 0xE024),
     ("check", 0x2713),
     ("x", 0x2717),
 ]
