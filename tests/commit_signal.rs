@@ -8,7 +8,7 @@
 //! `committed()` fires exactly once per settled adjustment.
 
 use eframe::egui;
-use egui::{Key, Modifiers, PointerButton, Pos2, Rect};
+use egui::{Key, Modifiers, PointerButton, Pos2, Rect, TouchDeviceId, TouchId, TouchPhase};
 use egui_kittest::Harness;
 use elegance::{Knob, MetricSlider, RangeSlider, ResponseCommitExt, Slider, Theme};
 
@@ -358,6 +358,68 @@ fn every_pointer_button_commits() {
             "{button:?} must commit exactly once"
         );
     }
+}
+
+/// A touch held past `max_click_duration` is the one gesture that ends without
+/// a click or a drag: egui clears both the potential-click and potential-drag
+/// ids at that moment, so the eventual lift reports neither. Without the
+/// `long_touched` term a touch user who pauses to aim would move the value and
+/// never commit.
+///
+/// The hold is simulated, not slept: kittest advances `input.time` by `step_dt`
+/// each frame, and `is_long_press` is a pure time comparison against
+/// `press_start_time`.
+#[test]
+fn touch_long_press_commits_once_across_the_whole_gesture() {
+    let mut harness = slider_harness();
+    let rect = harness.state().rect;
+    let target = Pos2::new(track_x(rect, 0.5), rect.center().y);
+
+    // A real touch produces both events; egui needs the `Touch` for
+    // `any_touches()` and the `PointerButton` for the press itself.
+    let touch = |phase| egui::Event::Touch {
+        device_id: TouchDeviceId(0),
+        id: TouchId(0),
+        phase,
+        pos: target,
+        force: None,
+    };
+    harness.event(touch(TouchPhase::Start));
+    harness.event(egui::Event::PointerButton {
+        pos: target,
+        button: PointerButton::Primary,
+        pressed: true,
+        modifiers: Modifiers::NONE,
+    });
+    harness.step();
+
+    assert_eq!(harness.state().value, 16.0, "the press sets the value");
+    assert_eq!(
+        harness.state().committed,
+        0,
+        "the press frame is not yet a long touch"
+    );
+
+    // Hold still, well past `max_click_duration`.
+    for _ in 0..6 {
+        harness.step();
+    }
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "holding past the click duration must commit once"
+    );
+
+    harness.event(touch(TouchPhase::End));
+    release_at(&harness, target);
+    harness.step();
+    harness.step();
+
+    assert_eq!(
+        harness.state().committed,
+        1,
+        "the lift must not commit a second time for the same gesture"
+    );
 }
 
 /// A scroll settle is reported by `Knob` itself rather than inferred from the
