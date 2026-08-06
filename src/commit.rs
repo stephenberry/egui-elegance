@@ -125,7 +125,9 @@ pub trait ResponseCommitExt {
     ///
     /// Grabbing a handle and releasing it without moving it still reports
     /// committed once, as does pressing Space or Enter on a focused widget
-    /// (egui synthesises a click), or aborting a drag with Escape (egui has no
+    /// (egui synthesises a click) — reachable straight after a click, now that
+    /// grabbing a value widget focuses it — or aborting a drag with Escape
+    /// (egui has no
     /// drag-revert, so the value stays where the pointer left it). A widget
     /// disabled between a drag and its release loses the commit for a value it
     /// already wrote. Each is one signal per gesture rather than the

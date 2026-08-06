@@ -60,6 +60,7 @@ mod context_menu;
 mod drawer;
 mod file_drop_zone;
 mod flash;
+mod focus;
 mod gauge;
 mod id_salt;
 mod indicator;

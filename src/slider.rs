@@ -284,6 +284,8 @@ impl<'a, T: Numeric> Widget for Slider<'a, T> {
                 Pos2::new(rect.min.x + track_w, track_y + track_h * 0.5),
             );
 
+            crate::focus::focus_on_press(&response);
+
             // Update value from pointer while the button is held on the widget.
             if response.is_pointer_button_down_on()
                 && let Some(pos) = response.interact_pointer_pos()

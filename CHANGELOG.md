@@ -16,6 +16,12 @@ Next version is 0.16.0: the `PairItem` change below is breaking.
 
 ### Changed
 
+- **Grabbing a value widget now gives it keyboard focus.** Clicking a `MetricSlider`, `PercentSlider`, `Slider`, or `Knob` and then pressing an arrow key did nothing: the widget never took focus on press, so the key went to focus navigation instead. You can now set a coarse value with the pointer and refine it with the arrow keys, without tabbing to the widget first. `RangeSlider` already did this for a click on the track, and now does it for a press that lands directly on a thumb too.
+- **`Knob` no longer resets to its `default` on Space**, only on `0` (and the documented Alt+click / double-click). egui synthesises a click from Space on any focused widget, and knobs are now focused by the pointer, so the old binding would have wiped the value of a knob you had just set by hand.
+
+### Fixed
+
+- Arrow keys on a focused `Knob` moved the value *and* handed focus to the neighbouring widget, because the knob never claimed the arrows the way the sliders do. A knob next to another control nudged once and then drove its neighbour; a knob above a slider became unreachable by keyboard entirely. `Tab` and `Esc` still move focus away.
 - `ColorPicker` now adds to its recents list on a non-primary click or a touch long-press of the SV plane, hue strip, or alpha slider, matching what those controls already did for a primary click or drag.
 - **Breaking:** `PairItem` gained a public `icon_tint` field and is now `#[non_exhaustive]`, as is the new `IconTint` enum. Construct with `PairItem::new(...)` plus the builder methods; struct literals, functional record update (`..other`), and destructuring without `..` no longer compile. Doing this once now avoids a second break the next time the struct grows.
 
