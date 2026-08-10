@@ -50,6 +50,8 @@ struct App {
     chip_filter: Option<String>,
     select_unit: String,
     select_env: String,
+    select_region: String,
+    select_region_saved: String,
 
     check_on: bool,
     check_off: bool,
@@ -203,6 +205,8 @@ impl Default for App {
             chip_filter: None,
             select_unit: "ms".into(),
             select_env: "Production".into(),
+            select_region: "eu-west-1".into(),
+            select_region_saved: "eu-west-1".into(),
             check_on: true,
             check_off: false,
             switch_on: true,
@@ -721,6 +725,28 @@ impl App {
                     .width(180.0),
                 );
             });
+
+            // A staged picker: the dot appears the moment the selection
+            // diverges from what was last saved, and clears on commit.
+            ui.add_space(12.0);
+            let staged = self.select_region != self.select_region_saved;
+            ui.add(
+                Select::strings(
+                    "ref_sel_region",
+                    &mut self.select_region,
+                    ["eu-west-1", "us-east-1", "ap-south-1"],
+                )
+                .label("Region")
+                .saved(&self.select_region_saved)
+                .width(140.0),
+            );
+            ui.add_space(8.0);
+            if ui
+                .add(Button::new("Save").size(ButtonSize::Small).enabled(staged))
+                .clicked()
+            {
+                self.select_region_saved = self.select_region.clone();
+            }
         });
     }
 

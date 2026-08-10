@@ -340,6 +340,36 @@ fn non_closable_modal_hides_close_button_and_ignores_escape() {
 }
 
 #[test]
+fn select_keeps_its_label_node_when_staged() {
+    // A staged Select paints its label by hand to fit the unsaved dot on the
+    // row, which bypasses the accesskit node `egui::Label` would have emitted.
+    // The tree must not change shape just because the selection diverged from
+    // the committed value, so assert the Label node in both states.
+    for (selected, committed) in [("ms", "ms"), ("us", "ms")] {
+        let mut value = String::from(selected);
+        let owned_committed = String::from(committed);
+        let harness = new_harness(move |ui| {
+            Theme::slate().install(ui.ctx());
+            ui.add(
+                Select::strings("unit", &mut value, ["us", "ms", "s"])
+                    .label("Unit")
+                    .saved(&owned_committed),
+            );
+        });
+
+        let roles: Vec<_> = harness
+            .query_all_by_label("Unit")
+            .map(|node| node.accesskit_node().role())
+            .collect();
+        assert!(
+            roles.contains(&egui::accesskit::Role::Label),
+            "the field label should stay in the tree when selected={selected:?} \
+             and committed={committed:?}; found roles {roles:?}"
+        );
+    }
+}
+
+#[test]
 fn disabled_select_is_exposed_as_disabled() {
     let mut value = String::from("ms");
     let harness = new_harness(move |ui| {

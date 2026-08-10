@@ -12,6 +12,12 @@ use egui::{
 
 use crate::theme::{Theme, with_alpha};
 
+/// Gap between the field label and the unsaved dot.
+const LABEL_DOT_GAP: f32 = 6.0;
+/// Unsaved-dot diameter as a fraction of the label font size, so the mark
+/// tracks the label if a caller rescales the typography.
+const DOT_TO_LABEL: f32 = 0.46;
+
 /// A styled drop-down select.
 ///
 /// Bind the selection to any `PartialEq + Clone` type — an enum, an index,
@@ -52,6 +58,9 @@ pub struct Select<'a, T: PartialEq + Clone> {
     options: Vec<(T, Cow<'a, str>)>,
     width: Option<f32>,
     enabled: bool,
+    /// Whether the selection has moved off the last committed value. Resolved
+    /// by [`Select::saved`] at build time; `false` when it was never called.
+    staged: bool,
 }
 
 impl<'a, T: PartialEq + Clone> std::fmt::Debug for Select<'a, T> {
@@ -62,6 +71,7 @@ impl<'a, T: PartialEq + Clone> std::fmt::Debug for Select<'a, T> {
             .field("option_labels", &labels)
             .field("width", &self.width)
             .field("enabled", &self.enabled)
+            .field("staged", &self.staged)
             .finish()
     }
 }
@@ -77,12 +87,53 @@ impl<'a, T: PartialEq + Clone> Select<'a, T> {
             options: Vec::new(),
             width: None,
             enabled: true,
+            staged: false,
         }
     }
 
     /// Show a label above the select.
     pub fn label(mut self, label: impl Into<WidgetText>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Supply the last committed value, so a *staged* select — one whose
+    /// selection has moved but not yet been saved — marks itself with a
+    /// focus-accent dot after the label. It is the same dot
+    /// [`BrowserTab::dirty`](crate::BrowserTab::dirty) uses for the same
+    /// meaning, sized to the field label rather than the tab strip, so a
+    /// staged picker reads as unsaved beside a
+    /// [`TextInput::dirty`](crate::TextInput::dirty) field in the same form.
+    ///
+    /// ```no_run
+    /// # use elegance::Select;
+    /// # egui::__run_test_ui(|ui| {
+    /// # let mut region = String::from("us-east-1");
+    /// let saved_region = String::from("eu-west-1");
+    /// ui.add(
+    ///     Select::strings("region", &mut region, ["eu-west-1", "us-east-1"])
+    ///         .label("Region")
+    ///         .saved(&saved_region),
+    /// );
+    /// # });
+    /// ```
+    ///
+    /// The select takes the committed value rather than a `dirty: bool`
+    /// because it already requires `T: PartialEq` and can make the
+    /// comparison itself — leaving it to the caller invites the flag to
+    /// drift out of sync with the value, and forces the comparison to be
+    /// hoisted above the call anyway, since the select is holding
+    /// `&mut value` by then.
+    ///
+    /// The mark rides the label, so this needs [`label`](Self::label): with
+    /// no label there is nowhere for it to sit and nothing is painted.
+    pub fn saved(mut self, saved: &T) -> Self {
+        // Compare now rather than storing the reference. The select holds
+        // `&mut value` for its whole lifetime, so nothing can change the
+        // selection between here and `ui.add`, which makes the eager
+        // comparison equivalent — and it keeps the committed value free to
+        // be a shorter-lived temporary than the bound one.
+        self.staged = saved != &*self.value;
         self
     }
 
@@ -145,6 +196,7 @@ impl<'a> Select<'a, String> {
             options,
             width: None,
             enabled: true,
+            staged: false,
         }
     }
 }
@@ -157,6 +209,7 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
 
         let mut changed = false;
         let enabled = self.enabled;
+        let staged = self.staged;
 
         let mut response = ui
             .vertical(|ui| {
@@ -168,10 +221,49 @@ impl<'a, T: PartialEq + Clone> Widget for Select<'a, T> {
                     ui.disable();
                 }
                 if let Some(label) = &self.label {
-                    let rich = egui::RichText::new(label.text())
-                        .color(p.text_muted)
-                        .size(t.label);
-                    ui.add(egui::Label::new(rich).wrap_mode(egui::TextWrapMode::Extend));
+                    // The unsaved mark rides the label, not the field. A bar
+                    // inside the frame (the TextInput treatment) would have to
+                    // negotiate with the chevron and the selected text; a dot
+                    // beside the field's *name* leaves the select's own
+                    // geometry untouched and stays put across hover, focus,
+                    // and open states.
+                    //
+                    // Lay the row out by hand rather than reaching for
+                    // `ui.horizontal`, which floors a row at `interact_size.y`
+                    // and would drop the field below its unstaged neighbours
+                    // in the same form row. Sized to the galley, the row is
+                    // exactly as tall as a plain label whether or not the mark
+                    // is showing, so a select that becomes staged mid-form
+                    // never nudges its neighbours.
+                    let galley = crate::theme::placeholder_galley(
+                        ui,
+                        label.text(),
+                        t.label,
+                        false,
+                        f32::INFINITY,
+                    );
+                    let dot = t.label * DOT_TO_LABEL;
+                    let reserved = if staged { LABEL_DOT_GAP + dot } else { 0.0 };
+                    let size = Vec2::new(galley.size().x + reserved, galley.size().y);
+                    let (rect, label_response) = ui.allocate_exact_size(size, Sense::hover());
+                    // Painting the galley by hand skips the accesskit node
+                    // `egui::Label` would have emitted, which would drop the
+                    // field label out of the tree — announce it explicitly so
+                    // the tree does not change shape with the staged state.
+                    label_response.widget_info(|| {
+                        WidgetInfo::labeled(WidgetType::Label, enabled, label.text())
+                    });
+                    if ui.is_rect_visible(rect) {
+                        let painter = ui.painter();
+                        painter.galley(rect.min, galley, p.text_muted);
+                        if staged {
+                            painter.circle_filled(
+                                Pos2::new(rect.max.x - dot * 0.5, rect.center().y),
+                                dot * 0.5,
+                                p.focus,
+                            );
+                        }
+                    }
                     ui.add_space(2.0);
                 }
 

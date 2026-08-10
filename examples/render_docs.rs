@@ -476,6 +476,8 @@ fn render_removable_chip() {
 fn render_selects() {
     let mut unit = "ms".to_string();
     let mut env = "Production".to_string();
+    let mut region = "eu-west-1".to_string();
+    let saved_region = "us-east-1".to_string();
 
     render("selects", move |ui| {
         background(ui, |ui| {
@@ -494,6 +496,13 @@ fn render_selects() {
                     )
                     .label("Environment")
                     .width(180.0),
+                );
+                ui.add_space(16.0);
+                ui.add(
+                    Select::strings("r_sel_region", &mut region, ["eu-west-1", "us-east-1"])
+                        .label("Region")
+                        .saved(&saved_region)
+                        .width(140.0),
                 );
             });
         });
