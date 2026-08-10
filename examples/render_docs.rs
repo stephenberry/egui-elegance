@@ -2067,7 +2067,14 @@ fn render_glyphs() {
                         ),
                         (
                             "Navigation",
-                            icons(&[g::HOME, g::MENU, g::EXTERNAL_LINK, g::PIN]),
+                            icons(&[
+                                g::HOME,
+                                g::FOLDER,
+                                g::FOLDER_OPEN,
+                                g::MENU,
+                                g::EXTERNAL_LINK,
+                                g::PIN,
+                            ]),
                         ),
                     ];
                     for (label, glyphs) in &rows {

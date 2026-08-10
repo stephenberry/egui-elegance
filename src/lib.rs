@@ -237,6 +237,13 @@ pub mod glyphs {
     pub const LOCK: char = '\u{E021}';
     /// Save icon, for persisting changes. Source: [Lucide `save`](https://lucide.dev/icons/save).
     pub const SAVE: char = '\u{E022}';
+    /// Folder icon, for directories, collections, and breadcrumb roots
+    /// (pairs with [`HOME`]). Source: [Lucide `folder`](https://lucide.dev/icons/folder).
+    pub const FOLDER: char = '\u{E023}';
+    /// Open-folder icon, for the expanded or current directory in a tree or
+    /// breadcrumb (pairs with [`FOLDER`]).
+    /// Source: [Lucide `folder-open`](https://lucide.dev/icons/folder-open).
+    pub const FOLDER_OPEN: char = '\u{E024}';
     /// Check / done mark, mapped at standard U+2713 so plain `'✓'` literals
     /// also pick up the elegance treatment.
     /// Source: [Lucide `check`](https://lucide.dev/icons/check).
