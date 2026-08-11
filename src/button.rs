@@ -4,6 +4,8 @@
 //! text, and smooth hover/press transitions. Six accent colours are
 //! available: Blue, Green, Red, Purple, Amber, and Sky. For secondary
 //! actions, [`Button::outline`] gives a transparent, bordered treatment.
+//! [`Button::icon`] renders one of the [`glyphs`](crate::glyphs) as a square
+//! icon-only button.
 
 use egui::{
     Color32, CornerRadius, Response, Sense, Shape, Stroke, Ui, Vec2, Widget, WidgetInfo,
@@ -48,6 +50,11 @@ impl ButtonSize {
     }
 }
 
+/// Glyph size for an icon-only button, as a fraction of the button's side.
+/// Lucide glyphs ink about three quarters of their em box, so this draws the
+/// icon at roughly half the button's width, the usual icon-button proportion.
+const ICON_GLYPH_FRACTION: f32 = 0.68;
+
 /// A coloured, rounded button.
 ///
 /// ```no_run
@@ -60,7 +67,10 @@ impl ButtonSize {
 /// ```
 #[must_use = "Call `ui.add(...)` to render the button."]
 pub struct Button {
+    /// Painted for a text button; for an icon button this is the accessible
+    /// name and `icon` is what gets painted.
     text: WidgetText,
+    icon: Option<char>,
     accent: Accent,
     size: ButtonSize,
     outline: bool,
@@ -73,6 +83,7 @@ pub struct Button {
 impl std::fmt::Debug for Button {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Button")
+            .field("icon", &self.icon)
             .field("accent", &self.accent)
             .field("size", &self.size)
             .field("outline", &self.outline)
@@ -86,9 +97,15 @@ impl std::fmt::Debug for Button {
 
 impl Button {
     /// Create a new button. Defaults to the Blue accent and medium size.
+    ///
+    /// Only the string content of `text` is used: the label is laid out at the
+    /// size preset's font size in the button's own state colour, so a
+    /// [`RichText`](egui::RichText)'s size, colour, and style are ignored. To
+    /// enlarge a glyph, use [`Button::icon`] rather than sizing the text.
     pub fn new(text: impl Into<WidgetText>) -> Self {
         Self {
             text: text.into(),
+            icon: None,
             accent: Accent::Blue,
             size: ButtonSize::Medium,
             outline: false,
@@ -96,6 +113,29 @@ impl Button {
             full_width: false,
             enabled: true,
             loading: false,
+        }
+    }
+
+    /// Create a square icon-only button showing one [`glyph`](crate::glyphs).
+    ///
+    /// The button is as tall as a text button of the same [`ButtonSize`], so
+    /// the two line up in a row, and the glyph is sized off that box rather
+    /// than off the label preset, which inks under a third of the button.
+    ///
+    /// `label` is not painted. It is the accessible name, so pass what the
+    /// button *does* ("Download", "Delete run"): an icon alone announces
+    /// nothing, and every other builder method still applies.
+    ///
+    /// ```no_run
+    /// # use elegance::{Button, glyphs};
+    /// # egui::__run_test_ui(|ui| {
+    /// ui.add(Button::icon(glyphs::DOWNLOAD, "Download capture"));
+    /// # });
+    /// ```
+    pub fn icon(glyph: char, label: impl Into<WidgetText>) -> Self {
+        Self {
+            icon: Some(glyph),
+            ..Self::new(label)
         }
     }
 
@@ -167,12 +207,37 @@ impl Widget for Button {
         let padding = self.padding(&theme);
         let font_size = self.font_size(&theme);
 
-        let wrap_width = (ui.available_width() - 2.0 * padding.x).max(0.0);
-        let galley =
-            crate::theme::placeholder_galley(ui, self.text.text(), font_size, false, wrap_width);
-
-        let mut desired = galley.size() + 2.0 * padding;
-        desired.y = desired.y.max(font_size + 2.0 * padding.y);
+        let (galley, mut desired) = match self.icon {
+            // Square, and exactly the height the text arm produces at this
+            // size preset, so a row can mix the two without stepping.
+            Some(glyph) => {
+                let row = ui
+                    .ctx()
+                    .fonts_mut(|f| f.row_height(&egui::FontId::proportional(font_size)));
+                let side = row.max(font_size) + 2.0 * padding.y;
+                let galley = crate::theme::placeholder_galley(
+                    ui,
+                    &glyph.to_string(),
+                    side * ICON_GLYPH_FRACTION,
+                    false,
+                    f32::INFINITY,
+                );
+                (galley, Vec2::splat(side))
+            }
+            None => {
+                let wrap_width = (ui.available_width() - 2.0 * padding.x).max(0.0);
+                let galley = crate::theme::placeholder_galley(
+                    ui,
+                    self.text.text(),
+                    font_size,
+                    false,
+                    wrap_width,
+                );
+                let mut desired = galley.size() + 2.0 * padding;
+                desired.y = desired.y.max(font_size + 2.0 * padding.y);
+                (galley, desired)
+            }
+        };
         if let Some(min_w) = self.min_width {
             desired.x = desired.x.max(min_w);
         }
@@ -208,10 +273,17 @@ impl Widget for Button {
                 paint_barber_pole(ui, rect, &theme, self.outline);
             }
 
-            let text_pos = rect.center();
+            // A label centres on its layout box, which lines its baseline up
+            // with neighbouring text. A lone glyph centres on its ink, which
+            // omits the font's unused ascent/descent and uneven side bearings.
+            let ink = galley.mesh_bounds;
+            let offset = if self.icon.is_some() && ink.is_positive() {
+                ink.center().to_vec2()
+            } else {
+                galley.size() * 0.5
+            };
             ui.painter()
-                .galley(galley_top_left(rect, galley.size()), galley, text_color);
-            let _ = text_pos;
+                .galley(rect.center() - offset, galley, text_color);
         }
 
         response
@@ -269,11 +341,6 @@ fn paint_barber_pole(ui: &Ui, rect: egui::Rect, theme: &Theme, outline: bool) {
         ];
         painter.add(Shape::convex_polygon(pts, stripe_color, Stroke::NONE));
     }
-}
-
-fn galley_top_left(rect: egui::Rect, galley_size: Vec2) -> egui::Pos2 {
-    let center = rect.center();
-    center - galley_size * 0.5
 }
 
 fn resolve_colors(
