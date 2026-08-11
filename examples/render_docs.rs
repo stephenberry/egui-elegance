@@ -327,6 +327,17 @@ fn render_buttons() {
                 );
                 ui.add(Button::new("Disabled").accent(Accent::Blue).enabled(false));
             });
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.add(Button::icon(glyphs::DOWNLOAD, "Download").accent(Accent::Blue));
+                ui.add(Button::icon(glyphs::UPLOAD, "Upload").accent(Accent::Green));
+                ui.add(Button::icon(glyphs::TRASH, "Delete").accent(Accent::Red));
+                ui.add(Button::icon(glyphs::PENCIL, "Edit").accent(Accent::Purple));
+                ui.add(Button::icon(glyphs::REFRESH, "Refresh").accent(Accent::Amber));
+                ui.add(Button::icon(glyphs::COPY, "Copy").outline());
+                // Last, to show an icon button and a text button share a height.
+                ui.add(Button::new("Text button").outline());
+            });
         });
     });
 }

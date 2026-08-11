@@ -550,6 +550,28 @@ impl App {
                     ui.add(Button::new("Loading outline").outline().loading(true));
                 });
             });
+
+            labeled(ui, "Icon only", |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    // Beside a text button, to show the two share a height.
+                    ui.add(
+                        Button::icon(glyphs::DOWNLOAD, "Download")
+                            .size(ButtonSize::Large)
+                            .accent(Accent::Blue),
+                    );
+                    ui.add(Button::new("Large").size(ButtonSize::Large));
+                    ui.add(Button::icon(glyphs::UPLOAD, "Upload").accent(Accent::Green));
+                    ui.add(Button::icon(glyphs::TRASH, "Delete").accent(Accent::Red));
+                    ui.add(
+                        Button::icon(glyphs::PENCIL, "Edit")
+                            .size(ButtonSize::Small)
+                            .accent(Accent::Purple),
+                    );
+                    ui.add(Button::icon(glyphs::COPY, "Copy").outline());
+                    ui.add(Button::icon(glyphs::POWER, "Power").enabled(false));
+                    ui.add(Button::icon(glyphs::REFRESH, "Refresh").loading(true));
+                });
+            });
         });
     }
 

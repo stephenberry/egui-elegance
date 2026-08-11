@@ -583,3 +583,22 @@ fn color_picker_continuous_surfaces_expose_slider_roles() {
         let _ = harness.get_by_role_and_label(egui::accesskit::Role::Slider, label);
     }
 }
+
+#[test]
+fn icon_button_announces_its_label_not_its_glyph() {
+    let harness = new_harness(|ui| {
+        Theme::slate().install(ui.ctx());
+        ui.add(elegance::Button::icon(
+            elegance::glyphs::DOWNLOAD,
+            "Download capture",
+        ));
+    });
+
+    let _ = harness.get_by_role_and_label(egui::accesskit::Role::Button, "Download capture");
+    assert!(
+        harness
+            .query_by_label(&elegance::glyphs::DOWNLOAD.to_string())
+            .is_none(),
+        "the glyph itself must not reach the accessibility tree"
+    );
+}

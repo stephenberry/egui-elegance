@@ -4,6 +4,16 @@ Notable changes to `egui-elegance`. Where a version has [GitHub release notes](h
 
 Versions before 0.11.0 predate tagging; see the git history for those.
 
+## Unreleased
+
+### Added
+
+- **`Button::icon(glyph, label)`** — a square icon-only button showing one of the bundled Lucide `glyphs`. A glyph passed to `Button::new` was laid out at the size preset's *label* size inside a box padded for text, so it inked under a third of a wide rectangle at every `ButtonSize`. An icon button is as tall as a text button of the same size, so the two line up in a row, and sizes its glyph off that box instead. `label` is the accessible name rather than a painted label, and is required: an icon alone announces nothing to a screen reader. Every other builder method applies unchanged.
+
+### Changed
+
+- `Button::new` now documents that it uses only the string content of its argument. It takes `impl Into<WidgetText>` to match egui's own signature, but the label is always laid out at the size preset in the button's state colour, so a `RichText`'s size, colour, and style are silently dropped. Reach for `Button::icon` instead of sizing the text.
+
 ## [0.16.0](https://github.com/stephenberry/egui-elegance/releases/tag/v0.16.0) — 2026-08-10
 
 ### Added

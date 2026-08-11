@@ -177,6 +177,37 @@ fn buttons_ui(ui: &mut egui::Ui) {
     });
 }
 
+fn icon_buttons_ui(ui: &mut egui::Ui) {
+    // Each size beside a text button of the same size: the point of the square
+    // geometry is that the two line up, so a regression shows up here.
+    for (size, lbl) in [
+        (ButtonSize::Small, "Small"),
+        (ButtonSize::Medium, "Medium"),
+        (ButtonSize::Large, "Large"),
+    ] {
+        ui.horizontal(|ui| {
+            ui.add(Button::icon(glyphs::DOWNLOAD, format!("Download {lbl}")).size(size));
+            ui.add(Button::new(lbl).size(size));
+            ui.add(Button::icon(glyphs::TRASH, format!("Delete {lbl}")).size(size));
+        });
+        ui.add_space(8.0);
+    }
+    ui.horizontal_wrapped(|ui| {
+        for (glyph, name, accent) in [
+            (glyphs::UPLOAD, "Upload", Accent::Green),
+            (glyphs::TRASH, "Delete", Accent::Red),
+            (glyphs::PENCIL, "Edit", Accent::Purple),
+            (glyphs::REFRESH, "Refresh", Accent::Amber),
+            (glyphs::SEARCH, "Search", Accent::Sky),
+        ] {
+            ui.add(Button::icon(glyph, name).accent(accent));
+        }
+        ui.add(Button::icon(glyphs::COPY, "Copy").outline());
+        ui.add(Button::icon(glyphs::POWER, "Power").enabled(false));
+        ui.add(Button::icon(glyphs::NETWORK, "Connect").loading(true));
+    });
+}
+
 fn text_inputs_ui(ui: &mut egui::Ui) {
     let mut normal = "steve@example.com".to_string();
     let mut hint = String::new();
@@ -1887,6 +1918,7 @@ fn tooltip_below_ui(ui: &mut egui::Ui) {
 }
 
 theme_tests!(buttons, buttons_ui);
+theme_tests!(icon_buttons, icon_buttons_ui);
 theme_tests!(text_inputs, text_inputs_ui);
 theme_tests!(tag_inputs, tag_inputs_ui);
 theme_tests!(removable_chips, removable_chips_ui);
@@ -2252,3 +2284,60 @@ interact_tests!(
     single_accordion_ui,
     focus_last_accordion_row
 );
+
+/// A snapshot freezes whatever it is handed, so it pins this only as long as
+/// nobody regenerates it without looking. Assert the property directly: the
+/// glyph's ink must sit in the middle of the button.
+///
+/// Box-centring a lone glyph misses by ~2.75 pt, since the row box carries the
+/// font's whole ascent and descent and an icon's advance width carries uneven
+/// side bearings, which reads as an icon shoved up and to the left.
+#[test]
+fn icon_button_centres_its_glyph() {
+    const PPP: f32 = 2.0;
+    let theme = Theme::slate();
+
+    let mut harness = Harness::builder()
+        .with_size(egui::Vec2::new(200.0, 120.0))
+        .with_pixels_per_point(PPP)
+        .wgpu()
+        .build_ui(move |ui| {
+            theme.clone().install(ui.ctx());
+            ui.painter()
+                .rect_filled(ui.ctx().content_rect(), 0.0, theme.palette.bg);
+            ui.add(
+                Button::icon(glyphs::DOWNLOAD, "Download")
+                    .accent(Accent::Blue)
+                    .size(ButtonSize::Large),
+            );
+        });
+    harness.run();
+    harness.run();
+    let button = harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "Download")
+        .rect();
+    let image = harness.render().expect("render");
+
+    // The white glyph is the only near-white ink: slate's bg (0f,17,2a) and its
+    // blue fill (25,63,eb) both fail a >200-on-every-channel test, as does any
+    // antialiased blend of the two.
+    let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0u32, 0u32);
+    for (x, y, px) in image.enumerate_pixels() {
+        if px[0] > 200 && px[1] > 200 && px[2] > 200 {
+            (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
+        }
+    }
+    assert!(x1 > x0 && y1 > y0, "found no glyph ink in the button");
+
+    // An inclusive pixel span x0..=x1 covers points [x0/ppp, (x1+1)/ppp).
+    let ink = egui::pos2(
+        (x0 + x1 + 1) as f32 / (2.0 * PPP),
+        (y0 + y1 + 1) as f32 / (2.0 * PPP),
+    );
+    let off = ink - button.center();
+    // Half a point of slack for rounding; box-centring was off by 2.75.
+    assert!(
+        off.length() <= 0.5,
+        "glyph ink off centre by {off:?} pt — button {button:?}, ink centre {ink:?}"
+    );
+}
